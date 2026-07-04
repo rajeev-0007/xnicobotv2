@@ -48,7 +48,7 @@ const NEW_COMMANDS = new Set([
     // ── Anime Collection System ──
     'aroll', 'acollection', 'atrade', 'awishlist', 'asell', 'afavorites',
     'acharinfo', 'acharlist', 'aleaderboard', 'aprofile', 'agift',
-    'animequiz', 'adaily', 'adroprates', 'aguess', 'abattle',
+    'animequiz', 'adaily', 'adroprates', 'aguess', 'abattle', 'adropsetup',
     // ── Message Stats System ──
     'messages', 'addmessages', 'blacklistchannel',
     'unblacklistchannel', 'blacklistedchannels', 'clearmessages',
@@ -195,6 +195,7 @@ const CATEGORY_GROUP_RULES = {
         { name: 'Collection',          emoji: '<:Bookopen:1521227911137595605>',   cmds: ['acollection', 'aprofile', 'afavorites', 'acharinfo', 'acharlist'] },
         { name: 'Trading & Economy',   emoji: '<:transfer:1521228019824590948>',   cmds: ['atrade', 'asell', 'agift'] },
         { name: 'Games & Battles',     emoji: '<:Star:1521227981685526568>',       cmds: ['aguess', 'abattle', 'animequiz', 'awishlist', 'aleaderboard'] },
+        { name: 'Auto Drops',          emoji: '<:Present:1521228115655917659>',    cmds: ['adropsetup'] },
     ],
 
     // ── 18. Games (skill / no-bet) ─────────────────────────────

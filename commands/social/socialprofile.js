@@ -159,16 +159,13 @@ async function generateProfileCard(user, guild, client) {
 
     const attachment = new AttachmentBuilder(cardBuffer, { name: 'profile-card.png' });
 
-    const container = new ContainerBuilder()
-        .setAccentColor(0x2b2d31)
-        .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://profile-card.png')))
-        .addActionRowComponents(
-            new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('profile_customize_open').setLabel('Customize').setEmoji('<:Palette:1521227950601539755>').setStyle(ButtonStyle.Secondary)
-            )
-        );
+    // Plain action row (NOT a V2 container) so the card image renders as a
+    // normal attachment OUTSIDE any container.
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('profile_customize_open').setLabel('Customize').setEmoji('<:Palette:1521227950601539755>').setStyle(ButtonStyle.Secondary)
+    );
 
-    return { attachment, container };
+    return { attachment, row };
 }
 
 module.exports = {
@@ -193,8 +190,8 @@ module.exports = {
         const user = interaction.options.getUser('user') || interaction.user;
 
         try {
-            const { attachment, container } = await generateProfileCard(user, interaction.guild, interaction.client);
-            await interaction.editReply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
+            const { attachment, row } = await generateProfileCard(user, interaction.guild, interaction.client);
+            await interaction.editReply({ files: [attachment], components: [row] });
         } catch (error) {
             console.error('Error generating profile card:', error);
             const errContainer = buildErrorResponse('Profile Error', 'Failed to generate the social profile card.', 'Try again in a moment or use `profile-customize` to reset your settings.');
@@ -204,16 +201,14 @@ module.exports = {
 
     async executePrefix(message, args) {
         const user = (await resolveUser(message, args)) || message.author;
-        const loadingContainer = buildLoadingResponse('Profile', `${EMOJIS.LOADING} Loading...`);
-        const msg = await message.reply({ components: [loadingContainer], flags: MessageFlags.IsComponentsV2 });
+        const msg = await message.reply(`${EMOJIS.LOADING} Loading profile...`);
 
         try {
-            const { attachment, container } = await generateProfileCard(user, message.guild, message.client);
-            await msg.edit({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
+            const { attachment, row } = await generateProfileCard(user, message.guild, message.client);
+            await msg.edit({ content: null, files: [attachment], components: [row] });
         } catch (error) {
             console.error('Error generating profile card:', error);
-            const errContainer = buildErrorResponse('Profile Error', 'Failed to generate the social profile card.', 'Try again in a moment or use `profile-customize` to reset your settings.');
-            await msg.edit({ components: [errContainer], flags: MessageFlags.IsComponentsV2 });
+            await msg.edit({ content: '<:Cancel:1521227723916181644> Failed to generate the social profile card.' }).catch(() => {});
         }
     }
 };

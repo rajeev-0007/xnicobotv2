@@ -69,7 +69,7 @@ const THEME = {
     },
 
     BRANDING: {
-        FOOTER: 'xNico </>',
+        FOOTER: '<:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development',
         FOOTER_ICON: null,
         NAME: 'Nico Bot',
         AUTHOR: 'Rajeev </>'

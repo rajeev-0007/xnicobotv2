@@ -262,7 +262,7 @@ function buildIdlePanel(guildId = null) {
     infoContent += `> **3.** Use the buttons below to control playback\n\n`;
     infoContent += `### Supported Platforms\n`;
     infoContent += `${EMOJIS.youtube} YouTube · ${EMOJIS.spotify} Spotify · ${EMOJIS.soundcloud} SoundCloud · ${EMOJIS.apple} Apple Music\n\n`;
-    infoContent += `-# Waiting for your request · xNico </>`;
+    infoContent += `-# Waiting for your request · <:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development`;
 
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(infoContent));
 

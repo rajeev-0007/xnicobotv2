@@ -63,7 +63,7 @@ const EMOJIS = {
     STICKER: '<:Palette:1521227950601539755>',
 };
 
-const BRANDING = '-# xNico </>';
+const BRANDING = '-# <:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development';
 
 function buildSuccessResponse(title, description, details = null, showBranding = false) {
     let content = `# ${EMOJIS.SUCCESS} ${title}\n\n`;

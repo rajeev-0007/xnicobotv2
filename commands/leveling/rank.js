@@ -81,16 +81,13 @@ async function generateRankCard(target, guild) {
 
     const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank-card.png' });
 
-    const container = new ContainerBuilder()
-        .setAccentColor(0x2b2d31)
-        .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://rank-card.png')))
-        .addActionRowComponents(
-            new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('rankcard_customize_open').setLabel('Customize').setEmoji('<:Palette:1521227950601539755>').setStyle(ButtonStyle.Secondary)
-            )
-        );
+    // Plain action row so the rank card renders as a normal attachment
+    // OUTSIDE any container.
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('rankcard_customize_open').setLabel('Customize').setEmoji('<:Palette:1521227950601539755>').setStyle(ButtonStyle.Secondary)
+    );
 
-    return { attachment, container };
+    return { attachment, row };
 }
 
 module.exports = {
@@ -115,8 +112,8 @@ module.exports = {
         const target = interaction.options.getUser('user') || interaction.user;
 
         try {
-            const { attachment, container } = await generateRankCard(target, interaction.guild);
-            await interaction.editReply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
+            const { attachment, row } = await generateRankCard(target, interaction.guild);
+            await interaction.editReply({ files: [attachment], components: [row] });
         } catch (error) {
             console.error('Error generating rank card:', error);
             const errContainer = buildErrorResponse('Rank Card Error', 'Failed to generate the rank card.', 'Try again in a moment or use `rank-customize` to reset your card settings.');
@@ -126,16 +123,14 @@ module.exports = {
 
     async executePrefix(message, args) {
         const target = (await resolveUser(message, args)) || message.author;
-        const loadingContainer = buildLoadingResponse('Rank', `${EMOJIS.LOADING} Loading...`);
-        const msg = await message.reply({ components: [loadingContainer], flags: MessageFlags.IsComponentsV2 });
+        const msg = await message.reply(`${EMOJIS.LOADING} Loading rank...`);
 
         try {
-            const { attachment, container } = await generateRankCard(target, message.guild);
-            await msg.edit({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
+            const { attachment, row } = await generateRankCard(target, message.guild);
+            await msg.edit({ content: null, files: [attachment], components: [row] });
         } catch (error) {
             console.error('Error generating rank card:', error);
-            const errContainer = buildErrorResponse('Rank Card Error', 'Failed to generate the rank card.', 'Try again in a moment or use `rank-customize` to reset your card settings.');
-            await msg.edit({ components: [errContainer], flags: MessageFlags.IsComponentsV2 });
+            await msg.edit({ content: '<:Cancel:1521227723916181644> Failed to generate the rank card.' }).catch(() => {});
         }
     },
 };

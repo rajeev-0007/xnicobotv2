@@ -91,7 +91,7 @@ function applyStyle(container, guildId, { footer = true } = {}) {
     }
 
     if (footer && !container[FOOTER_SENTINEL]) {
-        const footerText = (guildId && botCustomize.getFooterText(guildId)) || 'xNico </>';
+        const footerText = (guildId && botCustomize.getFooterText(guildId)) || '<:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development';
         const kids = container.components || container.data.components || [];
         let lastText = null;
         for (let i = kids.length - 1; i >= 0; i--) {

@@ -156,7 +156,7 @@ function _injectCv2Footer(components, accentColor, footerText) {
         // (lots of commands add their own). Without this the patcher appends a
         // second divider + footer, producing the "double separator footer".
         const last = lastTextContent(c);
-        if (last && (last.trimStart().startsWith('-#') || last.includes('xNico </>') || last.includes(String(footerText).slice(0, 100)))) {
+        if (last && (last.trimStart().startsWith('-#') || last.includes('<:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development') || last.includes(String(footerText).slice(0, 100)))) {
             c[sentinel] = true;
             continue;
         }
@@ -3369,6 +3369,14 @@ client.on('interactionCreate', async (interaction) => {
                     } catch (error) {
                         log.error(`LiveLeaderboard Interaction Error: ${error.message}`, error);
                     }
+                }
+            }
+            if (interaction.customId === 'adrop_claim') {
+                try {
+                    const handled = await require('./utils/animeDrops').handleClaim(interaction);
+                    if (handled) return;
+                } catch (error) {
+                    log.error(`AnimeDrop Claim Error: ${error.message}`, error);
                 }
             }
             if (interaction.customId.startsWith('ignorech_')) {
@@ -8418,7 +8426,7 @@ client.on('interactionCreate', async (interaction) => {
             // BRANDING line. This centralises branding so individual
             // commands never need to hardcode it.
             if (opts.components && Array.isArray(opts.components)) {
-                const _footerText = _gCfg.footerText || 'xNico </>';
+                const _footerText = _gCfg.footerText || '<:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development';
                 _injectCv2Footer(opts.components, _gColor, _footerText);
             }
             // Embed color + footer
@@ -8434,7 +8442,7 @@ client.on('interactionCreate', async (interaction) => {
                     }
                     // Always inject footer (custom or default)
                     if (!d.footer) {
-                        const _ft = _gCfg.footerText || 'xNico </>';
+                        const _ft = _gCfg.footerText || '<:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development';
                         d.footer = { text: _ft };
                         if (_gCfg.footerIcon) d.footer.icon_url = _gCfg.footerIcon;
                     }
@@ -9721,6 +9729,11 @@ client.on('messageCreate', async (message) => {
             require('./utils/activityTracker').recordMessage(guildId, message.author.id, message.channel.id);
         } catch { /* non-fatal */ }
 
+        // Automated anime character drops (Mudae-style)
+        try {
+            require('./utils/animeDrops').onMessage(message);
+        } catch { /* non-fatal */ }
+
         // Handle sticky messages (with cooldown to prevent rate limits)
         {
             const guildStickyConfig = jsonStore.peekGuild('sticky', guildId);
@@ -10680,7 +10693,7 @@ client.on('messageCreate', async (message) => {
                 // Always injects a footer line — either the guild's
                 // custom text or the default BRANDING.
                 if (opts.components && Array.isArray(opts.components)) {
-                    const _footerLine = _gFoot || 'xNico </>';
+                    const _footerLine = _gFoot || '<:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development';
                     _injectCv2Footer(opts.components, _gColor, _footerLine);
                 }
                 // Embed color + footer

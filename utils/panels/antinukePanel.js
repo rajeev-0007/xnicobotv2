@@ -267,7 +267,7 @@ function buildAntiNukePanel(guildConfig) {
     container.addActionRowComponents(actionSelect);
     container.addActionRowComponents(mainControls);
     container.addActionRowComponents(configControls);
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# xNico </>`));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# <:xnico:1486755083390550036> [xNico </>](https://discord.gg/Zs35X7Umak) Development`));
 
     return container;
 }
