@@ -140,7 +140,9 @@ function isVoteLocked(commandName) {
 
 function hasActiveVote(userId) {
     try {
-        const userVotes = jsonStore.has('user-votes') ? jsonStore.read('user-votes') : {};
+        // read() returns {} when the store isn't present, so this is safe
+        // regardless of whether the store has been lazily loaded yet.
+        const userVotes = jsonStore.read('user-votes') || {};
         const data = userVotes[userId];
         if (!data || !data.lastVote) return false;
         // 12 hour window

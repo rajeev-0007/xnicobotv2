@@ -8,7 +8,10 @@ const {
 } = require('discord.js');
 const { db, getLeaderboard } = require('../../utils/database');
 const { createLeaderboardCard } = require('../../utils/leaderboardCard');
+const activityTracker = require('../../utils/activityTracker');
 const ui = require('../../utils/statsUI');
+
+const PERIOD_DAYS = { daily: 1, weekly: 7, monthly: 30 };
 
 const DB_KEY_PREFIX = 'llb_config_';
 const REFRESH_INTERVAL = 60_000; // 1 minute
@@ -78,26 +81,34 @@ function buildSetupPanel(config) {
    ───────────────────────────────────────────────────────────── */
 
 async function buildLeaderboardImage(guild, config, client) {
-    const periodLabel = config.period === 'weekly' ? 'Weekly' : config.period === 'monthly' ? 'Monthly' : config.period === 'alltime' ? 'All Time' : 'Daily';
+    const period = config.period || 'daily';
+    const periodLabel = period === 'weekly' ? 'Weekly' : period === 'monthly' ? 'Monthly' : period === 'alltime' ? 'All Time' : 'Daily';
 
-    // Get leaderboard data
-    const lb = await getLeaderboard(guild.id, 'analytics.totalMessages', 10);
+    // Get period-scoped leaderboard data
+    let ranked;
+    if (period === 'alltime') {
+        // All-time uses the persistent analytics.totalMessages store
+        const lb = await getLeaderboard(guild.id, 'analytics.totalMessages', 10);
+        ranked = lb
+            .map(e => ({ userId: e.userId, value: e.analytics?.totalMessages || 0 }))
+            .filter(e => e.value > 0);
+    } else {
+        // Daily / weekly / monthly use the time-windowed activity tracker
+        const days = PERIOD_DAYS[period] || 1;
+        ranked = activityTracker.getMessageLeaderboard(guild.id, days, 10);
+    }
 
     const entries = [];
-    for (let i = 0; i < lb.length; i++) {
-        const entry = lb[i];
-        const count = entry.analytics?.totalMessages || 0;
-        if (count === 0) continue;
-
-        let username = entry.userId;
+    for (const row of ranked) {
+        let username = row.userId;
         let avatarURL = null;
         try {
-            const member = await guild.members.fetch(entry.userId);
+            const member = await guild.members.fetch(row.userId);
             username = member.user.username;
             avatarURL = member.user.displayAvatarURL({ extension: 'png', size: 64 });
         } catch {
             try {
-                const u = await client.users.fetch(entry.userId);
+                const u = await client.users.fetch(row.userId);
                 username = u.username;
                 avatarURL = u.displayAvatarURL({ extension: 'png', size: 64 });
             } catch {}
@@ -107,7 +118,7 @@ async function buildLeaderboardImage(guild, config, client) {
             rank: entries.length + 1,
             username,
             avatarURL,
-            value: count,
+            value: row.value,
             label: 'msgs',
         });
     }

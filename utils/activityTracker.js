@@ -21,7 +21,7 @@
 const jsonStore = require('./jsonStore');
 
 const STORE = 'user-activity';
-const KEEP_DAYS = 14;
+const KEEP_DAYS = 30;
 
 function dayKey(ts = Date.now()) {
     return new Date(ts).toISOString().slice(0, 10); // UTC YYYY-MM-DD
@@ -211,4 +211,23 @@ function getServerStats(guildId) {
     };
 }
 
-module.exports = { recordMessage, recordVoice, getUserStats, getServerStats, dayKey };
+/**
+ * Ranked message leaderboard for a guild over the last `days` days.
+ * Returns [{ userId, value }] sorted descending. `days` is clamped to
+ * the retention window (KEEP_DAYS). Used by the live leaderboard.
+ */
+function getMessageLeaderboard(guildId, days = 1, limit = 10) {
+    const store = getStore();
+    const guildData = store[guildId] || {};
+    const window = Math.min(Math.max(1, days), KEEP_DAYS);
+
+    const rows = [];
+    for (const [uid, u] of Object.entries(guildData)) {
+        const total = sumDays(u.msg || {}, window);
+        if (total > 0) rows.push({ userId: uid, value: total });
+    }
+    rows.sort((a, b) => b.value - a.value);
+    return rows.slice(0, limit);
+}
+
+module.exports = { recordMessage, recordVoice, getUserStats, getServerStats, getMessageLeaderboard, dayKey };

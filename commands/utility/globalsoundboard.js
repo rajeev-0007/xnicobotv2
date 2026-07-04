@@ -9,6 +9,18 @@ const {
 const PAGE_SIZE = 10;
 const ID_PREFIX = 'gsb';
 
+// Populate the soundboard cache across all guilds (cache is not auto-filled).
+async function fetchAllSounds(client) {
+    const guilds = [...client.guilds.cache.values()];
+    await Promise.all(guilds.map(async (guild) => {
+        try {
+            if (guild.soundboardSounds && (!guild.soundboardSounds.cache || guild.soundboardSounds.cache.size === 0)) {
+                await guild.soundboardSounds.fetch();
+            }
+        } catch { /* missing intent or no sounds */ }
+    }));
+}
+
 function flattenSounds(client, search) {
     const sounds = [];
     for (const guild of client.guilds.cache.values()) {
@@ -101,6 +113,8 @@ module.exports = {
     category: 'utility',
 
     async execute(interaction) {
+        await interaction.deferReply();
+        await fetchAllSounds(interaction.client);
         const search = interaction.options.getString('search') || '';
         const items = flattenSounds(interaction.client, search);
         const guildsCount = new Set(items.map(s => s.guildId)).size;
@@ -108,12 +122,12 @@ module.exports = {
         const state = { items, page: 0, totalPages, search, guildsCount };
 
         const payload = buildPanel(state);
-        const msg = await interaction.reply({ ...payload, withResponse: true });
-        const panelMsg = msg?.resource?.message || await interaction.fetchReply();
+        const panelMsg = await interaction.editReply(payload);
         attachCollector(panelMsg, interaction.user.id, interaction.guild, state);
     },
 
     async executePrefix(message, args) {
+        await fetchAllSounds(message.client);
         const search = args.join(' ') || '';
         const items = flattenSounds(message.client, search);
         const guildsCount = new Set(items.map(s => s.guildId)).size;

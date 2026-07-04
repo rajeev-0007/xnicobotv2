@@ -226,7 +226,7 @@ async function createServerActivityCard({ serverName, iconURL, createdTs, invite
     /* ── Footer ── */
     const footY = r3y + r3h + 24;
     ctx.textAlign = 'left'; ctx.font = fh.getSemiBoldFont(12); ctx.fillStyle = COL.dim;
-    ctx.fillText('Server Lookback: Last 14 days  •  Timezone: UTC', PAD, footY);
+    ctx.fillText('Server Lookback: Last 30 days  •  Timezone: UTC', PAD, footY);
     ctx.textAlign = 'right'; ctx.fillStyle = COL.dim;
     ctx.fillText('Powered by xNico', W - PAD, footY);
 

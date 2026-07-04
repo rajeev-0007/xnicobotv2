@@ -7,16 +7,17 @@ const { resolveUser } = require('../../utils/resolveUser');
 
 const CARDS_PER_PAGE = 10;
 
-async function handleCollection(reply, targetUser, guildId, page = 0, filterRarity = null) {
+async function handleCollection(reply, targetUser, viewerId, page = 0, filterRarity = null) {
     const animeData = animeManager.loadAnimeData();
     const playerData = animeManager.getPlayerData(animeData, targetUser.id);
+    const isSelf = targetUser.id === viewerId;
 
     if (playerData.collection.length === 0) {
         const container = createContainer(0xCAD7E6);
         addTextDisplay(container, [
             `## 🎴 Anime Collection`,
             '',
-            targetUser.id === targetUser.id
+            isSelf
                 ? `> You haven't collected any characters yet!`
                 : `> ${targetUser.username} hasn't collected any characters yet!`,
             '',
@@ -123,13 +124,13 @@ module.exports = {
             }
         }
 
-        return handleCollection(message.reply.bind(message), target, message.guild?.id, page, rarity);
+        return handleCollection(message.reply.bind(message), target, message.author.id, page, rarity);
     },
 
     async execute(interaction) {
         const target = interaction.options?.getUser('user') || interaction.user;
         const page = (interaction.options?.getInteger('page') || 1) - 1;
         const rarity = interaction.options?.getString('rarity') || null;
-        return handleCollection(interaction.reply.bind(interaction), target, interaction.guild?.id, page, rarity);
+        return handleCollection(interaction.reply.bind(interaction), target, interaction.user.id, page, rarity);
     },
 };

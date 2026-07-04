@@ -8,10 +8,8 @@ function getTodayCount(guildId, userId) {
     try {
         const tracker = require('../../utils/activityTracker');
         const stats = tracker.getUserStats(guildId, userId);
-        // getUserStats returns a snapshot with msg daily breakdown
-        // dayKey gives today's key
-        const today = tracker.dayKey();
-        return stats?.msg?.[today] || 0;
+        // msg1d = messages sent in the last 1 day (today's UTC bucket)
+        return stats?.msg1d || 0;
     } catch {
         return 0;
     }
