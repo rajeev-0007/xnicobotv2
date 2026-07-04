@@ -1,35 +1,32 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const animeCard = require('../../utils/animeCardCanvas');
 
 async function handleDailyCard(reply, user, guildId) {
+    await animeManager.ensurePool();
     const animeData = animeManager.loadAnimeData();
     const playerData = animeManager.getPlayerData(animeData, user.id);
 
     const freeRolls = animeManager.checkFreeRolls(playerData);
-
     if (freeRolls <= 0) {
         const nextReset = new Date();
         nextReset.setHours(24, 0, 0, 0);
         const timeUntil = nextReset.getTime() - Date.now();
         const hours = Math.floor(timeUntil / 3600000);
         const minutes = Math.floor((timeUntil % 3600000) / 60000);
-
-        const container = createContainer(0xFEE75C);
-        addTextDisplay(container, [
+        const c = createContainer(0xFEE75C);
+        addTextDisplay(c, [
             `## 🎟️ Daily Rolls`,
-            '',
-            `> You've used all your free rolls for today!`,
-            `> ⏰ Next reset in: **${hours}h ${minutes}m**`,
-            '',
-            `-# Free rolls: 0/${animeManager.DAILY_FREE_ROLLS} • Use coins to roll: \`aroll\``,
+            `> You've used all your free rolls today!`,
+            `> ⏰ Reset in **${hours}h ${minutes}m**`,
+            `-# Free rolls: 0/${animeManager.DAILY_FREE_ROLLS} • Use coins: \`aroll\``,
         ].join('\n'));
-        return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+        return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
     }
 
-    // Use a free roll
     animeManager.useFreeRoll(playerData);
     playerData.lastRoll = Date.now();
     playerData.totalRolls++;
@@ -39,27 +36,19 @@ async function handleDailyCard(reply, user, guildId) {
     animeManager.saveAnimeData();
 
     const rarity = animeManager.RARITIES[character.rarity];
-    const dupTag = isDuplicate ? ' *(DUPLICATE)*' : ' ✨ **NEW!**';
     const remaining = animeManager.DAILY_FREE_ROLLS - playerData.freeRollsToday;
+    const buffer = await animeCard.renderCard(character, { isDuplicate, isNew: !isDuplicate });
 
-    const container = createContainer(rarity.color);
-    addTextDisplay(container, [
-        `## 🎟️ Daily Free Roll`,
-        '',
-        `### ${rarity.emoji} ${character.name}${dupTag}`,
-        `> **Anime:** ${character.anime}`,
-        `> **Rarity:** ${rarity.emoji} ${rarity.name}`,
-        `> **Value:** 💰 ${rarity.value.toLocaleString()} coins`,
-        '',
-        `-# Free rolls remaining today: ${remaining}/${animeManager.DAILY_FREE_ROLLS}`,
-    ].join('\n'));
+    const c = createContainer(rarity.color);
+    const lines = [
+        `## 🎟️ Daily Free Roll — **${character.name}**`,
+        `> ${rarity.emoji} **${rarity.name}** • 💰 ${rarity.value.toLocaleString()} value`,
+        `-# Free rolls left today: ${remaining}/${animeManager.DAILY_FREE_ROLLS}`,
+    ];
+    if (playerData.wishlist.includes(character.id)) lines.push(`\n🌟 **WISHLIST HIT!**`);
+    addTextDisplay(c, lines.join('\n'));
 
-    // Wishlist notification
-    if (playerData.wishlist.includes(character.id)) {
-        addTextDisplay(container, `\n🌟 **WISHLIST HIT!** You got a character from your wishlist!`);
-    }
-
-    return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    return reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'card.png' })], flags: MessageFlags.IsComponentsV2 });
 }
 
 module.exports = {
@@ -73,10 +62,12 @@ module.exports = {
     category: 'anime',
 
     async executePrefix(message) {
+        await message.channel.sendTyping().catch(() => {});
         return handleDailyCard(message.reply.bind(message), message.author, message.guild?.id);
     },
 
     async execute(interaction) {
-        return handleDailyCard(interaction.reply.bind(interaction), interaction.user, interaction.guild?.id);
+        await interaction.deferReply();
+        return handleDailyCard((payload) => interaction.editReply(payload), interaction.user, interaction.guild?.id);
     },
 };

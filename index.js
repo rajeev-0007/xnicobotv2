@@ -1746,6 +1746,13 @@ client.on(Events.ClientReady, async () => {
         if (llbCmd && llbCmd.resumeAll) await llbCmd.resumeAll(client);
     } catch (e) { log.warning(`[LiveLeaderboard] Resume failed: ${e.message}`); }
 
+    // Warm the anime character pool (AniList API) in the background
+    try {
+        require('./utils/animeManager').ensurePool()
+            .then(pool => log.success(`[Anime] Character pool ready (${pool.length} characters)`))
+            .catch(() => {});
+    } catch { }
+
     // Refresh all music panels to idle state on startup and preload cache
     try {
         if (jsonStore.has('musicpanel')) {

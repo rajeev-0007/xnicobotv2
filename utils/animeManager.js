@@ -11,6 +11,7 @@
 
 const jsonStore = require('./jsonStore');
 const log = require('./logger-styled');
+const animeApi = require('./animeApi');
 
 /* ═══════════════════════════════════════════════════════
    RARITY SYSTEM
@@ -29,7 +30,8 @@ const RARITIES = {
    ANIME CHARACTER DATABASE
    ═══════════════════════════════════════════════════════ */
 
-const CHARACTERS = [
+// Fallback pool — used only if the AniList API pool hasn't loaded yet.
+const FALLBACK_CHARACTERS = [
     // ── Mythic ──
     { id: 'goku_ui', name: 'Goku (Ultra Instinct)', anime: 'Dragon Ball Super', rarity: 'mythic', image: 'https://i.imgur.com/QkN2BNZ.png' },
     { id: 'naruto_baryon', name: 'Naruto (Baryon Mode)', anime: 'Boruto', rarity: 'mythic', image: 'https://i.imgur.com/sJ5LNHP.png' },
@@ -111,6 +113,21 @@ const CHARACTERS = [
     { id: 'hawk', name: 'Hawk', anime: 'Seven Deadly Sins', rarity: 'common', image: 'https://i.imgur.com/Q5nRqKT.png' },
 ];
 
+/**
+ * Live character pool. Prefers the AniList API pool (real characters with
+ * images); falls back to the built-in list until the API pool loads.
+ */
+function getCharacters() {
+    const pool = animeApi.getPoolSync();
+    return (pool && pool.length > 0) ? pool : FALLBACK_CHARACTERS;
+}
+
+/** Warm the API pool (call on bot ready). */
+async function ensurePool() {
+    try { return await animeApi.ensurePool(); }
+    catch { return getCharacters(); }
+}
+
 /* ═══════════════════════════════════════════════════════
    ROLL COST & COOLDOWNS
    ═══════════════════════════════════════════════════════ */
@@ -181,6 +198,7 @@ function rollRarity() {
 }
 
 function rollCharacter() {
+    const CHARACTERS = getCharacters();
     const rarity = rollRarity();
     const pool = CHARACTERS.filter(c => c.rarity === rarity);
     if (pool.length === 0) return CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
@@ -202,7 +220,7 @@ function rollMultiple(count = MULTI_ROLL_COUNT) {
 
     // Pity: if no rare+ in multi, replace the last one
     if (!hasRareOrBetter) {
-        const rarePool = CHARACTERS.filter(c => c.rarity === 'rare');
+        const rarePool = getCharacters().filter(c => c.rarity === 'rare');
         results[count - 1] = rarePool[Math.floor(Math.random() * rarePool.length)];
     }
 
@@ -224,6 +242,7 @@ function addToCollection(playerData, character) {
 }
 
 function getCollectionStats(playerData) {
+    const CHARACTERS = getCharacters();
     const unique = new Set(playerData.collection.map(c => c.charId));
     const byRarity = {};
 
@@ -238,12 +257,13 @@ function getCollectionStats(playerData) {
         total: playerData.collection.length,
         unique: unique.size,
         maxUnique: CHARACTERS.length,
-        percentage: Math.round((unique.size / CHARACTERS.length) * 100),
+        percentage: CHARACTERS.length ? Math.round((unique.size / CHARACTERS.length) * 100) : 0,
         byRarity,
     };
 }
 
 function getCollectionValue(playerData) {
+    const CHARACTERS = getCharacters();
     let total = 0;
     for (const entry of playerData.collection) {
         const char = CHARACTERS.find(c => c.id === entry.charId);
@@ -308,7 +328,7 @@ function getCharacterCount(playerData, charId) {
    ═══════════════════════════════════════════════════════ */
 
 function getSellValue(charId) {
-    const char = CHARACTERS.find(c => c.id === charId);
+    const char = getCharacters().find(c => c.id === charId);
     if (!char) return 0;
     return Math.floor(RARITIES[char.rarity].value * 0.5);
 }
@@ -319,20 +339,19 @@ function getSellValue(charId) {
 
 function findCharacter(query) {
     const lower = query.toLowerCase();
-    return CHARACTERS.find(c =>
-        c.id === lower ||
-        c.name.toLowerCase() === lower ||
-        c.name.toLowerCase().includes(lower)
-    );
+    const CHARACTERS = getCharacters();
+    return CHARACTERS.find(c => c.id === lower)
+        || CHARACTERS.find(c => c.name.toLowerCase() === lower)
+        || CHARACTERS.find(c => c.name.toLowerCase().includes(lower));
 }
 
 function getCharactersByAnime(anime) {
     const lower = anime.toLowerCase();
-    return CHARACTERS.filter(c => c.anime.toLowerCase().includes(lower));
+    return getCharacters().filter(c => c.anime.toLowerCase().includes(lower));
 }
 
 function getCharactersByRarity(rarity) {
-    return CHARACTERS.filter(c => c.rarity === rarity);
+    return getCharacters().filter(c => c.rarity === rarity);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -341,7 +360,10 @@ function getCharactersByRarity(rarity) {
 
 module.exports = {
     RARITIES,
-    CHARACTERS,
+    // Live pool getter — always reflects the AniList API pool once loaded.
+    get CHARACTERS() { return getCharacters(); },
+    getCharacters,
+    ensurePool,
     ROLL_COST,
     MULTI_ROLL_COUNT,
     MULTI_ROLL_COST,
