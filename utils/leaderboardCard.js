@@ -1,9 +1,22 @@
 'use strict';
 
 /**
- * leaderboardCard.js — Canvas-rendered live leaderboard card.
- * Professional dark theme with ranked entries, badge-style rank indicators,
- * avatars, and stats. Top 3 get special trophy-colored treatments.
+ * leaderboardCard.js — Canvas-rendered leaderboard image for the unified
+ * `/leaderboard` command (leveling / messages / voice / invites / economy).
+ *
+ * Exports generateLeaderboardCard(entries, options).
+ *
+ *   entries: Array<{
+ *     rank, name, avatar, isRequester,
+ *     primaryValue?  (number)  OR  valueText? (preformatted string),
+ *     primaryLabel?, statLine?
+ *   }>
+ *   options: {
+ *     accentInt, accentEmoji, titleLabel,
+ *     modeLabel, scopeLabel, scopeEmoji,
+ *     totalCount, page, totalPages,
+ *     requester: { rank, gapText } | null
+ *   }
  */
 
 const { createCanvas } = require('@napi-rs/canvas');
@@ -13,7 +26,6 @@ const imageCache = require('./imageCache');
 
 try { registerAllFonts(); } catch {}
 
-// Rank badge CDN URLs (application emojis)
 const RANK_BADGE_URLS = {
     1: 'https://cdn.discordapp.com/emojis/1522972998569689098.png',
     2: 'https://cdn.discordapp.com/emojis/1522973001849770044.png',
@@ -28,205 +40,180 @@ const COL = {
     bg: '#0f1116', card: '#1a1d24', cardBorder: '#262a33',
     text: '#e6edf3', muted: '#8b949e', dim: '#484f58',
     gold: '#FFD700', silver: '#C0C0C0', bronze: '#CD7F32',
-    accent: '#5865f2', green: '#3fb950',
-    rank1Bg: '#3d3015', rank2Bg: '#2d2d30', rank3Bg: '#2d2218',
+    accentDefault: '#5865f2',
     row1: '#1e2229', row2: '#181c22',
+    rank1Bg: '#3d3015', rank2Bg: '#2d2d30', rank3Bg: '#2d2218',
 };
 
-const W = 620, PAD = 24, ROW_H = 60, HEADER_H = 90, FOOTER_H = 44;
+const W = 640, PAD = 24, ROW_H = 58, HEADER_H = 96, FOOTER_H = 46;
 
-function getRankStyle(rank) {
-    if (rank === 1) return { color: COL.gold, bg: COL.rank1Bg, label: '1ST', trophy: true };
-    if (rank === 2) return { color: COL.silver, bg: COL.rank2Bg, label: '2ND', trophy: true };
-    if (rank === 3) return { color: COL.bronze, bg: COL.rank3Bg, label: '3RD', trophy: true };
-    return { color: COL.muted, bg: null, label: String(rank), trophy: false };
+function intToHex(n, fallback) {
+    if (!Number.isFinite(n)) return fallback;
+    return '#' + (n & 0xFFFFFF).toString(16).padStart(6, '0');
 }
 
-function drawRankBadge(ctx, fh, x, y, rank) {
-    const style = getRankStyle(rank);
-    const badgeSize = 32;
-
-    // Try to draw the badge image if preloaded
-    if (rank <= 7 && ctx._badgeImages && ctx._badgeImages[rank]) {
-        ctx.drawImage(ctx._badgeImages[rank], x, y, badgeSize, badgeSize);
-        return;
-    }
-
-    // Fallback: colored circle with number
-    ctx.beginPath();
-    ctx.arc(x + badgeSize / 2, y + badgeSize / 2, badgeSize / 2, 0, Math.PI * 2);
-    ctx.fillStyle = style.color + (style.trophy ? '35' : '20');
-    ctx.fill();
-
-    ctx.strokeStyle = style.color + '80';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = fh.getBoldFont(style.trophy ? 12 : 13);
-    ctx.fillStyle = style.color;
-    ctx.fillText(style.label, x + badgeSize / 2, y + badgeSize / 2 + 1);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+function rankStyle(rank) {
+    if (rank === 1) return { color: COL.gold, bg: COL.rank1Bg, trophy: true, sub: 'CHAMPION' };
+    if (rank === 2) return { color: COL.silver, bg: COL.rank2Bg, trophy: true, sub: 'RUNNER UP' };
+    if (rank === 3) return { color: COL.bronze, bg: COL.rank3Bg, trophy: true, sub: 'THIRD PLACE' };
+    return { color: COL.muted, bg: null, trophy: false, sub: null };
 }
 
-/**
- * @param {object} opts
- * @param {string} opts.guildName
- * @param {string|null} opts.guildIconURL
- * @param {string} opts.period - 'Daily' | 'Weekly' | 'Monthly' | 'All Time'
- * @param {Array<{rank, username, avatarURL, value, label}>} opts.entries - max 10
- */
-async function createLeaderboardCard({ guildName, guildIconURL, period, entries }) {
+function formatValue(entry) {
+    if (typeof entry.valueText === 'string' && entry.valueText.length) return entry.valueText;
+    const v = Number(entry.primaryValue) || 0;
+    const label = entry.primaryLabel ? ` ${entry.primaryLabel}` : '';
+    return `${formatNumber(v)}${label}`;
+}
+
+async function generateLeaderboardCard(entries = [], options = {}) {
     const fh = getFontHelpers('Inter');
-    const entryCount = Math.min(entries.length, 10);
-    const H = HEADER_H + (entryCount * ROW_H) + FOOTER_H + PAD;
+    const accent = intToHex(options.accentInt, COL.accentDefault);
+    const rows = entries.slice(0, 10);
+    const count = rows.length;
+    const H = HEADER_H + Math.max(1, count) * ROW_H + FOOTER_H + PAD;
 
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
-
-    // Preload rank badge images
-    ctx._badgeImages = {};
-    const badgeLoads = Object.entries(RANK_BADGE_URLS).map(async ([rank, url]) => {
-        try {
-            const img = await imageCache.loadWithCache(url, 3000);
-            if (img) ctx._badgeImages[Number(rank)] = img;
-        } catch {}
-    });
-    await Promise.all(badgeLoads);
 
     // Background
     drawRoundedRect(ctx, 0, 0, W, H, 14);
     ctx.fillStyle = COL.bg; ctx.fill();
 
+    // Accent top strip
+    drawRoundedRect(ctx, 0, 0, W, 5, 0);
+    ctx.fillStyle = accent; ctx.fillRect(0, 0, W, 5);
+
+    // Preload rank badges
+    ctx._badges = {};
+    await Promise.all(Object.entries(RANK_BADGE_URLS).map(async ([r, url]) => {
+        try { const img = await imageCache.loadWithCache(url, 3000); if (img) ctx._badges[Number(r)] = img; } catch {}
+    }));
+
     // ── Header ──
-    const iconSize = 44;
-    let iconX = PAD;
-
-    if (guildIconURL) {
-        try {
-            const icon = await imageCache.loadWithCache(guildIconURL, 4000);
-            if (icon) {
-                ctx.save();
-                drawRoundedRect(ctx, iconX, PAD, iconSize, iconSize, 12); ctx.clip();
-                ctx.drawImage(icon, iconX, PAD, iconSize, iconSize);
-                ctx.restore();
-                iconX += iconSize + 14;
-            }
-        } catch { /* use text only */ }
-    }
-
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.font = fh.getBoldFont(22); ctx.fillStyle = COL.text;
-    ctx.fillText('Live Leaderboard', iconX, PAD + 24);
+    ctx.font = fh.getBoldFont(23); ctx.fillStyle = COL.text;
+    ctx.fillText(`${options.titleLabel || 'Leaderboard'}`, PAD, 40);
 
-    ctx.font = fh.getFont(12); ctx.fillStyle = COL.muted;
-    ctx.fillText(`${truncateText(ctx, guildName || 'Server', 200)}`, iconX, PAD + 42);
+    ctx.font = fh.getFont(13); ctx.fillStyle = COL.muted;
+    const scopeLine = `${truncateText(ctx, options.scopeLabel || 'Server', 260)} • ${options.modeLabel || 'Server'}`;
+    ctx.fillText(scopeLine, PAD, 62);
 
-    // Period badge (top-right)
+    // Count + page badge (right)
+    const badgeText = `${(options.totalCount || count).toLocaleString()} ranked`;
     ctx.font = fh.getSemiBoldFont(11);
-    const periodW = ctx.measureText(period || 'All Time').width + 16;
-    const periodX = W - PAD - periodW;
-    drawRoundedRect(ctx, periodX, PAD + 6, periodW, 24, 6);
-    ctx.fillStyle = COL.accent + '30'; ctx.fill();
-    ctx.strokeStyle = COL.accent + '60'; ctx.lineWidth = 1;
-    drawRoundedRect(ctx, periodX, PAD + 6, periodW, 24, 6); ctx.stroke();
-    ctx.textAlign = 'center';
-    ctx.font = fh.getSemiBoldFont(11); ctx.fillStyle = COL.accent;
-    ctx.fillText(period || 'All Time', periodX + periodW / 2, PAD + 22);
-    ctx.textAlign = 'left';
-
-    // Updated timestamp
-    const now = new Date();
-    const timeStr = `Updated ${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')} UTC`;
-    ctx.font = fh.getFont(10); ctx.fillStyle = COL.dim;
-    ctx.textAlign = 'right';
-    ctx.fillText(timeStr, W - PAD, PAD + 42);
+    const bw = ctx.measureText(badgeText).width + 18;
+    drawRoundedRect(ctx, W - PAD - bw, 26, bw, 22, 6);
+    ctx.fillStyle = accent + '30'; ctx.fill();
+    ctx.strokeStyle = accent + '60'; ctx.lineWidth = 1;
+    drawRoundedRect(ctx, W - PAD - bw, 26, bw, 22, 6); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillStyle = accent;
+    ctx.fillText(badgeText, W - PAD - bw / 2, 41);
+    ctx.textAlign = 'right'; ctx.font = fh.getFont(11); ctx.fillStyle = COL.dim;
+    ctx.fillText(`Page ${(options.page ?? 0) + 1}/${options.totalPages || 1}`, W - PAD, 62);
     ctx.textAlign = 'left';
 
     // Divider
     ctx.strokeStyle = COL.cardBorder; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(PAD, HEADER_H - 8); ctx.lineTo(W - PAD, HEADER_H - 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD, HEADER_H - 12); ctx.lineTo(W - PAD, HEADER_H - 12); ctx.stroke();
 
-    // ── Entries ──
-    for (let i = 0; i < entryCount; i++) {
-        const entry = entries[i];
+    // ── Empty ──
+    if (count === 0) {
+        ctx.font = fh.getFont(14); ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+        ctx.fillText('No ranked users yet', W / 2, HEADER_H + 30);
+        ctx.textAlign = 'left';
+        return canvas.toBuffer('image/png');
+    }
+
+    // ── Rows ──
+    for (let i = 0; i < count; i++) {
+        const entry = rows[i];
         const y = HEADER_H + i * ROW_H;
-        const style = getRankStyle(entry.rank);
+        const st = rankStyle(entry.rank);
 
-        // Row background (special for top 3)
-        if (style.bg) {
-            drawRoundedRect(ctx, PAD - 4, y + 2, W - PAD * 2 + 8, ROW_H - 6, 10);
-            ctx.fillStyle = style.bg; ctx.fill();
-            ctx.strokeStyle = style.color + '30'; ctx.lineWidth = 1;
-            drawRoundedRect(ctx, PAD - 4, y + 2, W - PAD * 2 + 8, ROW_H - 6, 10); ctx.stroke();
+        if (st.bg) {
+            drawRoundedRect(ctx, PAD - 4, y, W - PAD * 2 + 8, ROW_H - 6, 10);
+            ctx.fillStyle = st.bg; ctx.fill();
+            ctx.strokeStyle = st.color + '30'; ctx.lineWidth = 1;
+            drawRoundedRect(ctx, PAD - 4, y, W - PAD * 2 + 8, ROW_H - 6, 10); ctx.stroke();
         } else {
-            drawRoundedRect(ctx, PAD - 4, y + 2, W - PAD * 2 + 8, ROW_H - 6, 8);
+            drawRoundedRect(ctx, PAD - 4, y, W - PAD * 2 + 8, ROW_H - 6, 8);
             ctx.fillStyle = i % 2 === 0 ? COL.row1 : COL.row2; ctx.fill();
+        }
+        if (entry.isRequester) {
+            ctx.strokeStyle = accent; ctx.lineWidth = 2;
+            drawRoundedRect(ctx, PAD - 4, y, W - PAD * 2 + 8, ROW_H - 6, 8); ctx.stroke();
         }
 
         // Rank badge
-        const badgeX = PAD + 6;
-        const badgeY = y + (ROW_H - 32) / 2 - 2;
-        drawRankBadge(ctx, fh, badgeX, badgeY, entry.rank);
+        const badgeSize = 30, bx = PAD + 6, by = y + (ROW_H - 6 - badgeSize) / 2;
+        if (entry.rank <= 7 && ctx._badges[entry.rank]) {
+            ctx.drawImage(ctx._badges[entry.rank], bx, by, badgeSize, badgeSize);
+        } else {
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = fh.getBoldFont(14); ctx.fillStyle = st.color;
+            ctx.fillText(`#${entry.rank}`, bx + badgeSize / 2, y + (ROW_H - 6) / 2);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        }
 
         // Avatar
-        const avSize = 36;
-        const avX = PAD + 48, avY = y + (ROW_H - avSize) / 2 - 2;
-        let avatarDrawn = false;
-        if (entry.avatarURL) {
+        const avSize = 34, avX = PAD + 44, avY = y + (ROW_H - 6 - avSize) / 2;
+        let drawn = false;
+        if (entry.avatar) {
             try {
-                const av = await imageCache.loadWithCache(entry.avatarURL, 3000);
-                if (av) {
+                const img = await imageCache.loadWithCache(entry.avatar, 3000);
+                if (img) {
                     ctx.save();
                     ctx.beginPath(); ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2); ctx.clip();
-                    ctx.drawImage(av, avX, avY, avSize, avSize);
+                    ctx.drawImage(img, avX, avY, avSize, avSize);
                     ctx.restore();
-                    avatarDrawn = true;
+                    drawn = true;
                 }
             } catch {}
         }
-        if (!avatarDrawn) {
+        if (!drawn) {
             ctx.beginPath(); ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2);
             ctx.fillStyle = COL.cardBorder; ctx.fill();
-            ctx.font = fh.getBoldFont(14); ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
-            ctx.fillText((entry.username || '?')[0].toUpperCase(), avX + avSize / 2, avY + avSize / 2 + 5);
-            ctx.textAlign = 'left';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = fh.getBoldFont(14); ctx.fillStyle = COL.muted;
+            ctx.fillText((entry.name || '?')[0].toUpperCase(), avX + avSize / 2, avY + avSize / 2 + 1);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         }
-
-        // Avatar ring for top 3
-        if (style.trophy) {
+        if (st.trophy) {
             ctx.beginPath(); ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2 + 2, 0, Math.PI * 2);
-            ctx.strokeStyle = style.color + '80'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.strokeStyle = st.color + '90'; ctx.lineWidth = 2; ctx.stroke();
         }
 
-        // Username
+        // Name + statline
         const nameX = avX + avSize + 14;
-        ctx.font = fh.getSemiBoldFont(15); ctx.fillStyle = style.trophy ? style.color : COL.text;
-        ctx.fillText(truncateText(ctx, entry.username || 'Unknown', W - nameX - 130), nameX, y + ROW_H / 2 - 2);
-
-        // Subtitle (rank label for top 3)
-        if (style.trophy) {
-            ctx.font = fh.getFont(10); ctx.fillStyle = style.color + 'AA';
-            const labels = { 1: 'CHAMPION', 2: 'RUNNER UP', 3: 'THIRD PLACE' };
-            ctx.fillText(labels[entry.rank] || '', nameX, y + ROW_H / 2 + 12);
+        const rowMid = y + (ROW_H - 6) / 2;
+        ctx.font = fh.getSemiBoldFont(15); ctx.fillStyle = st.trophy ? st.color : COL.text;
+        const youTag = entry.isRequester ? '  (you)' : '';
+        ctx.fillText(truncateText(ctx, (entry.name || 'Unknown') + youTag, W - nameX - 150), nameX, rowMid - 2);
+        if (entry.statLine || st.sub) {
+            ctx.font = fh.getFont(10); ctx.fillStyle = st.trophy ? st.color + 'AA' : COL.dim;
+            ctx.fillText(st.sub || entry.statLine, nameX, rowMid + 12);
         }
 
-        // Value (right-aligned)
+        // Value (right)
         ctx.textAlign = 'right';
-        ctx.font = fh.getBoldFont(16); ctx.fillStyle = style.trophy ? style.color : COL.text;
-        ctx.fillText(formatNumber(entry.value), W - PAD - 8, y + ROW_H / 2 - 2);
-        ctx.font = fh.getFont(10); ctx.fillStyle = COL.dim;
-        ctx.fillText(entry.label || 'msgs', W - PAD - 8, y + ROW_H / 2 + 12);
+        ctx.font = fh.getBoldFont(15); ctx.fillStyle = st.trophy ? st.color : COL.text;
+        ctx.fillText(formatValue(entry), W - PAD - 8, rowMid + 4);
         ctx.textAlign = 'left';
     }
 
     // ── Footer ──
-    const footerY = HEADER_H + entryCount * ROW_H + 18;
+    const footerY = HEADER_H + count * ROW_H + 16;
     ctx.strokeStyle = COL.cardBorder; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(PAD, footerY - 8); ctx.lineTo(W - PAD, footerY - 8); ctx.stroke();
 
     ctx.font = fh.getFont(11); ctx.fillStyle = COL.dim;
-    ctx.fillText('Auto-refreshes every minute', PAD, footerY + 6);
+    if (options.requester && options.requester.rank) {
+        const g = options.requester.gapText ? ` • ${options.requester.gapText}` : '';
+        ctx.fillText(`Your rank: #${options.requester.rank}${g}`, PAD, footerY + 6);
+    } else {
+        ctx.fillText('xNico • Live rankings', PAD, footerY + 6);
+    }
     ctx.textAlign = 'right';
     ctx.fillText('Powered by xNico', W - PAD, footerY + 6);
     ctx.textAlign = 'left';
@@ -234,4 +221,4 @@ async function createLeaderboardCard({ guildName, guildIconURL, period, entries 
     return canvas.toBuffer('image/png');
 }
 
-module.exports = { createLeaderboardCard };
+module.exports = { generateLeaderboardCard };

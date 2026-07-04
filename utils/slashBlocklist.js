@@ -163,6 +163,7 @@ const SLASH_BLOCKLIST = new Set([
     // ── economy ──
     '2048',
     'addcoins',
+    'economy-leaderboard',   // use /leaderboard type:economy instead
 
     // ── fun ──
     '8ball',

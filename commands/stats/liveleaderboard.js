@@ -7,7 +7,7 @@ const {
     StringSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType
 } = require('discord.js');
 const { db, getLeaderboard } = require('../../utils/database');
-const { createLeaderboardCard } = require('../../utils/leaderboardCard');
+const { createLeaderboardCard } = require('../../utils/liveLeaderboardCard');
 const activityTracker = require('../../utils/activityTracker');
 const ui = require('../../utils/statsUI');
 

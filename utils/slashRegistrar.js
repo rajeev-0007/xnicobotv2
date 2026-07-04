@@ -90,11 +90,11 @@ const GLOBAL_PRIORITY = new Set([
     'blackjack', 'roulette', 'rps',
     'tictactoe', 'connect4', 'hangman', 'numguess', 'memory', '2048', 'battleship',
     'work', 'beg', 'crime', 'fish', 'hunt', 'adventure', 'mine', 'mines', 'farm', 'heist',
-    'buy', 'sell', 'inventory', 'trade', 'craft', 'gift', 'loan', 'economy-leaderboard',
+    'buy', 'sell', 'inventory', 'trade', 'craft', 'gift', 'loan',
     'battle', 'pets',
 
     // ── Leveling & social ──
-    'rank', 'leveling-setup', 'levelroles',
+    'rank', 'leaderboard', 'leveling-setup', 'levelroles',
     'socialprofile', 'badges',
 
     // ── Fun ──
