@@ -163,7 +163,7 @@ const CATEGORY_GROUP_RULES = {
         { name: 'Reminders & AFK',     emoji: '<:Lightning:1521227915537285150>',  cmds: ['afk', 'reminder', 'timer', 'announce', 'timezone'] },
         { name: 'Lookup & APIs',       emoji: '<:Attach:1521228039135170722>',     cmds: ['github', 'npm', 'define', 'urban', 'urbanrandom', 'wikipedia', 'reddit', 'youtube', 'yt', 'spotify', 'weather', 'color', 'ip', 'stockprice'] },
         { name: 'Media & Tools',       emoji: '<:Pin:1521227932625014916>',        cmds: ['image', 'screenshot', 'qrcode', 'shorten', 'pastebin', 'calculate', 'password', 'uuid', 'download'] },
-        { name: 'Misc & Community',    emoji: '<:Fire:1521227907647668374>',       cmds: ['firstmsg', 'pinned-messages', 'snowflake', 'enlarge', 'afklist', 'anime', 'manga', 'crypto', 'covid', 'suggest', 'report', 'apply'] },
+        { name: 'Misc & Community',    emoji: '<:Fire:1521227907647668374>',       cmds: ['firstmsg', 'pinned-messages', 'snowflake', 'enlarge', 'afklist', 'anime', 'manga', 'crypto', 'covid', 'suggest', 'report', 'apply', 'partners'] },
     ],
 
     // ── 14. Stats & Activity ──────────────────────────────────
