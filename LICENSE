@@ -1,0 +1,66 @@
+xNico — Proprietary License
+Copyright © 2024–present Rajeev (Rexzy). All rights reserved.
+
+Bot Name : xNico
+Owner    : Rexzy aka Rajeev
+Author   : Rajeev (Rexzy)
+Licensed : by Rajeev
+
+────────────────────────────────────────────────────────────────────────────
+TERMS AND CONDITIONS
+────────────────────────────────────────────────────────────────────────────
+
+1. OWNERSHIP
+   The xNico bot, including but not limited to its source code, design,
+   assets, branding, command structures, command names, panel layouts,
+   visual artwork, and documentation (collectively, the "Software"), is
+   the exclusive property of Rajeev (Rexzy). All intellectual property
+   rights are reserved.
+
+2. PERMITTED USE
+   You may:
+     a. Run an instance of the Software for personal, non-commercial use.
+     b. Modify the Software for your own private use, provided that all
+        original copyright notices and credits to Rajeev (Rexzy) remain
+        intact in the source code, command output, and any "about"
+        screens.
+
+3. RESTRICTIONS
+   You may NOT, without prior written permission from the copyright
+   holder:
+     a. Sell, sublicense, lease, rent, or otherwise commercially exploit
+        the Software or any derivative work.
+     b. Re-brand the Software or its derivatives under a different name
+        while removing or obscuring the original credits.
+     c. Redistribute the Software publicly (whether free or paid) under
+        a different author name.
+     d. Remove, alter, or hide the "xNico" branding, the "by Rexzy"
+        attribution, or this LICENSE file from any distribution.
+
+4. ATTRIBUTION
+   Any public mention, deployment, or fork of the Software must visibly
+   credit:
+       "Powered by xNico — © Rajeev (Rexzy)"
+   in at least one of: bot info, help command, README, or website.
+
+5. THIRD-PARTY DEPENDENCIES
+   The Software depends on third-party packages listed in package.json.
+   Those packages remain under their respective licenses. This license
+   covers only original work authored by Rajeev (Rexzy).
+
+6. WARRANTY DISCLAIMER
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+   CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN
+   CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+7. CONTACT
+   For commercial licensing, partnerships, or written permissions,
+   contact the author via the official support server:
+       https://discord.gg/Zs35X7Umak
+
+────────────────────────────────────────────────────────────────────────────
+By using, modifying, or distributing this Software you accept these terms.
+────────────────────────────────────────────────────────────────────────────

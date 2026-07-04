@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xNico Dashboard — Control Panel</title>
+    <meta name="description"
+        content="xNico Bot Dashboard — Manage your Discord server modules with a clean, modern control panel.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css?v=4.3.0">
+    <link rel="stylesheet" href="/starfield.css?v=1.3.0">
+    <link rel="icon" type="image/png" href="/logo.png">
+</head>
+
+<body>
+
+    <!-- Background: clean, static accent wash (styled in starfield.css) -->
+    <div class="bg-fx" id="bg-fx" aria-hidden="true"></div>
+
+    <!-- Auth Loading -->
+    <div id="auth-loading" class="auth-loading hidden">
+        <div class="nico-loader">
+            <p class="loader-text">Connecting</p>
+            <span class="load"></span>
+        </div>
+        <p class="text-soft" style="margin-top:1.75rem;font-size:.95rem;letter-spacing:.02em">Connecting to Discord…</p>
+        <p class="text-mute text-xs" style="margin-top:.5rem">Verifying your session</p>
+    </div>
+
+    <!-- Auth Screen — full-screen landing -->
+    <div id="auth-screen" class="auth-screen">
+        <div class="landing">
+            <!-- Top brand bar -->
+            <header class="landing-nav">
+                <div class="brand">
+                    <div class="brand-logo" id="bot-logo"><img src="/logo.png?v=1" alt="xNico"></div>
+                    <span class="brand-name">x<span class="grad-text">Nico</span></span>
+                </div>
+                <nav class="landing-nav-right" aria-label="Primary">
+                    <a href="#features" class="nav-link">Features</a>
+                    <a href="https://discord.gg/Zs35X7Umak" target="_blank" rel="noopener" class="nav-link">Support</a>
+                    <a href="/terms.html" class="nav-link">Terms</a>
+                    <a href="/api/auth/discord/redirect" class="nav-cta">Open Dashboard</a>
+                </nav>
+            </header>
+
+            <div class="landing-grid">
+                <!-- LEFT: hero -->
+                <section class="landing-hero">
+                    <span class="hero-eyebrow">Discord server management</span>
+                    <h1 class="hero-title">Manage your whole server from <span class="grad-text">one dashboard</span>.</h1>
+                    <p class="hero-sub">
+                        Moderation, music, economy, leveling and automation in a single bot —
+                        configured from a clean control panel. Changes you make here are
+                        written straight to the bot's data store.
+                    </p>
+
+                    <!-- OAuth / config error banner (populated by app.js) -->
+                    <div id="auth-error" class="auth-error hidden" role="alert"></div>
+
+                    <div class="hero-cta">
+                        <a href="/api/auth/discord/redirect" class="auth-btn" id="login-btn">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                <path
+                                    d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.618-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.028C.533 9.046-.32 13.58.099 18.058a.082.082 0 00.031.056 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.11 13.11 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.291.074.074 0 01.078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.099.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.076.076 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.031-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.029zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.332-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.332-.946 2.418-2.157 2.418z" />
+                            </svg>
+                            Login with Discord
+                        </a>
+                        <a href="https://discord.gg/Zs35X7Umak" target="_blank" rel="noopener" class="auth-btn ghost">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path
+                                    d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                            </svg>
+                            Join Support Server
+                        </a>
+                    </div>
+
+                    <div class="hero-stats">
+                        <div class="hero-stat">
+                            <div class="v" id="stat-cmds">535+</div>
+                            <div class="l">Commands</div>
+                        </div>
+                        <div class="hero-stat">
+                            <div class="v" id="stat-guilds">—</div>
+                            <div class="l">Servers</div>
+                        </div>
+                        <div class="hero-stat">
+                            <div class="v" id="stat-uptime">99.9%</div>
+                            <div class="l">Uptime</div>
+                        </div>
+                    </div>
+
+                    <div class="hero-features" id="features">
+                        <div class="auth-feature">
+                            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                            <div><div class="ft">Moderation</div><div class="fd">Ban, mute, automod</div></div>
+                        </div>
+                        <div class="auth-feature">
+                            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+                            <div><div class="ft">Music</div><div class="fd">High-quality audio</div></div>
+                        </div>
+                        <div class="auth-feature">
+                            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                            <div><div class="ft">Economy</div><div class="fd">Games &amp; currency</div></div>
+                        </div>
+                        <div class="auth-feature">
+                            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+                            <div><div class="ft">Leveling</div><div class="fd">XP, ranks &amp; roles</div></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- RIGHT: live dashboard preview mock -->
+                <aside class="landing-preview" aria-hidden="true">
+                    <div class="preview-window">
+                        <div class="pw-bar">
+                            <span class="pw-dot r"></span><span class="pw-dot y"></span><span class="pw-dot g"></span>
+                            <span class="pw-url">xnico.dashboard</span>
+                        </div>
+                        <div class="pw-body">
+                            <div class="pw-side">
+                                <div class="pw-logo"></div>
+                                <span class="pw-nav active"></span>
+                                <span class="pw-nav"></span>
+                                <span class="pw-nav"></span>
+                                <span class="pw-nav"></span>
+                                <span class="pw-nav short"></span>
+                            </div>
+                            <div class="pw-main">
+                                <div class="pw-head">
+                                    <span class="pw-title">Server Overview</span>
+                                    <span class="pw-live"><span class="d"></span> LIVE</span>
+                                </div>
+                                <div class="pw-row">
+                                    <div class="pw-card"><span class="pw-k"></span><span class="pw-v"></span></div>
+                                    <div class="pw-card"><span class="pw-k"></span><span class="pw-v"></span></div>
+                                    <div class="pw-card"><span class="pw-k"></span><span class="pw-v"></span></div>
+                                </div>
+                                <div class="pw-panel">
+                                    <div class="pw-toggle"><span class="pw-line"></span><span class="pw-sw on"></span></div>
+                                    <div class="pw-toggle"><span class="pw-line w2"></span><span class="pw-sw"></span></div>
+                                    <div class="pw-toggle"><span class="pw-line w3"></span><span class="pw-sw on"></span></div>
+                                </div>
+                                <div class="pw-chart">
+                                    <span style="--h:42%"></span><span style="--h:68%"></span><span style="--h:50%"></span>
+                                    <span style="--h:84%"></span><span style="--h:60%"></span><span style="--h:92%"></span>
+                                    <span style="--h:74%"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="preview-glow"></div>
+                </aside>
+            </div>
+
+            <footer class="landing-foot">
+                <span>© <span id="year">2025</span> xNico</span>
+                <nav class="foot-links" aria-label="Footer">
+                    <a href="/terms.html">Terms of Service</a>
+                    <a href="/privacy.html">Privacy Policy</a>
+                    <a href="https://discord.gg/Zs35X7Umak" target="_blank" rel="noopener">Support</a>
+                </nav>
+            </footer>
+        </div>
+    </div>
+
+    <!--
+        Anti-flash pre-toggle. Runs synchronously during parse (before
+        first paint) so a returning/just-authorized visitor never sees
+        the landing page flash before the dashboard loads. If a session
+        token is present (either freshly in the URL after Discord OAuth,
+        or already saved in localStorage) we hide the landing screen and
+        show the "Connecting…" loader immediately. app.js bootstrap()
+        then verifies the token and reveals the dashboard.
+    -->
+    <script>
+        (function () {
+            try {
+                var hasUrlToken = /[?&]token=/.test(location.search);
+                var hasStored = false;
+                try { hasStored = !!localStorage.getItem('token'); } catch (e) {}
+                if (hasUrlToken || hasStored) {
+                    var s = document.getElementById('auth-screen');
+                    var l = document.getElementById('auth-loading');
+                    if (s) s.classList.add('hidden');
+                    if (l) l.classList.remove('hidden');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard hidden">
+        <aside id="sidebar" class="sidebar">
+            <div class="sb-head">
+                <div class="sb-logo" id="sb-logo"><img src="/logo.png?v=1" alt="xNico"></div>
+                <div class="sb-brand">
+                    <h2>xNico</h2>
+                    <span>Dashboard v4.0</span>
+                </div>
+            </div>
+            <nav class="sb-nav" id="sb-nav">
+                <!-- Rendered by app.js -->
+            </nav>
+            <div class="sb-foot">
+                <div class="sb-user" id="sb-user" onclick="toggleUserMenu()">
+                    <div class="av" id="sb-user-av"><span>U</span></div>
+                    <div class="info">
+                        <div class="n" id="sb-user-nm">User</div>
+                        <div class="r" id="sb-user-role">Member</div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chev" width="16"
+                        height="16">
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                </div>
+                <div class="sb-menu hidden" id="sb-menu">
+                    <a href="#/profile" onclick="closeUserMenu()"><svg viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>Profile</a>
+                    <a href="#/commands" onclick="closeUserMenu()"><svg viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="4 17 10 11 4 5" />
+                            <line x1="12" y1="19" x2="20" y2="19" />
+                        </svg>Commands</a>
+                    <a href="#" class="danger" onclick="logout();return false;"><svg viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>Logout</a>
+                </div>
+            </div>
+        </aside>
+        <div class="overlay hidden" id="overlay" onclick="toggleSidebar(false)"></div>
+
+        <main class="main">
+            <header class="topbar">
+                <div class="tb-left">
+                    <button class="icon-btn mobile-btn" onclick="toggleSidebar()" aria-label="Menu">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
+                    </button>
+                    <div class="guild-picker hidden" id="guild-picker">
+                        <button class="pick" onclick="toggleGuildDropdown()" id="guild-picker-btn">
+                            <div class="ic" id="gp-ic"><span>?</span></div>
+                            <div class="nm" id="gp-nm">Select server…</div>
+                            <svg class="ar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                width="14" height="14">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </button>
+                        <div class="drop hidden" id="guild-drop"></div>
+                    </div>
+                    <div class="crumb" id="crumb">
+                        <span class="text-mute">Dashboard</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                        <span class="now" id="crumb-now">Home</span>
+                    </div>
+                </div>
+                <div class="tb-right">
+                    <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Theme">
+                        <svg id="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                        <svg id="theme-icon-light" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="5" />
+                            <line x1="12" y1="1" x2="12" y2="3" />
+                            <line x1="12" y1="21" x2="12" y2="23" />
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                            <line x1="1" y1="12" x2="3" y2="12" />
+                            <line x1="21" y1="12" x2="23" y2="12" />
+                        </svg>
+                    </button>
+                    <a class="icon-btn" href="https://discord.gg/Zs35X7Umak" target="_blank" aria-label="Support">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path
+                                d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                        </svg>
+                    </a>
+                </div>
+            </header>
+
+            <div class="page" id="page">
+                <!-- Rendered by router -->
+            </div>
+        </main>
+    </div>
+
+    <div class="toasts" id="toasts"></div>
+
+    <script src="/config.js?v=4.1.0"></script>
+    <script src="/modules.js?v=4.3.0"></script>
+    <script src="/app.js?v=4.5.0"></script>
+    <script src="/welcomer.js?v=4.2.0"></script>
+    <script src="/buttons.js?v=4.1.0"></script>
+    <script src="/menus.js?v=4.1.0"></script>
+    <script src="/leveling.js?v=4.1.0"></script>
+    <script src="/economy.js?v=4.2.0"></script>
+    <script src="/tickets.js?v=4.2.0"></script>
+    <script src="/community.js?v=4.1.0"></script>
+    <script src="/utility.js?v=4.1.0"></script>
+    <script src="/engagement.js?v=4.1.0"></script>
+    <script src="/antinuke.js?v=4.1.0"></script>
+    <script src="/automod.js?v=4.1.0"></script>
+    <script src="/message-builder.js?v=4.1.0"></script>
+    <script src="/webhook-botignore.js?v=4.1.1"></script>
+    <script src="/extras.js?v=4.1.0"></script>
+</body>
+
+</html>

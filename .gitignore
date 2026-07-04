@@ -1,0 +1,72 @@
+# ── Secrets ─────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.pem
+*.key
+
+# ── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+dashboard/node_modules/
+
+# ── Editor / OS ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── Logs ────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+logs/
+
+# ── Lavalink (server jar + runtime artifacts) ───────────────────────────────
+lavalink/Lavalink.jar
+lavalink/logs/
+lavalink/plugins/
+
+# ── Runtime data (contains real user data — should never be public) ─────────
+json_stores/
+store_snapshots/
+datas/
+data/.slash-cache.json
+data/uptime-monitor.json
+data/.heartbeat.json
+data/.uptime-state.json
+backups/
+dashboard/data/
+pg_full_dump.sql
+*.dump.sql
+temp_downloads/
+attached_assets/
+
+# ── Database dumps (real PG data with user IDs / configs) ───────────────────
+*.sql
+!schema.sql
+
+# ── Build output ────────────────────────────────────────────────────────────
+dist/
+build/
+.next/
+.cache/
+
+# ── OCR / TTS runtime caches (downloaded models, no need to commit) ─────────
+.ocr-cache/
+.tts-cache/
+
+# ── Voice recordings (user voice data, should not be committed) ─────────────
+recordings/
+
+# ── Temp / scratch files (preview renders, ad-hoc test scripts) ─────────────
+_tmp_*
+tmp_*
+*.tmp.*
+
+# ── Emoji auto-sync runtime state (per-application sync marker) ──────────────
+.emoji-sync-state.json
+
+nameplate_info.html

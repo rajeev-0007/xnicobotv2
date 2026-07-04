@@ -1,0 +1,85 @@
+{
+  "nodes": [
+    {
+      "id": "serenetia-id",
+      "host": "lavalinkv4-id.serenetia.com",
+      "port": 443,
+      "authorization": "BassRoute",
+      "secure": true,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+      "id": "serenetia-eu",
+      "host": "lavalinkv4-eu.serenetia.com",
+      "port": 443,
+      "authorization": "BassRoute",
+      "secure": true,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+      "id": "jirayu",
+      "host": "lavalink.jirayu.net",
+      "port": 443,
+      "authorization": "youshallnotpass",
+      "secure": true,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+      "id": "nexclouddev",
+      "host": "n3.nexcloud.in",
+      "port": 2026,
+      "authorization": "nexcloud",
+      "secure": false,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+      "id": "nexcloudv1",
+      "host": "f1.nexcloud.in",
+      "port": 2002,
+      "authorization": "nexcloud",
+      "secure": false,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+      "id": "nexcloudv2",
+      "host": "f1.nexcloud.in",
+      "port": 2003,
+      "authorization": "nexcloud",
+      "secure": false,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+          "id": "serenetia-v4",
+      "host": "lavalinkv4.serenetia.com",
+      "port": 443,
+      "authorization": "https://seretia.link/discord",
+      "secure": true,
+      "retryAmount": 15,
+      "retryDelay": 10000
+  },
+    {
+      "id": "millo-host",
+      "host": "lava-v4.millohost.my.id",
+      "port": 443,
+      "authorization": "https://discord.gg/mjS5J2K3ep",
+      "secure": true,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+      "id": "triniumhost",
+      "host": "lavalink-v4.triniumhost.com",
+      "port": 443,
+      "authorization": "free",
+      "secure": true,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    }
+  ]
+}

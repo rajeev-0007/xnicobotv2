@@ -1,0 +1,622 @@
+[
+  {
+    "name": "Add",
+    "animated": false,
+    "file": "Add.png"
+  },
+  {
+    "name": "Alarm",
+    "animated": false,
+    "file": "Alarm.png"
+  },
+  {
+    "name": "applemusic",
+    "animated": false,
+    "file": "applemusic.png"
+  },
+  {
+    "name": "Attach",
+    "animated": false,
+    "file": "Attach.png"
+  },
+  {
+    "name": "Award",
+    "animated": false,
+    "file": "Award.png"
+  },
+  {
+    "name": "banhammer",
+    "animated": false,
+    "file": "banhammer.png"
+  },
+  {
+    "name": "Bank",
+    "animated": false,
+    "file": "Bank.png"
+  },
+  {
+    "name": "Book",
+    "animated": false,
+    "file": "Book.png"
+  },
+  {
+    "name": "Bookcheck",
+    "animated": false,
+    "file": "Bookcheck.png"
+  },
+  {
+    "name": "Bookmark",
+    "animated": false,
+    "file": "Bookmark.png"
+  },
+  {
+    "name": "Bookopen",
+    "animated": false,
+    "file": "Bookopen.png"
+  },
+  {
+    "name": "bots",
+    "animated": false,
+    "file": "bots.png"
+  },
+  {
+    "name": "Box",
+    "animated": false,
+    "file": "Box.png"
+  },
+  {
+    "name": "bug1_rookie",
+    "animated": false,
+    "file": "bug1_rookie.png"
+  },
+  {
+    "name": "bug2_golden",
+    "animated": false,
+    "file": "bug2_golden.png"
+  },
+  {
+    "name": "Bullhorn",
+    "animated": false,
+    "file": "Bullhorn.png"
+  },
+  {
+    "name": "Cancel",
+    "animated": false,
+    "file": "Cancel.png"
+  },
+  {
+    "name": "Caretleft",
+    "animated": false,
+    "file": "Caretleft.png"
+  },
+  {
+    "name": "Caretright",
+    "animated": false,
+    "file": "Caretright.png"
+  },
+  {
+    "name": "Checkedbox",
+    "animated": false,
+    "file": "Checkedbox.png"
+  },
+  {
+    "name": "Clipboard",
+    "animated": false,
+    "file": "Clipboard.png"
+  },
+  {
+    "name": "Clipboardalt",
+    "animated": false,
+    "file": "Clipboardalt.png"
+  },
+  {
+    "name": "Clock",
+    "animated": false,
+    "file": "Clock.png"
+  },
+  {
+    "name": "Cloudcheck",
+    "animated": false,
+    "file": "Cloudcheck.png"
+  },
+  {
+    "name": "Commentblock",
+    "animated": false,
+    "file": "Commentblock.png"
+  },
+  {
+    "name": "Copy",
+    "animated": false,
+    "file": "Copy.png"
+  },
+  {
+    "name": "Crown",
+    "animated": false,
+    "file": "Crown.png"
+  },
+  {
+    "name": "Cursor",
+    "animated": false,
+    "file": "Cursor.png"
+  },
+  {
+    "name": "Desktop",
+    "animated": false,
+    "file": "Desktop.png"
+  },
+  {
+    "name": "developer",
+    "animated": false,
+    "file": "developer.png"
+  },
+  {
+    "name": "Dislike",
+    "animated": false,
+    "file": "Dislike.png"
+  },
+  {
+    "name": "dnd",
+    "animated": false,
+    "file": "dnd.png"
+  },
+  {
+    "name": "Document",
+    "animated": false,
+    "file": "Document.png"
+  },
+  {
+    "name": "Download",
+    "animated": false,
+    "file": "Download.png"
+  },
+  {
+    "name": "Edit",
+    "animated": false,
+    "file": "Edit.png"
+  },
+  {
+    "name": "Editalt",
+    "animated": false,
+    "file": "Editalt.png"
+  },
+  {
+    "name": "Envelope",
+    "animated": false,
+    "file": "Envelope.png"
+  },
+  {
+    "name": "Envelopeopen",
+    "animated": false,
+    "file": "Envelopeopen.png"
+  },
+  {
+    "name": "Eye",
+    "animated": false,
+    "file": "Eye.png"
+  },
+  {
+    "name": "Eyeclosed",
+    "animated": false,
+    "file": "Eyeclosed.png"
+  },
+  {
+    "name": "Fastforward",
+    "animated": false,
+    "file": "Fastforward.png"
+  },
+  {
+    "name": "Fastrewind",
+    "animated": false,
+    "file": "Fastrewind.png"
+  },
+  {
+    "name": "Fileuser",
+    "animated": false,
+    "file": "Fileuser.png"
+  },
+  {
+    "name": "Fire",
+    "animated": false,
+    "file": "Fire.png"
+  },
+  {
+    "name": "Folder",
+    "animated": false,
+    "file": "Folder.png"
+  },
+  {
+    "name": "Folderblock",
+    "animated": false,
+    "file": "Folderblock.png"
+  },
+  {
+    "name": "Folderopen",
+    "animated": false,
+    "file": "Folderopen.png"
+  },
+  {
+    "name": "Forward",
+    "animated": false,
+    "file": "Forward.png"
+  },
+  {
+    "name": "Gamepad",
+    "animated": false,
+    "file": "Gamepad.png"
+  },
+  {
+    "name": "gmod",
+    "animated": false,
+    "file": "gmod.png"
+  },
+  {
+    "name": "Hashtag",
+    "animated": false,
+    "file": "Hashtag.png"
+  },
+  {
+    "name": "Headphone",
+    "animated": false,
+    "file": "Headphone.png"
+  },
+  {
+    "name": "Heart",
+    "animated": false,
+    "file": "Heart.png"
+  },
+  {
+    "name": "Heartbeat",
+    "animated": false,
+    "file": "Heartbeat.png"
+  },
+  {
+    "name": "HeartCross",
+    "animated": true,
+    "file": "HeartCross.gif"
+  },
+  {
+    "name": "History",
+    "animated": false,
+    "file": "History.png"
+  },
+  {
+    "name": "Home",
+    "animated": false,
+    "file": "Home.png"
+  },
+  {
+    "name": "idle",
+    "animated": false,
+    "file": "idle.png"
+  },
+  {
+    "name": "Image",
+    "animated": false,
+    "file": "Image.png"
+  },
+  {
+    "name": "Infocircle",
+    "animated": false,
+    "file": "Infocircle.png"
+  },
+  {
+    "name": "Inforect",
+    "animated": false,
+    "file": "Inforect.png"
+  },
+  {
+    "name": "Infotriangle",
+    "animated": false,
+    "file": "Infotriangle.png"
+  },
+  {
+    "name": "Invoice",
+    "animated": false,
+    "file": "Invoice.png"
+  },
+  {
+    "name": "Key",
+    "animated": false,
+    "file": "Key.png"
+  },
+  {
+    "name": "Lightbulbalt",
+    "animated": false,
+    "file": "Lightbulbalt.png"
+  },
+  {
+    "name": "Lightning",
+    "animated": false,
+    "file": "Lightning.png"
+  },
+  {
+    "name": "Lightningalt",
+    "animated": false,
+    "file": "Lightningalt.png"
+  },
+  {
+    "name": "Like",
+    "animated": false,
+    "file": "Like.png"
+  },
+  {
+    "name": "Loading",
+    "animated": true,
+    "file": "Loading.gif"
+  },
+  {
+    "name": "Lock",
+    "animated": false,
+    "file": "Lock.png"
+  },
+  {
+    "name": "Microphone",
+    "animated": false,
+    "file": "Microphone.png"
+  },
+  {
+    "name": "Microphoneoff",
+    "animated": false,
+    "file": "Microphoneoff.png"
+  },
+  {
+    "name": "Money",
+    "animated": false,
+    "file": "Money.png"
+  },
+  {
+    "name": "Music",
+    "animated": false,
+    "file": "Music.png"
+  },
+  {
+    "name": "New",
+    "animated": false,
+    "file": "New.png"
+  },
+  {
+    "name": "nitroboost",
+    "animated": false,
+    "file": "nitroboost.png"
+  },
+  {
+    "name": "Notificationon",
+    "animated": false,
+    "file": "Notificationon.png"
+  },
+  {
+    "name": "offline",
+    "animated": false,
+    "file": "offline.png"
+  },
+  {
+    "name": "online",
+    "animated": false,
+    "file": "online.png"
+  },
+  {
+    "name": "Palette",
+    "animated": false,
+    "file": "Palette.png"
+  },
+  {
+    "name": "PartnerServer",
+    "animated": false,
+    "file": "PartnerServer.png"
+  },
+  {
+    "name": "Pause",
+    "animated": false,
+    "file": "Pause.png"
+  },
+  {
+    "name": "Picture",
+    "animated": false,
+    "file": "Picture.png"
+  },
+  {
+    "name": "Pin",
+    "animated": false,
+    "file": "Pin.png"
+  },
+  {
+    "name": "Play",
+    "animated": false,
+    "file": "Play.png"
+  },
+  {
+    "name": "Plus",
+    "animated": false,
+    "file": "Plus.png"
+  },
+  {
+    "name": "Present",
+    "animated": false,
+    "file": "Present.png"
+  },
+  {
+    "name": "Refresh",
+    "animated": false,
+    "file": "Refresh.png"
+  },
+  {
+    "name": "rocket",
+    "animated": false,
+    "file": "rocket.png"
+  },
+  {
+    "name": "Sandwatch",
+    "animated": false,
+    "file": "Sandwatch.png"
+  },
+  {
+    "name": "Save",
+    "animated": false,
+    "file": "Save.png"
+  },
+  {
+    "name": "Search",
+    "animated": false,
+    "file": "Search.png"
+  },
+  {
+    "name": "Server",
+    "animated": false,
+    "file": "Server.png"
+  },
+  {
+    "name": "Settings",
+    "animated": false,
+    "file": "Settings.png"
+  },
+  {
+    "name": "Settingsadjust",
+    "animated": false,
+    "file": "Settingsadjust.png"
+  },
+  {
+    "name": "Shield",
+    "animated": false,
+    "file": "Shield.png"
+  },
+  {
+    "name": "Shoppingcart",
+    "animated": false,
+    "file": "Shoppingcart.png"
+  },
+  {
+    "name": "Shuffle",
+    "animated": false,
+    "file": "Shuffle.png"
+  },
+  {
+    "name": "Sketch",
+    "animated": false,
+    "file": "Sketch.png"
+  },
+  {
+    "name": "Skipnext",
+    "animated": false,
+    "file": "Skipnext.png"
+  },
+  {
+    "name": "Skipprev",
+    "animated": false,
+    "file": "Skipprev.png"
+  },
+  {
+    "name": "soundCloud",
+    "animated": false,
+    "file": "soundCloud.png"
+  },
+  {
+    "name": "spotify",
+    "animated": false,
+    "file": "spotify.png"
+  },
+  {
+    "name": "staff",
+    "animated": false,
+    "file": "staff.png"
+  },
+  {
+    "name": "stage",
+    "animated": false,
+    "file": "stage.png"
+  },
+  {
+    "name": "Star",
+    "animated": false,
+    "file": "Star.png"
+  },
+  {
+    "name": "Timer",
+    "animated": false,
+    "file": "Timer.png"
+  },
+  {
+    "name": "Toggleoff",
+    "animated": false,
+    "file": "Toggleoff.png"
+  },
+  {
+    "name": "Toggleon",
+    "animated": false,
+    "file": "Toggleon.png"
+  },
+  {
+    "name": "topgg",
+    "animated": false,
+    "file": "topgg.png"
+  },
+  {
+    "name": "transfer",
+    "animated": false,
+    "file": "transfer.png"
+  },
+  {
+    "name": "Trash",
+    "animated": false,
+    "file": "Trash.png"
+  },
+  {
+    "name": "trust",
+    "animated": false,
+    "file": "trust.png"
+  },
+  {
+    "name": "Unlock",
+    "animated": false,
+    "file": "Unlock.png"
+  },
+  {
+    "name": "untrust",
+    "animated": false,
+    "file": "untrust.png"
+  },
+  {
+    "name": "Upload",
+    "animated": false,
+    "file": "Upload.png"
+  },
+  {
+    "name": "User",
+    "animated": false,
+    "file": "User.png"
+  },
+  {
+    "name": "Userblock",
+    "animated": false,
+    "file": "Userblock.png"
+  },
+  {
+    "name": "Userplus",
+    "animated": false,
+    "file": "Userplus.png"
+  },
+  {
+    "name": "Volumedown",
+    "animated": false,
+    "file": "Volumedown.png"
+  },
+  {
+    "name": "Volumeoff",
+    "animated": false,
+    "file": "Volumeoff.png"
+  },
+  {
+    "name": "Volumeup",
+    "animated": false,
+    "file": "Volumeup.png"
+  },
+  {
+    "name": "xnico",
+    "animated": false,
+    "file": "xnico.png"
+  },
+  {
+    "name": "YoutubeLive",
+    "animated": false,
+    "file": "YoutubeLive.png"
+  }
+]

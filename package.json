@@ -1,0 +1,77 @@
+{
+  "name": "xnico",
+  "version": "2.0.0",
+  "main": "index.js",
+  "description": "xNico — a professional all-in-one Discord bot. Music, moderation, fun, economy, leveling, tickets, and more.",
+  "author": {
+    "name": "Rajeev (Rexzy)",
+    "url": "https://thenico.vercel.app"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://thenico.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rexzy-Rajeev/xnicobotv2"
+  },
+  "bugs": {
+    "url": "https://discord.gg/Zs35X7Umak"
+  },
+  "keywords": [
+    "discord",
+    "discord-bot",
+    "discordjs",
+    "moderation",
+    "music",
+    "lavalink",
+    "economy",
+    "leveling",
+    "automod",
+    "tickets",
+    "xnico"
+  ],
+  "scripts": {
+    "start": "bash start.sh",
+    "start:bot": "node shard.js",
+    "start:bot:noshard": "node index.js",
+    "start:dashboard": "node dashboard/server.js",
+    "start:lavalink": "cd lavalink && java -jar Lavalink.jar",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "credits": {
+    "owner": "Rexzy aka Rajeev",
+    "developer": "Rajeev (Rexzy)",
+    "license": "Licensed by Rajeev",
+    "notice": "All design, code, and branding © Rajeev (Rexzy). Unauthorized resale prohibited."
+  },
+  "dependencies": {
+    "axios": "^1.16.1",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.21.0"
+  },
+  "optionalDependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "@napi-rs/canvas": "^1.0.0",
+    "discord.js": "^14.26.4",
+    "emoji-regex": "^10.6.0",
+    "ffmpeg-static": "^5.3.0",
+    "lavalink-client": "^2.10.2",
+    "mineflayer": "^1.4.0",
+    "opusscript": "0.0.8",
+    "prism-media": "^1.3.5",
+    "tesseract.js": "^7.0.0",
+    "youtube-dl-exec": "^3.1.7"
+  },
+  "overrides": {
+    "undici": "^6.27.0"
+  }
+}

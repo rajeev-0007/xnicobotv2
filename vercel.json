@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "installCommand": "npm install --omit=optional --no-audit --no-fund",
+  "builds": [
+    {
+      "src": "dashboard/server.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": "dashboard/public/**"
+      }
+    }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/dashboard/server.js" }
+  ]
+}
