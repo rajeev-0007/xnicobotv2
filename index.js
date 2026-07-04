@@ -12834,13 +12834,39 @@ async function awardVoiceXp(guild, member, channelId, durationSeconds) {
                 .sort((a, b) => b.xp - a.xp);
             const userRank = sorted.findIndex(u => u.uid === member.id) + 1;
 
+            // Apply the SAME custom message template as the message-XP path so
+            // voice level-ups and chat level-ups look identical.
+            const lvlMode = announceConfig.messageMode === 'inside' ? 'inside' : 'outside';
+            const lvlTpl = (announceConfig.message && announceConfig.message.trim()) ? announceConfig.message : null;
+            const fillLvlTpl = (uVal) => lvlTpl
+                ? lvlTpl
+                    .replace(/{user}/g, uVal)
+                    .replace(/{level}/g, String(newLevel))
+                    .replace(/{oldlevel}/g, String(oldLevel))
+                    .replace(/{xp}/g, userData.xp.toLocaleString())
+                    .replace(/{rank}/g, String(userRank))
+                    .replace(/{xpgain}/g, String(xpGain))
+                    .replace(/{server}/g, guild.name)
+                : null;
+            const insideLine = (lvlMode === 'inside' && lvlTpl)
+                ? fillLvlTpl(member.user.globalName || member.user.username)
+                : null;
+
             const cardBuffer = await generateLevelUpCard(member.user, {
                 oldLevel, newLevel, totalXp: userData.xp, rank: userRank, xpGain,
                 style: announceConfig.cardStyle || 'default',
+                customLine: insideLine,
             });
+
+            let announceContent = `${member}`;
+            if (lvlMode === 'outside' && lvlTpl) {
+                const filled = fillLvlTpl(member.toString());
+                if (filled) announceContent = filled;
+            }
+
             const attachment = new AttachmentBuilder(cardBuffer, { name: 'level-up.png' });
             await announceChannel.send({
-                content: `${member}`,
+                content: announceContent,
                 files: [attachment],
                 allowedMentions: { users: [member.id] }
             }).catch(() => { });

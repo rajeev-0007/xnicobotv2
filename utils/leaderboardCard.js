@@ -27,13 +27,13 @@ const imageCache = require('./imageCache');
 try { registerAllFonts(); } catch {}
 
 const RANK_BADGE_URLS = {
-    1: 'https://cdn.discordapp.com/emojis/1522972998569689098.png',
-    2: 'https://cdn.discordapp.com/emojis/1522973001849770044.png',
-    3: 'https://cdn.discordapp.com/emojis/1522973004378935486.png',
+    1: 'https://cdn.discordapp.com/emojis/1522973015002976297.png',
+    2: 'https://cdn.discordapp.com/emojis/1522973012385599519.png',
+    3: 'https://cdn.discordapp.com/emojis/1522973009525080176.png',
     4: 'https://cdn.discordapp.com/emojis/1522973006874279936.png',
-    5: 'https://cdn.discordapp.com/emojis/1522973009525080176.png',
-    6: 'https://cdn.discordapp.com/emojis/1522973012385599519.png',
-    7: 'https://cdn.discordapp.com/emojis/1522973015002976297.png',
+    5: 'https://cdn.discordapp.com/emojis/1522973004378935486.png',
+    6: 'https://cdn.discordapp.com/emojis/1522973001849770044.png',
+    7: 'https://cdn.discordapp.com/emojis/1522972998569689098.png',
 };
 
 const COL = {

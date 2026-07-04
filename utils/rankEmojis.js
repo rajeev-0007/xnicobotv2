@@ -9,15 +9,15 @@
  * Used by: liveleaderboard, messages leaderboard, any ranked display.
  */
 
-// Replace these with your actual emoji IDs after uploading
+// Reversed so the most elaborate badge sits at rank #1 (top of the board).
 const RANK_EMOJIS = {
-    1: '<:rank1:1522972998569689098>',  // Champion — wings + 3 hearts
-    2: '<:rank2:1522973001849770044>',  // Runner up — wings + heart + chevrons  
-    3: '<:rank3:1522973004378935486>',  // Third — wings + heart
-    4: '<:rank4:1522973006874279936>',  // 4th — shield + 2 chevrons
-    5: '<:rank5:1522973009525080176>',  // 5th — shield + 3 chevrons
-    6: '<:rank6:1522973012385599519>',  // 6th — wings + single heart (large)
-    7: '<:rank7:1522973015002976297>',  // 7th — wings + heart + chevrons (small)
+    1: '<:rank7:1522973015002976297>',
+    2: '<:rank6:1522973012385599519>',
+    3: '<:rank5:1522973009525080176>',
+    4: '<:rank4:1522973006874279936>',
+    5: '<:rank3:1522973004378935486>',
+    6: '<:rank2:1522973001849770044>',
+    7: '<:rank1:1522972998569689098>',
 };
 
 // Trophy emoji for top 3 (use in text messages, not canvas)
