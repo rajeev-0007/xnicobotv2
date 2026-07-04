@@ -818,11 +818,16 @@ class JsonStore extends EventEmitter {
         if (this._localMode) return this._flushDirtyLocal();
         if (this.dirty.size === 0) return;
         const toFlush = [...this.dirty];
+        // NOTE: do NOT pre-delete from `this.dirty` here. `_persistToPg`
+        // clears the dirty flag ONLY on a successful write (in its .then).
+        // If the write fails (e.g. the DB role lacks INSERT/UPDATE on
+        // json_store), the store must stay dirty so smartRefresh's poll
+        // won't clobber the in-memory value with stale DB data — which
+        // is what made customizations "disappear again" mid-session.
         await Promise.allSettled(toFlush.map(name => {
             const data = this.cache.get(name);
             if (data === undefined) return Promise.resolve();
             this._clearTimer(name);
-            this.dirty.delete(name);
             return this._persistToPg(name, data);
         }));
     }

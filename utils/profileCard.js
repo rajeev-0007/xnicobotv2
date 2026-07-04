@@ -320,11 +320,20 @@ class ProfileCard {
             let bx = PAD;
             for (const badge of visible) {
                 const badgeColor = badge.color || accent;
+                // Raised tile with a light→mid gradient so both dark/black and
+                // light emojis stay visible regardless of the card background.
                 drawRoundedRect(ctx, bx, cursorY, badgeSize, badgeSize, 9);
-                ctx.fillStyle = 'rgba(0,0,0,0.25)';
+                const bgGrad = ctx.createLinearGradient(bx, cursorY, bx, cursorY + badgeSize);
+                bgGrad.addColorStop(0, 'rgba(255,255,255,0.30)');
+                bgGrad.addColorStop(1, 'rgba(255,255,255,0.14)');
+                ctx.fillStyle = bgGrad;
                 ctx.fill();
-                ctx.strokeStyle = rgba(badgeColor, 0.5);
-                ctx.lineWidth = 1.2;
+                // Subtle inner base so the tile reads consistently on any bg
+                drawRoundedRect(ctx, bx, cursorY, badgeSize, badgeSize, 9);
+                ctx.fillStyle = 'rgba(120,130,150,0.22)';
+                ctx.fill();
+                ctx.strokeStyle = rgba(badgeColor, 0.7);
+                ctx.lineWidth = 1.4;
                 drawRoundedRect(ctx, bx, cursorY, badgeSize, badgeSize, 9);
                 ctx.stroke();
 
