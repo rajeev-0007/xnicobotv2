@@ -237,13 +237,32 @@ function buildHelpContainer(content, user, client, isHome = false, showOwner = f
         } catch { }
     }
 
-    // Category dropdown
-    const options = showOwner ? CATEGORY_OPTIONS : CATEGORY_OPTIONS.filter(o => o.value !== 'owner');
-    const selectMenu = new StringSelectMenuBuilder()
+    // Category dropdowns — split into two emoji-less menus for a cleaner look.
+    const baseOptions = (showOwner ? CATEGORY_OPTIONS : CATEGORY_OPTIONS.filter(o => o.value !== 'owner'))
+        .map(o => ({ label: o.label, description: o.description, value: o.value })); // strip emojis
+
+    const home = baseOptions.find(o => o.value === 'home');
+    const cats = baseOptions.filter(o => o.value !== 'home');
+    const mid = Math.ceil(cats.length / 2);
+    const firstHalf = cats.slice(0, mid);
+    const secondHalf = cats.slice(mid);
+
+    // Menu 1: Home + first half
+    const menu1Options = home ? [home, ...firstHalf] : firstHalf;
+    const selectMenu1 = new StringSelectMenuBuilder()
         .setCustomId('help_category')
-        .setPlaceholder('Select a category')
-        .addOptions(options);
-    container.addActionRowComponents(new ActionRowBuilder().addComponents(selectMenu));
+        .setPlaceholder('Categories (1/2) — Music, Mod, Server…')
+        .addOptions(menu1Options.slice(0, 25));
+    container.addActionRowComponents(new ActionRowBuilder().addComponents(selectMenu1));
+
+    // Menu 2: second half
+    if (secondHalf.length > 0) {
+        const selectMenu2 = new StringSelectMenuBuilder()
+            .setCustomId('help_category2')
+            .setPlaceholder('Categories (2/2) — Games, Anime, Economy…')
+            .addOptions(secondHalf.slice(0, 25));
+        container.addActionRowComponents(new ActionRowBuilder().addComponents(selectMenu2));
+    }
 
     if (isHome) {
         // "More options" dropdown (home only — replaces buttons)

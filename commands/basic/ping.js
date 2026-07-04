@@ -30,18 +30,74 @@ function formatUptime(seconds) {
     return `${m}m`;
 }
 
+// Keep a rolling history of API pings for the graph.
+global._pingHistory = global._pingHistory || [];
+function pushPing(v) {
+    global._pingHistory.push(v);
+    if (global._pingHistory.length > 24) global._pingHistory.shift();
+}
+
+function drawGraph(ctx, fh, x, y, w, h, data, color) {
+    // Panel
+    drawRoundedRect(ctx, x, y, w, h, 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fill();
+
+    if (data.length < 2) {
+        ctx.font = fh.getFont(11); ctx.fillStyle = COL.dim; ctx.textAlign = 'center';
+        ctx.fillText('collecting data…', x + w / 2, y + h / 2 + 4);
+        ctx.textAlign = 'left';
+        return;
+    }
+
+    const max = Math.max(...data, 1) * 1.2;
+    const min = 0;
+    const pad = 10;
+    const gx = x + pad, gy = y + pad, gw = w - pad * 2, gh = h - pad * 2;
+    const n = data.length;
+    const px = i => gx + (gw * i) / (n - 1);
+    const py = v => gy + gh - (gh * ((v - min) / (max - min)));
+
+    // Gridlines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 3; i++) {
+        const yy = gy + (gh * i) / 3;
+        ctx.beginPath(); ctx.moveTo(gx, yy); ctx.lineTo(gx + gw, yy); ctx.stroke();
+    }
+
+    // Area fill
+    ctx.beginPath();
+    ctx.moveTo(gx, gy + gh);
+    data.forEach((v, i) => ctx.lineTo(px(i), py(v)));
+    ctx.lineTo(gx + gw, gy + gh);
+    ctx.closePath();
+    ctx.fillStyle = color + '22'; ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    data.forEach((v, i) => { i === 0 ? ctx.moveTo(px(i), py(v)) : ctx.lineTo(px(i), py(v)); });
+    ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Last point dot
+    const lx = px(n - 1), ly = py(data[n - 1]);
+    ctx.beginPath(); ctx.arc(lx, ly, 3.5, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+}
+
 async function buildPingCard(client, roundtripMs) {
     const fh = getFontHelpers('Inter');
-    const W = 420, H = 180;
-    const canvas = createCanvas(W, H);
-    const ctx = canvas.getContext('2d');
-
     const api = Math.round(client.ws.ping);
+    pushPing(api >= 0 ? api : 0);
     const status = getStatusInfo(api);
     const uptime = formatUptime(process.uptime());
     const shard = client.shard?.ids?.[0] ?? 0;
+    const hist = global._pingHistory;
+    const avg = hist.length ? Math.round(hist.reduce((a, b) => a + b, 0) / hist.length) : api;
+    const peak = hist.length ? Math.max(...hist) : api;
 
-    // Background
+    const W = 480, H = 300;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+
     drawRoundedRect(ctx, 0, 0, W, H, 12);
     ctx.fillStyle = COL.bg; ctx.fill();
 
@@ -50,56 +106,48 @@ async function buildPingCard(client, roundtripMs) {
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     ctx.fillText('Pong!', 20, 34);
 
-    // Status badge (top-right)
-    const badgeW = ctx.measureText(status.label).width + 20;
+    // Status badge
     ctx.font = fh.getSemiBoldFont(11);
     const bw = ctx.measureText(status.label).width + 16;
     drawRoundedRect(ctx, W - 20 - bw, 18, bw, 22, 6);
     ctx.fillStyle = status.color + '30'; ctx.fill();
-    ctx.textAlign = 'center';
-    ctx.font = fh.getSemiBoldFont(11); ctx.fillStyle = status.color;
+    ctx.textAlign = 'center'; ctx.fillStyle = status.color;
     ctx.fillText(status.label, W - 20 - bw / 2, 33);
     ctx.textAlign = 'left';
 
-    // Divider line
-    ctx.strokeStyle = COL.border; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(20, 48); ctx.lineTo(W - 20, 48); ctx.stroke();
-
-    // Stats grid (2 columns)
-    const col1x = 20, col2x = W / 2 + 10;
-    let y = 72;
-
-    // API Latency
+    // Big API number
     ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
-    ctx.fillText('API Latency', col1x, y);
-    ctx.font = fh.getBoldFont(22); ctx.fillStyle = status.color;
-    ctx.fillText(`${api}ms`, col1x, y + 26);
+    ctx.fillText('API LATENCY', 20, 58);
+    ctx.font = fh.getBoldFont(34); ctx.fillStyle = status.color;
+    ctx.fillText(`${api}`, 20, 92);
+    ctx.font = fh.getFont(14); ctx.fillStyle = COL.muted;
+    const numW = ctx.measureText(`${api}`).width;
+    ctx.font = fh.getBoldFont(34); const bigW = ctx.measureText(`${api}`).width;
+    ctx.font = fh.getFont(14); ctx.fillStyle = COL.muted;
+    ctx.fillText('ms', 24 + bigW, 92);
 
-    // Roundtrip
-    ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
-    ctx.fillText('Roundtrip', col2x, y);
-    ctx.font = fh.getBoldFont(22); ctx.fillStyle = COL.text;
-    ctx.fillText(roundtripMs !== null ? `${roundtripMs}ms` : '...', col2x, y + 26);
-
-    y += 56;
-
-    // Uptime
-    ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
-    ctx.fillText('Uptime', col1x, y);
-    ctx.font = fh.getSemiBoldFont(14); ctx.fillStyle = COL.text;
-    ctx.fillText(uptime, col1x, y + 20);
-
-    // Shard
-    ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
-    ctx.fillText('Shard', col2x, y);
-    ctx.font = fh.getSemiBoldFont(14); ctx.fillStyle = COL.text;
-    ctx.fillText(`#${shard}`, col2x, y + 20);
-
-    // Footer line
-    ctx.font = fh.getFont(10); ctx.fillStyle = COL.dim;
-    ctx.fillText('xNico • System Latency', 20, H - 12);
+    // Right-side mini stats
     ctx.textAlign = 'right';
-    ctx.fillText(new Date().toUTCString().slice(0, -4), W - 20, H - 12);
+    ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
+    ctx.fillText(`avg ${avg}ms  •  peak ${peak}ms`, W - 20, 92);
+    ctx.textAlign = 'left';
+
+    // Graph
+    drawGraph(ctx, fh, 20, 108, W - 40, 120, hist, status.color);
+
+    // Bottom stat row
+    const by = 258;
+    ctx.strokeStyle = COL.border; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(20, by - 12); ctx.lineTo(W - 20, by - 12); ctx.stroke();
+
+    const cell = (label, val, x) => {
+        ctx.font = fh.getFont(10); ctx.fillStyle = COL.muted; ctx.fillText(label, x, by);
+        ctx.font = fh.getSemiBoldFont(13); ctx.fillStyle = COL.text; ctx.fillText(val, x, by + 18);
+    };
+    cell('ROUNDTRIP', roundtripMs !== null ? `${roundtripMs}ms` : '...', 20);
+    cell('UPTIME', uptime, 150);
+    cell('SHARD', `#${shard}`, 300);
+    cell('SAMPLES', String(hist.length), 400);
 
     return canvas.toBuffer('image/png');
 }

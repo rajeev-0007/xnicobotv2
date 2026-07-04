@@ -7918,7 +7918,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
 
-            if (interaction.customId === 'help_category') {
+            if (interaction.customId === 'help_category' || interaction.customId === 'help_category2') {
                 const helpCommand = client.commands.get('help');
                 if (helpCommand && helpCommand.handleSelectMenu) {
                     try {
