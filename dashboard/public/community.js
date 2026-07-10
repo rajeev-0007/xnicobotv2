@@ -71,7 +71,10 @@ function _renderAutorolePage(g) {
         return `<span class="chip">${esc(r?.name || id)} <button onclick="window.__aroleRm('bots','${esc(id)}')">×</button></span>`;
     }).join('') || '<span class="text-sm text-mute">None — new bots get no auto-role.</span>';
 
-    const roleSel = (id) => `<select id="${id}"><option value="">— Pick role —</option>${state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select>`;
+    const roleSel = (id) => {
+        const opts = state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+        return `<select id="${id}"><option value="">— Pick role —</option>${opts}</select>`;
+    };
 
     $('#page').innerHTML = `
         <div class="page-h"><div><h1>Auto-Role</h1><p>Auto-assign roles when members join ${esc(g.name)}.</p></div>
@@ -127,7 +130,10 @@ async function pageSuggestions() {
     const w = cfg && !cfg._error ? cfg : { channelId: null, logsChannelId: null, voteThreshold: 10, threadSlowmode: 0, totalSuggestions: 0 };
 
     const textCh = state.channels.filter(c => c.type === 0 || c.type === 5);
-    const chSel = (id, val) => `<select id="${id}"><option value="">— None —</option>${textCh.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>`;
+    const chSel = (id, val) => {
+        const opts = textCh.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('');
+        return `<select id="${id}"><option value="">— None —</option>${opts}</select>`;
+    };
 
     $('#page').innerHTML = `
         <div class="page-h"><div><h1>Suggestions</h1><p>Community suggestion system for ${esc(g.name)}.</p></div>
@@ -186,7 +192,10 @@ async function pageFeedback() {
     const w = cfg && !cfg._error ? cfg : { channelId: null, logsChannelId: null, totalCount: 0, ratings: {1:0,2:0,3:0,4:0,5:0}, averageRating: 0 };
 
     const textCh = state.channels.filter(c => c.type === 0 || c.type === 5);
-    const chSel = (id, val) => `<select id="${id}"><option value="">— None —</option>${textCh.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>`;
+    const chSel = (id, val) => {
+        const opts = textCh.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('');
+        return `<select id="${id}"><option value="">— None —</option>${opts}</select>`;
+    };
 
     // Rating distribution bar
     const maxR = Math.max(1, ...Object.values(w.ratings || {}));

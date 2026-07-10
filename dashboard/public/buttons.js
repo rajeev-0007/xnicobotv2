@@ -78,6 +78,8 @@ function renderButtonEditor(g, id, btn, isNew) {
     window.__btnDraftKey = draftKey;
     window.__btnSnapshot = structuredClone(btn);
     window.__currentBtnActions = btn.actions || [];
+    window.__currentBtnId = id;
+    window.__currentBtnIsNew = isNew;
 
     // Global button event handlers
     window.__saveBtn = async function() {
@@ -124,18 +126,7 @@ function renderButtonEditor(g, id, btn, isNew) {
         window.location.hash = `#/server/${g.id}/button-edit/${btnId}`;
     };
 
-    window.__addBtnAction = function() {
-        if (!window.__currentBtnActions) window.__currentBtnActions = [];
-        window.__currentBtnActions.push({ type: 'send_message', message: '' });
-        localStorage.setItem(draftKey, JSON.stringify({ ...btn, actions: window.__currentBtnActions }));
-        renderButtonActionsList(window.__currentBtnActions);
-    };
-
-    window.__delBtnAction = function(idx) {
-        window.__currentBtnActions.splice(idx, 1);
-        localStorage.setItem(draftKey, JSON.stringify({ ...btn, actions: window.__currentBtnActions }));
-        renderButtonActionsList(window.__currentBtnActions);
-    };
+    // Action array mutations are handled globally below
 
     // Update button properties on input change
     window.__updateBtn = function(key, val) {
@@ -172,8 +163,10 @@ function renderButtonEditor(g, id, btn, isNew) {
             ${a.type === 'create_ticket' ? `<div class="text-xs">Ticket: ${esc(a.ticketName || 'ticket-{user}')}</div>` : ''}
         </div>`).join('');
 
-    const roleSel = `<select id="action-role"><option value="">— Select Role —</option>${state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select>`;
-    const chSel = `<select id="action-channel"><option value="">— Current Channel —</option>${state.channels.filter(c => c.type === 0 || c.type === 5).map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('')}</select>`;
+    const roleOpts = state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+    const roleSel = `<select id="action-role"><option value="">— Select Role —</option>${roleOpts}</select>`;
+    const chOpts = state.channels.filter(c => c.type === 0 || c.type === 5).map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('');
+    const chSel = `<select id="action-channel"><option value="">— Current Channel —</option>${chOpts}</select>`;
 
     $('#page').innerHTML = `
         <div class="page-h">
@@ -280,14 +273,14 @@ window.__addBtnAction = () => {
     window.__currentBtnActions.push(action);
     // Re-render editor
     const g = state.currentGuild;
-    const id = $('#btn-id')?.value || '';
+    const currentId = window.__currentBtnIsNew ? ($('#btn-id')?.value || '') : window.__currentBtnId;
     const btn = { label: $('#btn-label').value, style: $('#btn-style').value, emoji: $('#btn-emoji').value, url: $('#btn-url').value, ephemeral: $('#btn-ephemeral').checked, actions: window.__currentBtnActions };
-    renderButtonEditor(g, id, btn, !$('#btn-id')?.disabled);
+    renderButtonEditor(g, currentId, btn, window.__currentBtnIsNew);
 };
 window.__rmBtnAction = (idx) => {
     window.__currentBtnActions.splice(idx, 1);
     const g = state.currentGuild;
-    const id = $('#btn-id')?.value || '';
+    const currentId = window.__currentBtnIsNew ? ($('#btn-id')?.value || '') : window.__currentBtnId;
     const btn = { label: $('#btn-label').value, style: $('#btn-style').value, emoji: $('#btn-emoji').value, url: $('#btn-url').value, ephemeral: $('#btn-ephemeral').checked, actions: window.__currentBtnActions };
-    renderButtonEditor(g, id, btn, !$('#btn-id')?.disabled);
+    renderButtonEditor(g, currentId, btn, window.__currentBtnIsNew);
 };

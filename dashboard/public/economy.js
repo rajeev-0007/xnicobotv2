@@ -84,8 +84,12 @@ function _persistEconDraft() {
 }
 
 function _renderEconomyBody(g, w, hasDraft) {
-    const tog = (key, val, label, desc, extra) =>
-        `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${desc ? `<div class="desc">${esc(desc)}</div>` : ''}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
+    const tog = (key, val, label, desc, extra) => {
+        const descHtml = desc ? `<div class="desc">${esc(desc)}</div>` : '';
+        const checkAttr = val ? 'checked' : '';
+        const extAttr = extra || '';
+        return `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${descHtml}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${checkAttr} ${extAttr}><span class="slide"></span></label></div>`;
+    };
 
     // Currency preview
     const currPreview = `${renderDiscord(w.currency || '💰')} 1,500 ${renderDiscord(w.currencyName || 'coins')}`;

@@ -112,13 +112,21 @@ function _rerenderAmKeepScroll() {
 function _renderAutomodBody(g, w, hasDraft) {
     const chSel = (key, val) => {
         const list = state.channels.filter(c => c.type === 0 || c.type === 5);
-        return `<select data-key="${esc(key)}"><option value="">— None —</option>${list.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>`;
+        const opts = list.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('');
+        return `<select data-key="${esc(key)}"><option value="">— None —</option>${opts}</select>`;
     };
-    const roleSel = (key, val) => `<select data-key="${esc(key)}"><option value="">— None —</option>${state.roles.map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
-    const tog = (key, val, label, desc, extra) =>
-        `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${desc ? `<div class="desc">${esc(desc)}</div>` : ''}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
-    const actSel = (key, val) =>
-        `<select data-key="${esc(key)}">${AUTOMOD_ACTIONS.map(a => `<option value="${esc(a.value)}" ${val === a.value ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}</select>`;
+    const roleSel = (key, val) => {
+        const opts = state.roles.map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+        return `<select data-key="${esc(key)}"><option value="">— None —</option>${opts}</select>`;
+    };
+    const tog = (key, val, label, desc, extra) => {
+        const descHtml = desc ? `<div class="desc">${esc(desc)}</div>` : '';
+        return `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${descHtml}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
+    };
+    const actSel = (key, val) => {
+        const opts = AUTOMOD_ACTIONS.map(a => `<option value="${esc(a.value)}" ${val === a.value ? 'selected' : ''}>${esc(a.label)}</option>`).join('');
+        return `<select data-key="${esc(key)}">${opts}</select>`;
+    };
     const vis = (cond) => cond ? '' : 'style="display:none"';
 
     // Ignored lists
@@ -132,8 +140,10 @@ function _renderAutomodBody(g, w, hasDraft) {
     }).join('') || '<span class="text-sm text-mute">None</span>';
 
     // Bad words list
-   const bwHtml = (w.badWords?.words || []).map(word => 
-    `<span class="chip red">${esc(word)} <button onclick="window.__amRmBadWord('${esc(word.replaceall(/'/g, String.raw`\'`))}')">×</button></span>`).join('') || '<span class="text-sm text-mute">No words added yet.</span>';
+   const bwHtml = (w.badWords?.words || []).map(word => {
+        const escWord = esc(word.replaceAll(/'/g, '\\\''));
+        return `<span class="chip red">${esc(word)} <button onclick="window.__amRmBadWord('${escWord}')">×</button></span>`;
+   }).join('') || '<span class="text-sm text-mute">No words added yet.</span>';
 
     // Link whitelist
     const linkWlHtml = (w.links?.whitelist || []).map(dom => `<span class="chip green">${esc(dom)} <button onclick="window.__amRmLinkWl('${esc(dom)}')">×</button></span>`).join('') || '<span class="text-sm text-mute">No whitelisted domains — all links blocked.</span>';
@@ -376,7 +386,7 @@ window.__amRmBadWord = (word) => {
 // Link whitelist handlers
 window.__amAddLinkWl = () => {
     const inp = $('#am-lk-input');
-    const v = (inp.value || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const v = (inp.value || '').trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
     if (!v) return toast('Enter a domain (e.g. youtube.com)', 'error');
     if (!window.__working.links) window.__working.links = { enabled: true, action: 'delete', whitelist: [] };
     if (!window.__working.links.whitelist.includes(v)) window.__working.links.whitelist.push(v);

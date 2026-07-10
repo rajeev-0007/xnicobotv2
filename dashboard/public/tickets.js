@@ -74,8 +74,17 @@ function _renderTicketsBody(g, w, tickets) {
     const textChannels = state.channels.filter(c => c.type === 0 || c.type === 5);
     const categories = state.channels.filter(c => c.type === 4);
 
-    const chSel = (id, val, list) => `<select id="${id}"><option value="">— None —</option>${list.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>${c.type === 4 ? '📁 ' : '#'}${esc(c.name)}</option>`).join('')}</select>`;
-    const roleSel = (id, val) => `<select id="${id}"><option value="">— None —</option>${state.roles.map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
+    const chSel = (id, val, list) => {
+        const opts = list.map(c => {
+            const label = c.type === 4 ? '📁 ' : '#';
+            return `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>${label}${esc(c.name)}</option>`;
+        }).join('');
+        return `<select id="${id}"><option value="">— None —</option>${opts}</select>`;
+    };
+    const roleSel = (id, val) => {
+        const opts = state.roles.map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+        return `<select id="${id}"><option value="">— None —</option>${opts}</select>`;
+    };
 
     // Categories editor
     const catsHtml = (w.categories || []).map((cat, i) => `

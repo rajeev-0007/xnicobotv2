@@ -116,7 +116,7 @@
                 </section>
 
                 <!-- RIGHT: live dashboard preview mock -->
-                <aside class="landing-preview" aria-hidden="true">
+                <aside class="landing-preview" aria-hidden="true" aria-label="Dashboard Preview">
                     <div class="preview-window">
                         <div class="pw-bar">
                             <span class="pw-dot r"></span><span class="pw-dot y"></span><span class="pw-dot g"></span>
@@ -183,20 +183,20 @@
             try {
                 var hasUrlToken = /[?&]token=/.test(location.search);
                 var hasStored = false;
-                try { hasStored = !!localStorage.getItem('token'); } catch (e) {}
+                try { hasStored = !!localStorage.getItem('token'); } catch (e) { console.warn(e); }
                 if (hasUrlToken || hasStored) {
                     var s = document.getElementById('auth-screen');
                     var l = document.getElementById('auth-loading');
                     if (s) s.classList.add('hidden');
                     if (l) l.classList.remove('hidden');
                 }
-            } catch (e) {}
+            } catch (e) { console.warn(e); }
         })();
     </script>
 
     <!-- Dashboard -->
     <div id="dashboard" class="dashboard hidden">
-        <aside id="sidebar" class="sidebar">
+        <aside id="sidebar" class="sidebar" aria-label="Sidebar Navigation">
             <div class="sb-head">
                 <div class="sb-logo" id="sb-logo"><img src="/logo.png?v=1" alt="xNico"></div>
                 <div class="sb-brand">
@@ -204,11 +204,11 @@
                     <span>Dashboard v4.0</span>
                 </div>
             </div>
-            <nav class="sb-nav" id="sb-nav">
+            <nav class="sb-nav" id="sb-nav" aria-label="Main Navigation">
                 <!-- Rendered by app.js -->
             </nav>
             <div class="sb-foot">
-                <div class="sb-user" id="sb-user" onclick="toggleUserMenu()">
+                <button type="button" class="sb-user" id="sb-user" onclick="toggleUserMenu()" style="background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left;display:flex;width:100%;">
                     <div class="av" id="sb-user-av"><span>U</span></div>
                     <div class="info">
                         <div class="n" id="sb-user-nm">User</div>
@@ -218,7 +218,7 @@
                         height="16">
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
-                </div>
+                </button>
                 <div class="sb-menu hidden" id="sb-menu">
                     <a href="#/profile" onclick="closeUserMenu()"><svg viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2">
@@ -230,16 +230,16 @@
                             <polyline points="4 17 10 11 4 5" />
                             <line x1="12" y1="19" x2="20" y2="19" />
                         </svg>Commands</a>
-                    <a href="#" class="danger" onclick="logout();return false;"><svg viewBox="0 0 24 24" fill="none"
+                    <button type="button" class="danger" onclick="logout()" style="background:none;border:none;font:inherit;cursor:pointer;width:100%;text-align:left;display:flex;align-items:center;gap:8px;"><svg viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                             <polyline points="16 17 21 12 16 7" />
                             <line x1="21" y1="12" x2="9" y2="12" />
-                        </svg>Logout</a>
+                        </svg>Logout</button>
                 </div>
             </div>
         </aside>
-        <div class="overlay hidden" id="overlay" onclick="toggleSidebar(false)"></div>
+        <button type="button" class="overlay hidden" id="overlay" onclick="toggleSidebar(false)" style="border:none;padding:0;margin:0;outline:none;appearance:none;display:block;"></button>
 
         <main class="main">
             <header class="topbar">
