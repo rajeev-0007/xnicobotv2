@@ -3,12 +3,12 @@
  * Full REST API with Discord OAuth2 login + module configuration
  */
 const express = require('express');
-const path = require('path');
+const path = require('node:path');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
+const fs = require('node:fs');
 let helmet = null;
 let rateLimit = null;
 try { helmet = require('helmet'); } catch {}
@@ -31,7 +31,7 @@ process.env.NODE_NO_WARNINGS = '1';
 // write promises so the response shim can flush them before the
 // serverless host freezes the sandbox. See the pendingWrites
 // middleware below for the full rationale.
-const { AsyncLocalStorage } = require('async_hooks');
+const { AsyncLocalStorage } = require('node:async_hooks');
 const requestStore = new AsyncLocalStorage();
 
 const app = express();
@@ -4148,7 +4148,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ── Catch-all SPA ────────────────────────────────────────────────────────────
-app.get('/{*splat}', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
+app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
 function deepMerge(target, source) {
     const r = { ...target };

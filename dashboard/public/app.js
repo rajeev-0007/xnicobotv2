@@ -48,15 +48,15 @@ function renderDiscord(input) {
 
     // 2) Stash generated tags so markdown can't touch them.
     const store = [];
-    const stash = html => `\u0000\u00a7${store.push(html) - 1}\u00a7\u0000`;
+    const stash = html => `@@\u00a7${store.push(html) - 1}\u00a7@@`;
 
     // Fenced code blocks ```lang\n...```
-    s = s.replace(/```(?:[a-zA-Z0-9+#.\-]*\n)?([\s\S]*?)```/g, (m, code) =>
+    s = s.replace(/```(?:[a-zA-Z0-9+#.-]*\n)?([\s\S]*?)```/g, (m, code) =>
         stash(`<pre class="d-pre"><code>${code.replace(/^\n|\n$/g, '')}</code></pre>`));
     // Inline `code`
     s = s.replace(/`([^`\n]+?)`/g, (m, code) => stash(`<code class="d-code">${code}</code>`));
     // Custom emojis: <a:name:id> (animated) / <:name:id> (static) — escaped form.
-    s = s.replace(/&lt;(a)?:([a-zA-Z0-9_]{2,32}):(\d{5,25})&gt;/g, (m, anim, name, id) =>
+    s = s.replace(/&lt;(a)?:(\w{2,32}):(\d{5,25})&gt;/g, (m, anim, name, id) =>
         stash(`<img class="d-emoji" src="https://cdn.discordapp.com/emojis/${id}.${anim ? 'gif' : 'png'}" alt=":${name}:" title=":${name}:" draggable="false" onerror="this.replaceWith(document.createTextNode(':${name}:'))">`));
     // Role / user / channel mentions (order: role before user, both use @).
     s = s.replace(/&lt;@&amp;(\d{5,25})&gt;/g, () => stash(`<span class="d-mention">@role</span>`));
@@ -65,13 +65,13 @@ function renderDiscord(input) {
     s = s.replace(/@(everyone|here)\b/g, (m, w) => stash(`<span class="d-mention">@${w}</span>`));
     // Timestamps <t:unix[:style]>
     s = s.replace(/&lt;t:(\d{1,15})(?::[tTdDfFR])?&gt;/g, (m, unix) => {
-        try { return stash(`<span class="d-mention">${new Date(parseInt(unix, 10) * 1000).toLocaleString()}</span>`); }
+        try { return stash(`<span class="d-mention">${new Date(Number.parseInt(unix, 10) * 1000).toLocaleString()}</span>`); }
         catch { return m; }
     });
     // Masked links [text](https://url)
-    s = s.replace(/\[([^\]\n]+?)\]\((https?:\/\/[^\s)]+)\)/g, (m, text, url) =>
-        stash(`<a class="d-link" href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`));
-
+    s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, text, url) =>
+        stash(`<a class="d-link" href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`)); 
+ 
     // 3) Line-level: headers (### / ## / #), subtext (-#), blockquotes (>).
     s = s.replace(/^###\s+(.+)$/gm, (m, t) => `<span class="d-h d-h3">${t}</span>`);
     s = s.replace(/^##\s+(.+)$/gm, (m, t) => `<span class="d-h d-h2">${t}</span>`);
@@ -89,10 +89,10 @@ function renderDiscord(input) {
     s = s.replace(/(^|[^_])_([^_\n]+?)_(?!\w)/g, '$1<em>$2</em>');
 
     // 5) Newlines → <br>.
-    s = s.replace(/\n/g, '<br>');
+    s = s.replaceAll('\n', '<br>');
 
-    // 6) Restore stashed tags.
-    s = s.replace(/\u0000\u00a7(\d+)\u00a7\u0000/g, (m, i) => store[+i] || '');
+    // 6) Restore stashed tags. 
+    s = s.replace(/@@\u00a7(\d+)\u00a7@@/g, (m, i) => store[+i] || '');
     return s;
 }
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${window.XNICO_ICONS[name] || window.XNICO_ICONS.grid}</svg>`;
@@ -265,9 +265,9 @@ async function showDashboard() {
         const guilds = await api('/api/guilds/me');
         state.guilds = Array.isArray(guilds) ? guilds : [];
 
-        // Apply saved theme
+        // Apply saved theme 
         const theme = localStorage.getItem('theme');
-        if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        if (theme === 'light') document.documentElement.dataset('data-theme', 'light');
         updateThemeIcon();
 
         $('#dashboard').classList.remove('hidden');
@@ -388,14 +388,14 @@ function selectGuild(id) {
 
 // ───── theme / sidebar / menu ─────────────────────────────
 function toggleTheme() {
-    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    const cur = document.documentElement.dataset('data-theme') || 'dark';
     const next = cur === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
+    document.documentElement.dataset('data-theme', next);
     localStorage.setItem('theme', next);
     updateThemeIcon();
 }
 function updateThemeIcon() {
-    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    const cur = document.documentElement.dataset('data-theme') || 'dark';
     $('#theme-icon-dark').classList.toggle('hidden', cur === 'light');
     $('#theme-icon-light').classList.toggle('hidden', cur !== 'light');
 }
@@ -1275,7 +1275,7 @@ function renderTags(key, list) {
         <input class="mt-1" type="text" placeholder="Type and press Enter" data-tag-input="${esc(key)}">`;
 }
 
-function cssKey(k) { return k.replace(/\./g, '-'); }
+function cssKey(k) { return k.replaceAll('.', '-'); }
 
 function renderJsonList(f, list) {
     return `<div id="jlist-${cssKey(f.key)}">
@@ -1288,7 +1288,7 @@ function jsonListItem(f, item, i) {
     let html = `<div class="listi" style="display:block">`;
     html += `<div class="row mb-2"><span class="tag">#${i + 1}</span><span class="spacer"></span><button class="btn sm danger" onclick="window.__jlistRm('${esc(key)}', ${i})">Remove</button></div>`;
     for (const s of (f.schema || [])) {
-        html += renderField({ ...s, key: `${key}[${i}].${s.key}` }, { [key.replace(/\./g, '_')]: null, __jlist_item: item });
+        html += renderField({ ...s, key: `${key}[${i}].${s.key}` }, { [key.replaceAll('.', '_')]: null, __jlist_item: item });
     }
     html += `</div>`;
     return html;
@@ -1330,7 +1330,6 @@ function bindFormInputs(working) {
         // Handle bracketed (jsonList) paths: foo[0].bar
         const apply = (value) => {
             if (key.includes('[')) {
-                const [base, rest] = key.split(/\[(\d+)\]\./);
                 const match = key.match(/^(.+?)\[(\d+)\]\.(.+)$/);
                 if (match) {
                     const [, b, idx, sub] = match;
@@ -1358,7 +1357,7 @@ function bindFormInputs(working) {
                     if (pair !== el && pair.type === 'text') pair.value = el.value;
                 });
             });
-        } else if (el.type === 'text' || el.type === 'url') {
+        } else if (el.type === 'text' || el.type === 'url' || el.type === 'email') {
             el.addEventListener('input', () => {
                 apply(el.value);
                 // Sync paired color input if this looks like a hex color
@@ -1368,6 +1367,10 @@ function bindFormInputs(working) {
                     });
                 }
             });
+        } else if (el.tagName === 'TEXTAREA') {
+            el.addEventListener('input', () => apply(el.value));
+        } else if (el.tagName === 'SELECT') {
+            el.addEventListener('change', () => apply(el.value));
         } else {
             el.addEventListener('input', () => apply(el.value));
         }
@@ -1380,10 +1383,12 @@ function bindFormInputs(working) {
             if (e.key === 'Enter' && inp.value.trim()) {
                 e.preventDefault();
                 const arr = (getDeep(working, key) || []).slice();
-                arr.push(inp.value.trim());
-                setDeep(working, key, arr);
-                inp.value = '';
-                refreshTags(key);
+                if (!arr.includes(inp.value.trim())) {
+                    arr.push(inp.value.trim());
+                    setDeep(working, key, arr);
+                    inp.value = '';
+                    refreshTags(key);
+                }
             }
         });
     });

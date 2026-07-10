@@ -26,7 +26,46 @@ const BOTADD_PUNISH_OPTIONS = [
     { value: 'kick_both', label: 'Kick bot & inviter' },
     { value: 'ban_bot',   label: 'Ban the bot' },
 ];
+// Global Anti-Nuke event handlers
+window.__saveAntiNuke = async function() {
+    try {
+        const g = state.currentGuild;
+        const payload = window.__working || {};
+        toast('Saving Anti-Nuke config...', 'info');
+        const res = await api(`/api/guild/${g.id}/antinuke`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        if (res._error) {
+            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+        } else {
+            toast('Anti-Nuke saved!', 'success');
+            localStorage.removeItem(`draft:antinuke:${g.id}`);
+        }
+    } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+    }
+};
 
+window.__addWhitelist = function(userId) {
+    if (!userId || !/^\d{15,25}$/.test(userId)) { toast('Invalid user ID', 'error'); return; }
+    const cfg = window.__working || {};
+    if (!cfg.whitelist) cfg.whitelist = [];
+    if (!cfg.whitelist.includes(userId)) {
+        cfg.whitelist.push(userId);
+        window.__working = cfg;
+        localStorage.setItem(`draft:antinuke:${state.currentGuild.id}`, JSON.stringify(cfg));
+        if (window.__renderModule) window.__renderModule();
+    }
+};
+
+window.__removeWhitelist = function(idx) {
+    const cfg = window.__working || {};
+    if (cfg.whitelist) cfg.whitelist.splice(idx, 1);
+    window.__working = cfg;
+    localStorage.setItem(`draft:antinuke:${state.currentGuild.id}`, JSON.stringify(cfg));
+    if (window.__renderModule) window.__renderModule();
+};
 async function pageAntinuke() {
     const g = state.currentGuild;
     const [cfg, channels, roles] = await Promise.all([
@@ -41,7 +80,7 @@ async function pageAntinuke() {
     state.channels = Array.isArray(channels) ? channels : [];
     state.roles    = Array.isArray(roles) ? roles.filter(r => r.name !== '@everyone') : [];
 
-    const w = JSON.parse(JSON.stringify(cfg || {}));
+    const w = structuredClone(cfg || {});
     // Safety defaults
     for (const m of ANTINUKE_MODULES) {
         if (!w[m.key]) w[m.key] = m.hasLimit
@@ -65,7 +104,7 @@ async function pageAntinuke() {
     } catch { localStorage.removeItem(draftKey); }
 
     window.__working = w;
-    window.__anSnapshot = JSON.parse(JSON.stringify(cfg));
+    window.__anSnapshot = structuredClone(cfg);
     window.__anDraftKey = draftKey;
     _renderAntinukeBody(g, w, hasDraft);
 }
@@ -95,11 +134,28 @@ function _rerenderAnKeepScroll() {
 function _renderAntinukeBody(g, w, hasDraft) {
     const chSel = (key, val) => {
         const list = state.channels.filter(c => c.type === 0 || c.type === 5);
-        return `<select data-key="${esc(key)}"><option value="">— None —</option>${list.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>`;
+        const options = list
+     .map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`)
+     .join('');
+
+     return `<select data-key="${esc(key)}"><option value="">— None —</option>${options}</select>`;
+
     };
-    const roleSel = (key, val) => `<select data-key="${esc(key)}"><option value="">— None —</option>${state.roles.map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
-    const tog = (key, val, label, desc, extra) =>
-        `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${desc ? `<div class="desc">${esc(desc)}</div>` : ''}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
+    const roleSel = (key, val) => {
+    const options = state.roles
+        .map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`)
+        .join('');
+    return `<select data-key="${esc(key)}"><option value="">— None —</option>${options}</select>`;
+   };
+
+    const tog = (key, val, label, desc, extra) => {
+        // 1. Extract the description markup into a separate string
+        const descHtml = desc ? `<div class="desc">${esc(desc)}</div>` : '';
+
+        // 2. Assemble the main row cleanly
+        return `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${descHtml}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
+    };
+
     const vis = (cond) => cond ? '' : 'style="display:none"';
 
     const activeCount = ANTINUKE_MODULES.filter(m => w[m.key]?.enabled).length;
@@ -214,7 +270,7 @@ function _renderAntinukeBody(g, w, hasDraft) {
         else {
             toast('Anti-Nuke saved — protections live!', 'success');
             try { localStorage.removeItem(window.__anDraftKey); } catch {}
-            window.__anSnapshot = JSON.parse(JSON.stringify(w));
+            window.__anSnapshot = structuredClone(w);
             const i = document.getElementById('an-draft'); if (i) i.style.display = 'none';
             $('#mod-status-tag').className = 'tag ' + (w.enabled ? 'green' : 'grey');
             $('#mod-status-tag').textContent = w.enabled ? 'Armed' : 'Offline';

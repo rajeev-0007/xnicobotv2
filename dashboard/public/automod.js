@@ -12,6 +12,34 @@ const AUTOMOD_ACTIONS = [
     { value: 'ban',     label: 'Ban user' },
 ];
 
+// Global AutoMod event handlers
+window.__saveAutomod = async function() {
+    try {
+        const g = state.currentGuild;
+        const payload = window.__working || {};
+        toast('Saving AutoMod config...', 'info');
+        const res = await api(`/api/guild/${g.id}/automod`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        if (res._error) {
+            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+        } else {
+            toast('AutoMod saved!', 'success');
+            localStorage.removeItem(`draft:automod:${g.id}`);
+        }
+    } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+    }
+};
+
+window.__resetAutomod = function() {
+    if (confirm('Reset to default settings?')) {
+        window.__working = {};
+        if (window.__renderModule) window.__renderModule();
+    }
+};
+
 async function pageAutomod() {
     const g = state.currentGuild;
     const [cfg, channels, roles] = await Promise.all([
@@ -26,7 +54,7 @@ async function pageAutomod() {
     state.channels = Array.isArray(channels) ? channels : [];
     state.roles    = Array.isArray(roles) ? roles.filter(r => r.name !== '@everyone') : [];
 
-    const w = JSON.parse(JSON.stringify(cfg || {}));
+    const w = structuredClone(cfg || {});
     // Safety defaults for arrays
     if (!Array.isArray(w.ignoredRoles))    w.ignoredRoles = [];
     if (!Array.isArray(w.ignoredChannels)) w.ignoredChannels = [];
@@ -54,7 +82,7 @@ async function pageAutomod() {
     } catch { localStorage.removeItem(draftKey); }
 
     window.__working = w;
-    window.__amSnapshot = JSON.parse(JSON.stringify(cfg));
+    window.__amSnapshot = structuredClone(cfg);
     window.__amDraftKey = draftKey;
     _renderAutomodBody(g, w, hasDraft);
 }
@@ -104,7 +132,8 @@ function _renderAutomodBody(g, w, hasDraft) {
     }).join('') || '<span class="text-sm text-mute">None</span>';
 
     // Bad words list
-    const bwHtml = (w.badWords?.words || []).map(word => `<span class="chip red">${esc(word)} <button onclick="window.__amRmBadWord('${esc(word.replace(/'/g, "\\'"))}')">×</button></span>`).join('') || '<span class="text-sm text-mute">No words added yet.</span>';
+   const bwHtml = (w.badWords?.words || []).map(word => 
+    `<span class="chip red">${esc(word)} <button onclick="window.__amRmBadWord('${esc(word.replaceall(/'/g, String.raw`\'`))}')">×</button></span>`).join('') || '<span class="text-sm text-mute">No words added yet.</span>';
 
     // Link whitelist
     const linkWlHtml = (w.links?.whitelist || []).map(dom => `<span class="chip green">${esc(dom)} <button onclick="window.__amRmLinkWl('${esc(dom)}')">×</button></span>`).join('') || '<span class="text-sm text-mute">No whitelisted domains — all links blocked.</span>';
@@ -317,7 +346,7 @@ function _renderAutomodBody(g, w, hasDraft) {
         else {
             toast('AutoMod saved — filters live!', 'success');
             try { localStorage.removeItem(window.__amDraftKey); } catch {}
-            window.__amSnapshot = JSON.parse(JSON.stringify(w));
+            window.__amSnapshot = structuredClone(w);
             const i = document.getElementById('am-draft'); if (i) i.style.display = 'none';
             $('#mod-status-tag').className = 'tag ' + (w.enabled ? 'green' : 'grey');
             $('#mod-status-tag').textContent = w.enabled ? 'Active' : 'Inactive';

@@ -6,6 +6,38 @@
    (levelingtoggle, levelroles, levelchannel, levelmultiplier).
    ========================================================= */
 
+// Global Leveling event handlers
+window.__saveLeveling = async function() {
+    try {
+        const g = state.currentGuild;
+        const payload = window.__working || {};
+        toast('Saving Leveling config...', 'info');
+        const res = await api(`/api/guild/${g.id}/leveling`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        if (res._error) {
+            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+        } else {
+            toast('Leveling saved!', 'success');
+            localStorage.removeItem(`draft:leveling:${g.id}`);
+        }
+    } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+    }
+};
+
+window.__addLevelRole = async function(level, role) {
+    if (!level || !role) { toast('Invalid level or role', 'error'); return; }
+    const g = state.currentGuild;
+    const cfg = window.__working || {};
+    if (!cfg.levelRoles) cfg.levelRoles = {};
+    cfg.levelRoles[level] = role;
+    window.__working = cfg;
+    localStorage.setItem(`draft:leveling:${g.id}`, JSON.stringify(cfg));
+    if (window.__renderModule) window.__renderModule();
+};
+
 async function pageLeveling() {
     const g = state.currentGuild;
     const [cfg, channels, roles, board] = await Promise.all([
@@ -23,7 +55,7 @@ async function pageLeveling() {
     state.lvBoard  = Array.isArray(board) ? board : [];
 
     // Ensure defaults
-    const w = JSON.parse(JSON.stringify(cfg || {}));
+    const w = structuredClone(cfg || {});
     w.xpSettings = w.xpSettings || { minXp: 15, maxXp: 25, cooldown: 60 };
     w.announcements = w.announcements || { enabled: true, channel: 'same', customChannelId: null, message: '' };
     w.roles = Array.isArray(w.roles) ? w.roles : [];
@@ -49,7 +81,7 @@ async function pageLeveling() {
     } catch { localStorage.removeItem(draftKey); }
 
     window.__working = w;
-    window.__lvSavedSnapshot = JSON.parse(JSON.stringify(cfg));
+    window.__lvSavedSnapshot = structuredClone(cfg);
     window.__lvDraftKey = draftKey;
     _renderLevelingBody(g, w, hasDraft);
 }
@@ -322,7 +354,7 @@ function _renderLevelingBody(g, w, hasDraft) {
         else {
             toast('Leveling saved — live now!', 'success');
             try { localStorage.removeItem(window.__lvDraftKey); } catch {}
-            window.__lvSavedSnapshot = JSON.parse(JSON.stringify(w));
+            window.__lvSavedSnapshot = structuredClone(w);
             const ind = document.getElementById('lv-draft-indicator');
             if (ind) ind.style.display = 'none';
             $('#mod-status-tag').className = 'tag ' + (w.enabled ? 'green' : 'grey');
@@ -333,7 +365,7 @@ function _renderLevelingBody(g, w, hasDraft) {
 
 // ── Level role handlers ──
 window.__addLvRole = () => {
-    const level = parseInt($('#lv-add-level').value);
+    const level = Number.parseInt($('#lv-add-level').value);
     const roleId = $('#lv-add-role').value;
     if (!Number.isInteger(level) || level < 1) return toast('Level must be ≥ 1', 'error');
     if (!roleId) return toast('Pick a role', 'error');
@@ -354,7 +386,7 @@ window.__rmLvRole = (idx) => {
 // ── Role multiplier handlers ──
 window.__addLvMult = () => {
     const roleId = $('#lv-add-mult-role').value;
-    const mult = parseFloat($('#lv-add-mult-value').value);
+    const mult = Number.parseFloat($('#lv-add-mult-value').value);
     if (!roleId) return toast('Pick a role', 'error');
     if (!(mult >= 0.1 && mult <= 10)) return toast('Multiplier must be between 0.1 and 10', 'error');
     if (!window.__working.roleMultipliers) window.__working.roleMultipliers = {};
@@ -410,7 +442,7 @@ window.__rmDisCh = (id) => {
 window.__setUserLevel = async (userId) => {
     const level = prompt(`Set level for user ${userId}:`, '10');
     if (level === null) return;
-    const n = parseInt(level);
+    const n = Number.parseInt(level);
     if (!(n >= 0 && n <= 1000)) return toast('Level must be 0–1000', 'error');
     const g = state.currentGuild;
     const r = await api(`/api/guild/${g.id}/leveling/user/${userId}/set-level`, { method: 'POST', body: JSON.stringify({ level: n }) });
