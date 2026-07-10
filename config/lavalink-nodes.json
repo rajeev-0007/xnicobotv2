@@ -55,14 +55,14 @@
       "retryDelay": 10000
     },
     {
-          "id": "serenetia-v4",
+      "id": "serenetia-v4",
       "host": "lavalinkv4.serenetia.com",
       "port": 443,
       "authorization": "https://seretia.link/discord",
       "secure": true,
       "retryAmount": 15,
       "retryDelay": 10000
-  },
+    },
     {
       "id": "millo-host",
       "host": "lava-v4.millohost.my.id",
@@ -78,6 +78,24 @@
       "port": 443,
       "authorization": "free",
       "secure": true,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+      "id": "n3-nccloud-node1",
+      "host": "n3.nccloud.sbs",
+      "port": 2006,
+      "authorization": "next.2.beat",
+      "secure": false,
+      "retryAmount": 15,
+      "retryDelay": 10000
+    },
+    {
+      "id": "n3-nccloud-node2",
+      "host": "n3.nccloud.sbs",
+      "port": 2007,
+      "authorization": "next.2.beat",
+      "secure": false,
       "retryAmount": 15,
       "retryDelay": 10000
     }
