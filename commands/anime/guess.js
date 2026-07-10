@@ -1,6 +1,6 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createCanvas } = require('@napi-rs/canvas');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
@@ -59,6 +59,11 @@ async function playGuess(context, user, channel, isInteraction, reply) {
         `> Type the character's **name** in chat within **${TIME / 1000}s**.`,
         `-# Hint: from *${character.anime}* • Reward: 💰 ${REWARD} coins`,
     ].join('\n'));
+    c.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL('attachment://guess.png')
+        )
+    );
     await reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'guess.png' })], flags: MessageFlags.IsComponentsV2 });
 
     const target = normalize(character.name);
@@ -81,16 +86,31 @@ async function playGuess(context, user, channel, isInteraction, reply) {
             economyManager.saveEconomy(economy);
             const win = createContainer(0x57F287);
             addTextDisplay(win, [`## <:Checkedbox:1521227734943269077> Correct!`, `> It was **${character.name}** — *${character.anime}*`, `> 💰 +${REWARD} coins`, `-# Use \`aroll\` to collect characters!`].join('\n'));
+            win.addMediaGalleryComponents(
+                new MediaGalleryBuilder().addItems(
+                    new MediaGalleryItemBuilder().setURL('attachment://reveal.png')
+                )
+            );
             return channel.send({ components: [win], files: [new AttachmentBuilder(revealBuf, { name: 'reveal.png' })], flags: MessageFlags.IsComponentsV2 });
         } else {
             const lose = createContainer(0xED4245);
             addTextDisplay(lose, [`## <:Cancel:1521227723916181644> Not quite!`, `> It was **${character.name}** — *${character.anime}*`, `-# Better luck next time!`].join('\n'));
+            lose.addMediaGalleryComponents(
+                new MediaGalleryBuilder().addItems(
+                    new MediaGalleryItemBuilder().setURL('attachment://reveal.png')
+                )
+            );
             return channel.send({ components: [lose], files: [new AttachmentBuilder(revealBuf, { name: 'reveal.png' })], flags: MessageFlags.IsComponentsV2 });
         }
     } catch {
         const revealBuf = await renderGuessImage(character, true);
         const timeout = createContainer(0xFEE75C);
         addTextDisplay(timeout, [`## <:Alarm:1521227869047750689> Time's Up!`, `> It was **${character.name}** — *${character.anime}*`].join('\n'));
+        timeout.addMediaGalleryComponents(
+            new MediaGalleryBuilder().addItems(
+                new MediaGalleryItemBuilder().setURL('attachment://reveal.png')
+            )
+        );
         return channel.send({ components: [timeout], files: [new AttachmentBuilder(revealBuf, { name: 'reveal.png' })], flags: MessageFlags.IsComponentsV2 });
     }
 }

@@ -170,4 +170,371 @@ async function renderMulti(characters) {
     return canvas.toBuffer('image/png');
 }
 
-module.exports = { renderCard, renderMulti };
+/**
+ * Side-by-side comparison of two characters.
+ */
+async function renderCompare(char1, char2) {
+    const fh = getFontHelpers('Inter');
+    const W = 620, H = 360;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    ctx.fillStyle = '#0f1116';
+    ctx.fillRect(0, 0, W, H);
+
+    const drawSide = async (char, x, isRight = false) => {
+        const iw = 240, ih = 240, iy = 40;
+        const rar = rc(char.rarity);
+        
+        let drew = false;
+        if (char.image) {
+            try {
+                const img = await imageCache.loadWithCache(char.image, 6000);
+                if (img) {
+                    ctx.save();
+                    drawRoundedRect(ctx, x, iy, iw, ih, 12);
+                    ctx.clip();
+                    const scale = Math.max(iw / img.width, ih / img.height);
+                    const dw = img.width * scale, dh = img.height * scale;
+                    ctx.drawImage(img, x + (iw - dw) / 2, iy + (ih - dh) / 2, dw, dh);
+                    ctx.restore();
+                    drew = true;
+                }
+            } catch {}
+        }
+        
+        if (!drew) {
+            drawRoundedRect(ctx, x, iy, iw, ih, 12);
+            ctx.fillStyle = '#1a1d24'; ctx.fill();
+        }
+
+        ctx.strokeStyle = rar.c; 
+        ctx.lineWidth = 3;
+        drawRoundedRect(ctx, x, iy, iw, ih, 12); 
+        ctx.stroke();
+
+        ctx.fillStyle = '#e6edf3'; 
+        ctx.font = fh.getBoldFont(18); 
+        ctx.textAlign = 'center';
+        ctx.fillText(truncateText(ctx, char.name, iw), x + iw / 2, iy + ih + 30);
+        
+        ctx.fillStyle = rar.c;
+        ctx.font = fh.getSemiBoldFont(12);
+        ctx.fillText(rar.name.toUpperCase(), x + iw / 2, iy + ih + 50);
+        ctx.textAlign = 'left';
+    };
+
+    await drawSide(char1, 30, false);
+    await drawSide(char2, W - 270, true);
+
+    ctx.fillStyle = '#E74C3C'; 
+    ctx.font = fh.getBoldFont(40); 
+    ctx.textAlign = 'center';
+    ctx.fillText('VS', W / 2, H / 2 + 10);
+    ctx.textAlign = 'left';
+    
+    return canvas.toBuffer('image/png');
+}
+
+/**
+ * Premium Showcase render
+ */
+async function renderShowcase(character) {
+    const fh = getFontHelpers('Inter');
+    const W = 400, H = 560;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+    const rar = rc(character.rarity);
+
+    ctx.fillStyle = '#0f1116';
+    ctx.fillRect(0, 0, W, H);
+
+    // Glow
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    const glow = ctx.createRadialGradient(W/2, H/2, 50, W/2, H/2, 250);
+    glow.addColorStop(0, rar.c);
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    const imgX = 20, imgY = 20, imgW = W - 40, imgH = 400;
+    let drew = false;
+    if (character.image) {
+        try {
+            const img = await imageCache.loadWithCache(character.image, 6000);
+            if (img) {
+                ctx.save();
+                drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16);
+                ctx.clip();
+                const scale = Math.max(imgW / img.width, imgH / img.height);
+                const dw = img.width * scale, dh = img.height * scale;
+                ctx.drawImage(img, imgX + (imgW - dw) / 2, imgY + (imgH - dh) / 2, dw, dh);
+                ctx.restore();
+                drew = true;
+            }
+        } catch {}
+    }
+    
+    if (!drew) {
+        drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16);
+        ctx.fillStyle = '#1a1d24'; ctx.fill();
+    }
+
+    // Border
+    ctx.strokeStyle = rar.c; 
+    ctx.lineWidth = 4;
+    drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16); 
+    ctx.stroke();
+
+    // Rarity Badge
+    ctx.font = fh.getBoldFont(14);
+    const rw = ctx.measureText(rar.name).width + 24;
+    drawRoundedRect(ctx, imgX + 12, imgY + 12, rw, 28, 8);
+    ctx.fillStyle = rar.c; ctx.fill();
+    ctx.fillStyle = '#0f1116'; ctx.textAlign = 'center';
+    ctx.fillText(rar.name, imgX + 12 + rw / 2, imgY + 30);
+    ctx.textAlign = 'left';
+
+    // Showcase text
+    ctx.fillStyle = '#e6edf3'; 
+    ctx.font = fh.getBoldFont(26); 
+    ctx.textAlign = 'center';
+    ctx.fillText(truncateText(ctx, character.name, W - 40), W / 2, imgY + imgH + 50);
+
+    ctx.fillStyle = '#8b949e'; 
+    ctx.font = fh.getFont(16);
+    ctx.fillText(truncateText(ctx, character.anime, W - 40), W / 2, imgY + imgH + 76);
+
+    ctx.fillStyle = '#f1c40f';
+    ctx.font = fh.getSemiBoldFont(14);
+    ctx.fillText('✨ PREMIUM SHOWCASE ✨', W / 2, imgY + imgH + 104);
+    ctx.textAlign = 'left';
+
+    return canvas.toBuffer('image/png');
+}
+
+/**
+ * Mystery Box Reveal
+ */
+async function renderMysteryBox(characters, boxName) {
+    const fh = getFontHelpers('Inter');
+    const cols = 3, rows = 1;
+    const cw = 150, ch = 210, gap = 16, pad = 24;
+    const W = pad * 2 + cols * cw + (cols - 1) * gap;
+    const H = pad * 2 + rows * ch + (rows - 1) * gap + 50;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0f1116'; ctx.fillRect(0, 0, W, H);
+    
+    ctx.fillStyle = '#e6edf3'; 
+    ctx.font = fh.getBoldFont(22); 
+    ctx.textAlign = 'center';
+    ctx.fillText(`🎁 ${boxName} Unboxed!`, W / 2, 34);
+
+    for (let i = 0; i < characters.length; i++) {
+        const char = characters[i];
+        const rar = rc(char.rarity);
+        const col = i % cols, row = Math.floor(i / cols);
+        const x = pad + col * (cw + gap);
+        const y = 60 + row * (ch + gap);
+
+        const imgH = 150;
+        let drew = false;
+        if (char.image) {
+            try {
+                const img = await imageCache.loadWithCache(char.image, 5000);
+                if (img) {
+                    ctx.save(); drawRoundedRect(ctx, x, y, cw, imgH, 10); ctx.clip();
+                    const scale = Math.max(cw / img.width, imgH / img.height);
+                    const dw = img.width * scale, dh = img.height * scale;
+                    ctx.drawImage(img, x + (cw - dw) / 2, y + (imgH - dh) / 2, dw, dh);
+                    ctx.restore(); drew = true;
+                }
+            } catch {}
+        }
+        if (!drew) { drawRoundedRect(ctx, x, y, cw, imgH, 10); ctx.fillStyle = '#1a1d24'; ctx.fill(); }
+
+        ctx.strokeStyle = rar.c; ctx.lineWidth = 3;
+        drawRoundedRect(ctx, x, y, cw, imgH, 10); ctx.stroke();
+
+        ctx.fillStyle = '#e6edf3'; ctx.font = fh.getSemiBoldFont(13); ctx.textAlign = 'center';
+        ctx.fillText(truncateText(ctx, char.name, cw - 10), x + cw / 2, y + imgH + 22);
+        ctx.fillStyle = rar.c; ctx.font = fh.getBoldFont(11);
+        ctx.fillText(rar.name, x + cw / 2, y + imgH + 38);
+        ctx.textAlign = 'left';
+    }
+
+    return canvas.toBuffer('image/png');
+}
+
+/**
+ * Fusion Result
+ */
+async function renderFusion(resultChar, isUpgrade) {
+    const fh = getFontHelpers('Inter');
+    const W = 360, H = 500;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+    const rar = rc(resultChar.rarity);
+
+    ctx.fillStyle = '#0f1116';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    const glow = ctx.createRadialGradient(W/2, H/2, 20, W/2, H/2, 200);
+    glow.addColorStop(0, isUpgrade ? '#57F287' : rar.c);
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    const imgX = 24, imgY = 24, imgW = W - 48, imgH = 340;
+    let drew = false;
+    if (resultChar.image) {
+        try {
+            const img = await imageCache.loadWithCache(resultChar.image, 6000);
+            if (img) {
+                ctx.save();
+                drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16);
+                ctx.clip();
+                const scale = Math.max(imgW / img.width, imgH / img.height);
+                const dw = img.width * scale, dh = img.height * scale;
+                ctx.drawImage(img, imgX + (imgW - dw) / 2, imgY + (imgH - dh) / 2, dw, dh);
+                ctx.restore();
+                drew = true;
+            }
+        } catch {}
+    }
+    
+    if (!drew) {
+        drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16);
+        ctx.fillStyle = '#1a1d24'; ctx.fill();
+    }
+
+    ctx.strokeStyle = rar.c; 
+    ctx.lineWidth = 4;
+    drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16); 
+    ctx.stroke();
+
+    ctx.font = fh.getBoldFont(14);
+    const rw = ctx.measureText(rar.name).width + 24;
+    drawRoundedRect(ctx, imgX + 12, imgY + 12, rw, 28, 8);
+    ctx.fillStyle = rar.c; ctx.fill();
+    ctx.fillStyle = '#0f1116'; ctx.textAlign = 'center';
+    ctx.fillText(rar.name, imgX + 12 + rw / 2, imgY + 30);
+    ctx.textAlign = 'left';
+
+    if (isUpgrade) {
+        const tw = ctx.measureText('UPGRADED!').width + 18;
+        drawRoundedRect(ctx, imgX + imgW - 12 - tw, imgY + 12, tw, 28, 8);
+        ctx.fillStyle = '#57F287'; ctx.fill();
+        ctx.fillStyle = '#0f1116'; ctx.textAlign = 'center';
+        ctx.fillText('UPGRADED!', imgX + imgW - 12 - tw / 2, imgY + 30);
+        ctx.textAlign = 'left';
+    }
+
+    ctx.fillStyle = '#e6edf3'; 
+    ctx.font = fh.getBoldFont(24); 
+    ctx.textAlign = 'center';
+    ctx.fillText(truncateText(ctx, resultChar.name, W - 40), W / 2, imgY + imgH + 50);
+
+    ctx.fillStyle = '#8b949e'; 
+    ctx.font = fh.getFont(16);
+    ctx.fillText(truncateText(ctx, resultChar.anime, W - 40), W / 2, imgY + imgH + 74);
+    
+    ctx.fillStyle = '#9b59b6';
+    ctx.font = fh.getSemiBoldFont(14);
+    ctx.fillText('🔮 FUSION SUCCESS 🔮', W / 2, imgY + imgH + 104);
+    ctx.textAlign = 'left';
+
+    return canvas.toBuffer('image/png');
+}
+
+/**
+ * Upgrade Result
+ */
+async function renderUpgrade(resultChar) {
+    const fh = getFontHelpers('Inter');
+    const W = 360, H = 500;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+    const rar = rc(resultChar.rarity);
+
+    ctx.fillStyle = '#0f1116';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    const glow = ctx.createRadialGradient(W/2, H/2, 20, W/2, H/2, 200);
+    glow.addColorStop(0, '#F1C40F');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    const imgX = 24, imgY = 24, imgW = W - 48, imgH = 340;
+    let drew = false;
+    if (resultChar.image) {
+        try {
+            const img = await imageCache.loadWithCache(resultChar.image, 6000);
+            if (img) {
+                ctx.save();
+                drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16);
+                ctx.clip();
+                const scale = Math.max(imgW / img.width, imgH / img.height);
+                const dw = img.width * scale, dh = img.height * scale;
+                ctx.drawImage(img, imgX + (imgW - dw) / 2, imgY + (imgH - dh) / 2, dw, dh);
+                ctx.restore();
+                drew = true;
+            }
+        } catch {}
+    }
+    
+    if (!drew) {
+        drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16);
+        ctx.fillStyle = '#1a1d24'; ctx.fill();
+    }
+
+    ctx.strokeStyle = rar.c; 
+    ctx.lineWidth = 4;
+    drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 16); 
+    ctx.stroke();
+
+    ctx.font = fh.getBoldFont(14);
+    const rw = ctx.measureText(rar.name).width + 24;
+    drawRoundedRect(ctx, imgX + 12, imgY + 12, rw, 28, 8);
+    ctx.fillStyle = rar.c; ctx.fill();
+    ctx.fillStyle = '#0f1116'; ctx.textAlign = 'center';
+    ctx.fillText(rar.name, imgX + 12 + rw / 2, imgY + 30);
+    ctx.textAlign = 'left';
+
+    const tw = ctx.measureText('ASCENDED!').width + 18;
+    drawRoundedRect(ctx, imgX + imgW - 12 - tw, imgY + 12, tw, 28, 8);
+    ctx.fillStyle = '#F1C40F'; ctx.fill();
+    ctx.fillStyle = '#0f1116'; ctx.textAlign = 'center';
+    ctx.fillText('ASCENDED!', imgX + imgW - 12 - tw / 2, imgY + 30);
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#e6edf3'; 
+    ctx.font = fh.getBoldFont(24); 
+    ctx.textAlign = 'center';
+    ctx.fillText(truncateText(ctx, resultChar.name, W - 40), W / 2, imgY + imgH + 50);
+
+    ctx.fillStyle = '#8b949e'; 
+    ctx.font = fh.getFont(16);
+    ctx.fillText(truncateText(ctx, resultChar.anime, W - 40), W / 2, imgY + imgH + 74);
+    
+    ctx.fillStyle = '#F1C40F';
+    ctx.font = fh.getSemiBoldFont(14);
+    ctx.fillText('✨ ASCENSION COMPLETE ✨', W / 2, imgY + imgH + 104);
+    ctx.textAlign = 'left';
+
+    return canvas.toBuffer('image/png');
+}
+
+module.exports = { renderCard, renderMulti, renderCompare, renderShowcase, renderMysteryBox, renderFusion, renderUpgrade };

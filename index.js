@@ -616,7 +616,7 @@ async function handleBotPanelButton(interaction, client) {
             await interaction.update({ components: [panel], flags: MessageFlags.IsComponentsV2 });
         } else {
             // Unknown status — acknowledge so the interaction doesn't fail
-            await interaction.deferUpdate().catch(() => {});
+            await interaction.deferUpdate().catch(() => { });
         }
         return true;
     }
@@ -1347,7 +1347,7 @@ function syncBotGuildsList() {
         const ids = client.guilds.cache.map(g => g.id);
         jsonStore.write('bot_guilds', ids);
     } catch (e) {
-        try { log.debug(`[bot_guilds] sync failed: ${e?.message || e}`); } catch {}
+        try { log.debug(`[bot_guilds] sync failed: ${e?.message || e}`); } catch { }
     }
 }
 
@@ -1750,7 +1750,7 @@ client.on(Events.ClientReady, async () => {
     try {
         require('./utils/animeManager').ensurePool()
             .then(pool => log.success(`[Anime] Character pool ready (${pool.length} characters)`))
-            .catch(() => {});
+            .catch(() => { });
     } catch { }
 
     // Refresh all music panels to idle state on startup and preload cache
@@ -5025,7 +5025,7 @@ client.on('interactionCreate', async (interaction) => {
                         const container = ticketUI.buildContainer(
                             `# ${ticketUI.E.ok} Ticket Claimed\n\n` +
                             `${interaction.user} has claimed this ticket and will assist you shortly.\n\n` +
-                            `${ticketUI.E.pin} **Claimed at:** <t:${Math.floor(Date.now() / 1000)}:F>`,
+                            `${ticketUI.E.right} **Claimed at:** <t:${Math.floor(Date.now() / 1000)}:F>`,
                             ticketUI.COLOR.SUCCESS
                         );
                         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -5076,9 +5076,9 @@ client.on('interactionCreate', async (interaction) => {
                             .addTextDisplayComponents(new TextDisplayBuilder().setContent(
                                 `# ${ticketUI.E.warn} Confirm Ticket Close\n\n` +
                                 `${interaction.user}, please confirm you want to close this ticket.\n\n` +
-                                `${ticketUI.E.pin} **Channel:** ${interaction.channel}\n` +
-                                `${ticketUI.E.pin} **Opened by:** <@${ticket.userId}>\n` +
-                                `${ticketUI.E.pin} **Category:** ${ticket.categoryLabel || 'N/A'}\n\n` +
+                                `${ticketUI.E.right} **Channel:** ${interaction.channel}\n` +
+                                `${ticketUI.E.right} **Opened by:** <@${ticket.userId}>\n` +
+                                `${ticketUI.E.right} **Category:** ${ticket.categoryLabel || 'N/A'}\n\n` +
                                 `*This will delete the channel after a brief delay. Transcripts (if enabled) are sent before deletion.*`
                             ))
                             .addActionRowComponents(confirmRow);
@@ -5147,10 +5147,10 @@ client.on('interactionCreate', async (interaction) => {
                                 `# ${ticketUI.E.lock} Ticket Closed\n\n` +
                                 `Closed by ${interaction.user}.\n\n` +
                                 `### ${ticketUI.E.clipboard} Summary\n` +
-                                `${ticketUI.E.pin} **Channel:** ${closingChannel.name}\n` +
-                                `${ticketUI.E.pin} **Category:** ${ticket.categoryLabel || 'N/A'}\n` +
-                                `${ticketUI.E.pin} **Opened:** ${opened}\n` +
-                                `${ticketUI.E.pin} **Duration:** ${dur}\n\n` +
+                                `${ticketUI.E.right} **Channel:** ${closingChannel.name}\n` +
+                                `${ticketUI.E.right} **Category:** ${ticket.categoryLabel || 'N/A'}\n` +
+                                `${ticketUI.E.right} **Opened:** ${opened}\n` +
+                                `${ticketUI.E.right} **Duration:** ${dur}\n\n` +
                                 (wantsAuto
                                     ? `${ticketUI.E.transcript} *Saving transcript and deleting in **8 seconds**…*`
                                     : `${ticketUI.E.warn} *This channel will be deleted in **5 seconds**…*`)
@@ -7109,9 +7109,9 @@ client.on('interactionCreate', async (interaction) => {
 
                     const headerLine =
                         `# ${ticketUI.E.document} ${emojiDisplay}${labelClean}\n` +
-                        `${ticketUI.E.pin} **Category:** ${labelClean} ` +
-                        `${ticketUI.E.pin} **Ticket:** \`#${ticketNumber}\` ` +
-                        `${ticketUI.E.pin} **Opened:** <t:${Math.floor(Date.now() / 1000)}:R>\n\n`;
+                        `${ticketUI.E.right} **Category:** ${labelClean} ` +
+                        `${ticketUI.E.right} **Ticket:** \`#${ticketNumber}\` ` +
+                        `${ticketUI.E.right} **Opened:** <t:${Math.floor(Date.now() / 1000)}:R>\n\n`;
 
                     // Build the welcome container once, then send it. If sending
                     // fails we post a minimal fallback so the channel always has
@@ -7181,10 +7181,10 @@ client.on('interactionCreate', async (interaction) => {
                                 `### ${ticketUI.E.bulb} What to do next\n` +
                                 `Describe your issue in detail. Include screenshots, error messages or links if you have them — the more context, the faster we can help.\n\n` +
                                 `### ${ticketUI.E.settings} Useful Commands\n` +
-                                `${ticketUI.E.pin} \`/ticket-add @user\` — invite someone into the ticket\n` +
-                                `${ticketUI.E.pin} \`/ticket-remove @user\` — remove someone\n` +
-                                `${ticketUI.E.pin} \`/ticket-close [reason]\` — close this ticket\n\n` +
-                                (effectiveSupportRole ? `${ticketUI.E.pin} **Support Team:** <@&${effectiveSupportRole}>` : '')
+                                `${ticketUI.E.right} \`/ticket-add @user\` — invite someone into the ticket\n` +
+                                `${ticketUI.E.right} \`/ticket-remove @user\` — remove someone\n` +
+                                `${ticketUI.E.right} \`/ticket-close [reason]\` — close this ticket\n\n` +
+                                (effectiveSupportRole ? `${ticketUI.E.right} **Support Team:** <@&${effectiveSupportRole}>` : '')
                             ))
                             .addActionRowComponents(ticketButtons);
                     }
@@ -7233,7 +7233,7 @@ client.on('interactionCreate', async (interaction) => {
                             .addTextDisplayComponents(new TextDisplayBuilder().setContent(
                                 `# ${ticketUI.E.ok} Ticket Created\n\n` +
                                 `Your **${labelClean}** ticket is ready: ${ticketChannel}\n` +
-                                `${ticketUI.E.pin} **Ticket Number:** \`#${ticketNumber}\``
+                                `${ticketUI.E.right} **Ticket Number:** \`#${ticketNumber}\``
                             ))],
                         flags: MessageFlags.IsComponentsV2,
                     });
@@ -10946,7 +10946,7 @@ async function instantQuarantineMember(guild, member) {
         r.id !== guild.id && !r.managed && r.position < me.roles.highest.position
     );
     if (removable.size === 0) return false;
-    await member.roles.remove(removable, 'Anti-Nuke: instant quarantine').catch(() => {});
+    await member.roles.remove(removable, 'Anti-Nuke: instant quarantine').catch(() => { });
     log.warning(`Anti-Nuke: instant-quarantined ${member.user?.username || member.id} (stripped ${removable.size} role[s])`);
     return true;
 }
@@ -10974,7 +10974,7 @@ async function antiNukeRestore(guild, kind, resource) {
             if (resource.rateLimitPerUser) opts.rateLimitPerUser = resource.rateLimitPerUser;
             if (resource.bitrate) opts.bitrate = resource.bitrate;
             if (resource.userLimit) opts.userLimit = resource.userLimit;
-            try { if (resource.permissionOverwrites?.cache) opts.permissionOverwrites = [...resource.permissionOverwrites.cache.values()].map(o => ({ id: o.id, type: o.type, allow: o.allow, deny: o.deny })); } catch {}
+            try { if (resource.permissionOverwrites?.cache) opts.permissionOverwrites = [...resource.permissionOverwrites.cache.values()].map(o => ({ id: o.id, type: o.type, allow: o.allow, deny: o.deny })); } catch { }
             await guild.channels.create(opts);
             log.warning(`Anti-Nuke: auto-restored channel #${resource.name}`);
         } else if (kind === 'role') {
@@ -10988,7 +10988,7 @@ async function antiNukeRestore(guild, kind, resource) {
                 mentionable: resource.mentionable,
                 reason: 'Anti-Nuke: auto-restore deleted role',
             });
-            try { if (typeof resource.position === 'number' && resource.position < me.roles.highest.position) await created.setPosition(resource.position); } catch {}
+            try { if (typeof resource.position === 'number' && resource.position < me.roles.highest.position) await created.setPosition(resource.position); } catch { }
             log.warning(`Anti-Nuke: auto-restored role @${resource.name}`);
         }
     } catch (e) {
@@ -11168,7 +11168,7 @@ async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetN
         // enabled autoRestore, recreate it immediately (runs alongside the
         // normal punishment below).
         if (config.autoRestore && deletedResource && restoreKind && !isAntiNukeExempt(guild, config, executor.id)) {
-            antiNukeRestore(guild, restoreKind, deletedResource).catch(() => {});
+            antiNukeRestore(guild, restoreKind, deletedResource).catch(() => { });
         }
 
         await checkAntiNuke(guild, action, executor, targetName);
@@ -13084,13 +13084,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                             }
                         }
                     );
-                    try { require('./utils/activityTracker').recordVoice(guildId, userId, oldState.channelId, duration); } catch {}
+                    try { require('./utils/activityTracker').recordVoice(guildId, userId, oldState.channelId, duration); } catch { }
                 } finally {
                     voiceJoinTimes.delete(trackingKey);
                 }
 
                 // Award leveling XP for this voice session (config-gated, on by default).
-                await awardVoiceXp(newState.guild, voiceMember, oldState.channelId, duration).catch(() => {});
+                await awardVoiceXp(newState.guild, voiceMember, oldState.channelId, duration).catch(() => { });
             }
         }
         // User switched voice channels
@@ -13109,14 +13109,14 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                             }
                         }
                     );
-                    try { require('./utils/activityTracker').recordVoice(guildId, userId, oldState.channelId, duration); } catch {}
+                    try { require('./utils/activityTracker').recordVoice(guildId, userId, oldState.channelId, duration); } catch { }
                 } finally {
                     // Reset join time for new channel
                     voiceJoinTimes.set(trackingKey, Date.now());
                 }
 
                 // Award leveling XP for the time spent in the previous channel.
-                await awardVoiceXp(newState.guild, voiceMember, oldState.channelId, duration).catch(() => {});
+                await awardVoiceXp(newState.guild, voiceMember, oldState.channelId, duration).catch(() => { });
             } else {
                 // No previous join time, just start tracking
                 voiceJoinTimes.set(trackingKey, Date.now());
@@ -13412,10 +13412,10 @@ client.on('stickerUpdate', async (oldSticker, newSticker) => {
 
 // ═══════ Soundboard Logs ═══════
 client.on('guildSoundboardSoundCreate', async (sound) => {
-    try { await logSoundboardCreate(sound.guild, sound); } catch {}
+    try { await logSoundboardCreate(sound.guild, sound); } catch { }
 });
 client.on('guildSoundboardSoundDelete', async (sound) => {
-    try { await logSoundboardDelete(sound.guild, sound); } catch {}
+    try { await logSoundboardDelete(sound.guild, sound); } catch { }
 });
 
 // ═══════ Thread Logs ═══════

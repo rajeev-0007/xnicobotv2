@@ -1,6 +1,6 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createCanvas } = require('@napi-rs/canvas');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const { drawRoundedRect, truncateText } = require('../../utils/canvasDesign');
@@ -107,6 +107,11 @@ async function handleBattle(reply, author, opponent, guildId) {
         `> 🏆 **Winner:** ${winner.username}  (+${WIN_REWARD} 💰)`,
         `-# Outcome weighted by rarity & popularity`,
     ].join('\n'));
+    c.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL('attachment://battle.png')
+        )
+    );
     return reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'battle.png' })], flags: MessageFlags.IsComponentsV2 });
 }
 

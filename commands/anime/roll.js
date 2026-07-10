@@ -1,6 +1,6 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const animeCard = require('../../utils/animeCardCanvas');
@@ -65,6 +65,11 @@ async function handleRoll(reply, user, guildId, multi = false) {
             `> ✨ **${newCount} New** • 🔄 **${dupCount} Dupes**`,
             `-# ${isFreeRoll ? 'Free roll' : `${animeManager.MULTI_ROLL_COST} coins`} • Collection: ${playerData.collection.length} cards`,
         ].join('\n'));
+        c.addMediaGalleryComponents(
+            new MediaGalleryBuilder().addItems(
+                new MediaGalleryItemBuilder().setURL('attachment://multiroll.png')
+            )
+        );
         return reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'multiroll.png' })], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -85,6 +90,11 @@ async function handleRoll(reply, user, guildId, multi = false) {
     ];
     if (wishlistHit) lines.push(`\n🌟 **WISHLIST HIT!**`);
     addTextDisplay(c, lines.join('\n'));
+    c.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL('attachment://card.png')
+        )
+    );
 
     return reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'card.png' })], flags: MessageFlags.IsComponentsV2 });
 }

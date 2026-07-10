@@ -355,11 +355,226 @@ function getCharactersByRarity(rarity) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   UPGRADE / ASCENSION SYSTEM
+   ═══════════════════════════════════════════════════════ */
+
+const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+const UPGRADE_COST = { common: 200, uncommon: 500, rare: 1500, epic: 4000, legendary: 10000 };
+const UPGRADE_SACRIFICE = 3; // cards of same rarity needed
+
+function getNextRarity(rarity) {
+    const idx = RARITY_ORDER.indexOf(rarity);
+    if (idx < 0 || idx >= RARITY_ORDER.length - 1) return null;
+    return RARITY_ORDER[idx + 1];
+}
+
+function canUpgrade(playerData, charId) {
+    const char = getCharacters().find(c => c.id === charId);
+    if (!char) return { ok: false, reason: 'Character not found.' };
+    const next = getNextRarity(char.rarity);
+    if (!next) return { ok: false, reason: 'This card is already at max rarity (Mythic).' };
+    // Can't upgrade to mythic
+    if (next === 'mythic') return { ok: false, reason: 'Cannot upgrade to Mythic — only obtainable by rolling!' };
+    const sameRarity = playerData.collection.filter(e => {
+        const c = getCharacters().find(ch => ch.id === e.charId);
+        return c && c.rarity === char.rarity && e.charId !== charId;
+    });
+    const uniqueSacrifice = new Set(sameRarity.map(e => e.charId));
+    if (uniqueSacrifice.size < UPGRADE_SACRIFICE) {
+        return { ok: false, reason: `Need ${UPGRADE_SACRIFICE} other ${char.rarity} cards to sacrifice. You have ${uniqueSacrifice.size}.` };
+    }
+    return { ok: true, cost: UPGRADE_COST[char.rarity] || 1000, nextRarity: next, sacrificeNeeded: UPGRADE_SACRIFICE };
+}
+
+/**
+ * Perform an upgrade: remove sacrifice cards, change character rarity in collection entry.
+ * Returns the upgraded character data.
+ */
+function performUpgrade(playerData, charId) {
+    const char = getCharacters().find(c => c.id === charId);
+    const next = getNextRarity(char.rarity);
+
+    // Remove sacrifice cards (3 other cards of the same rarity)
+    const currentRarity = char.rarity;
+    let removed = 0;
+    const toRemove = [];
+    for (const entry of playerData.collection) {
+        if (removed >= UPGRADE_SACRIFICE) break;
+        if (entry.charId === charId) continue;
+        const c = getCharacters().find(ch => ch.id === entry.charId);
+        if (c && c.rarity === currentRarity) {
+            toRemove.push(entry);
+            removed++;
+        }
+    }
+    for (const entry of toRemove) {
+        const idx = playerData.collection.indexOf(entry);
+        if (idx !== -1) playerData.collection.splice(idx, 1);
+    }
+
+    // Return the "upgraded" character (virtual — we record the upgrade)
+    return {
+        ...char,
+        rarity: next,
+        upgraded: true,
+        originalRarity: currentRarity,
+    };
+}
+
+/* ═══════════════════════════════════════════════════════
+   FUSION SYSTEM
+   ═══════════════════════════════════════════════════════ */
+
+const FUSION_COST = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 8000 };
+
+/**
+ * Fuse two owned cards into one random card.
+ * 60% same rarity, 30% one up, 10% one down.
+ */
+function fuseCards(playerData, charId1, charId2) {
+    const char1 = getCharacters().find(c => c.id === charId1);
+    const char2 = getCharacters().find(c => c.id === charId2);
+    if (!char1 || !char2) return null;
+
+    // Determine base rarity (higher of the two)
+    const idx1 = RARITY_ORDER.indexOf(char1.rarity);
+    const idx2 = RARITY_ORDER.indexOf(char2.rarity);
+    const baseIdx = Math.max(idx1, idx2);
+
+    // Random outcome
+    const roll = Math.random();
+    let resultIdx;
+    if (roll < 0.30) {
+        // 30% chance: one tier up
+        resultIdx = Math.min(baseIdx + 1, RARITY_ORDER.length - 1);
+    } else if (roll < 0.90) {
+        // 60% chance: same tier
+        resultIdx = baseIdx;
+    } else {
+        // 10% chance: one tier down
+        resultIdx = Math.max(baseIdx - 1, 0);
+    }
+
+    const resultRarity = RARITY_ORDER[resultIdx];
+    const pool = getCharacters().filter(c => c.rarity === resultRarity);
+    if (!pool.length) return null;
+
+    // Remove both source cards from collection
+    removeFromCollection(playerData, charId1);
+    removeFromCollection(playerData, charId2);
+
+    // Pick random result
+    const result = pool[Math.floor(Math.random() * pool.length)];
+    addToCollection(playerData, result);
+
+    return {
+        result,
+        input1: char1,
+        input2: char2,
+        upgraded: resultIdx > baseIdx,
+        downgraded: resultIdx < baseIdx,
+    };
+}
+
+function getFusionCost(charId1, charId2) {
+    const char1 = getCharacters().find(c => c.id === charId1);
+    const char2 = getCharacters().find(c => c.id === charId2);
+    if (!char1 || !char2) return 500;
+    return (FUSION_COST[char1.rarity] || 500) + (FUSION_COST[char2.rarity] || 500);
+}
+
+/* ═══════════════════════════════════════════════════════
+   MYSTERY BOX SYSTEM
+   ═══════════════════════════════════════════════════════ */
+
+const MYSTERY_BOXES = {
+    bronze: {
+        name: 'Bronze Box', emoji: '🥉', cost: 500, cards: 3,
+        weights: { common: 45, uncommon: 30, rare: 15, epic: 7, legendary: 2.5, mythic: 0.5 },
+    },
+    silver: {
+        name: 'Silver Box', emoji: '🥈', cost: 1500, cards: 3,
+        weights: { common: 15, uncommon: 30, rare: 30, epic: 18, legendary: 6, mythic: 1 },
+    },
+    gold: {
+        name: 'Gold Box', emoji: '🥇', cost: 5000, cards: 3,
+        weights: { common: 0, uncommon: 0, rare: 10, epic: 50, legendary: 30, mythic: 10 },
+    },
+};
+
+function openMysteryBox(tier = 'bronze') {
+    const box = MYSTERY_BOXES[tier];
+    if (!box) return [];
+
+    const results = [];
+    for (let i = 0; i < box.cards; i++) {
+        const totalWeight = Object.values(box.weights).reduce((s, w) => s + w, 0);
+        let roll = Math.random() * totalWeight;
+        let rarity = 'common';
+        for (const [key, weight] of Object.entries(box.weights)) {
+            roll -= weight;
+            if (roll <= 0) { rarity = key; break; }
+        }
+        const pool = getCharacters().filter(c => c.rarity === rarity);
+        if (pool.length) {
+            results.push(pool[Math.floor(Math.random() * pool.length)]);
+        } else {
+            results.push(getCharacters()[Math.floor(Math.random() * getCharacters().length)]);
+        }
+    }
+    return results;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ACHIEVEMENT SYSTEM
+   ═══════════════════════════════════════════════════════ */
+
+const ACHIEVEMENTS = [
+    { id: 'first_roll', name: 'First Steps', desc: 'Roll your first character', emoji: '🎲', reward: 50, check: pd => pd.totalRolls >= 1 },
+    { id: 'rolls_10', name: 'Getting Started', desc: 'Roll 10 times', emoji: '🎰', reward: 100, check: pd => pd.totalRolls >= 10 },
+    { id: 'rolls_50', name: 'Dedicated Roller', desc: 'Roll 50 times', emoji: '🎯', reward: 250, check: pd => pd.totalRolls >= 50 },
+    { id: 'rolls_100', name: 'Roll Master', desc: 'Roll 100 times', emoji: '💫', reward: 500, check: pd => pd.totalRolls >= 100 },
+    { id: 'rolls_500', name: 'Gacha Addict', desc: 'Roll 500 times', emoji: '🌟', reward: 2000, check: pd => pd.totalRolls >= 500 },
+    { id: 'unique_5', name: 'Small Collection', desc: 'Collect 5 unique characters', emoji: '📦', reward: 100, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 5 },
+    { id: 'unique_25', name: 'Card Enthusiast', desc: 'Collect 25 unique characters', emoji: '🃏', reward: 500, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 25 },
+    { id: 'unique_50', name: 'Serious Collector', desc: 'Collect 50 unique characters', emoji: '🏅', reward: 1000, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 50 },
+    { id: 'unique_100', name: 'Master Collector', desc: 'Collect 100 unique characters', emoji: '🏆', reward: 3000, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 100 },
+    { id: 'rarity_epic', name: 'Epic Find', desc: 'Own an Epic rarity card', emoji: '🟣', reward: 200, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'epic'; }) },
+    { id: 'rarity_legendary', name: 'Legendary Pull', desc: 'Own a Legendary rarity card', emoji: '🟡', reward: 500, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'legendary'; }) },
+    { id: 'rarity_mythic', name: 'Mythic Discovery', desc: 'Own a Mythic rarity card', emoji: '🔴', reward: 2000, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'mythic'; }) },
+    { id: 'first_trade', name: 'First Trade', desc: 'Complete your first trade', emoji: '🤝', reward: 100, check: pd => pd.trades >= 1 },
+    { id: 'trades_10', name: 'Trader', desc: 'Complete 10 trades', emoji: '📊', reward: 500, check: pd => pd.trades >= 10 },
+    { id: 'spent_1000', name: 'Big Spender', desc: 'Spend 1,000 coins on rolls', emoji: '💸', reward: 200, check: pd => pd.totalSpent >= 1000 },
+    { id: 'spent_10000', name: 'Whale', desc: 'Spend 10,000 coins on rolls', emoji: '🐋', reward: 1000, check: pd => pd.totalSpent >= 10000 },
+    { id: 'favorites_set', name: 'Favorites Set', desc: 'Set at least 3 favorites', emoji: '💜', reward: 100, check: pd => pd.favorites.length >= 3 },
+    { id: 'wishlist_set', name: 'Wishful Thinking', desc: 'Add 5 characters to your wishlist', emoji: '⭐', reward: 100, check: pd => pd.wishlist.length >= 5 },
+];
+
+function getUnlockedAchievements(playerData) {
+    if (!playerData.achievements) playerData.achievements = [];
+    return ACHIEVEMENTS.filter(a => playerData.achievements.includes(a.id));
+}
+
+function checkNewAchievements(playerData) {
+    if (!playerData.achievements) playerData.achievements = [];
+    const newlyUnlocked = [];
+    for (const achievement of ACHIEVEMENTS) {
+        if (playerData.achievements.includes(achievement.id)) continue;
+        if (achievement.check(playerData)) {
+            playerData.achievements.push(achievement.id);
+            newlyUnlocked.push(achievement);
+        }
+    }
+    return newlyUnlocked;
+}
+
+/* ═══════════════════════════════════════════════════════
    EXPORTS
    ═══════════════════════════════════════════════════════ */
 
 module.exports = {
     RARITIES,
+    RARITY_ORDER,
     // Live pool getter — always reflects the AniList API pool once loaded.
     get CHARACTERS() { return getCharacters(); },
     getCharacters,
@@ -389,4 +604,22 @@ module.exports = {
     findCharacter,
     getCharactersByAnime,
     getCharactersByRarity,
+    // Upgrade
+    UPGRADE_COST,
+    UPGRADE_SACRIFICE,
+    getNextRarity,
+    canUpgrade,
+    performUpgrade,
+    // Fusion
+    FUSION_COST,
+    fuseCards,
+    getFusionCost,
+    // Mystery Box
+    MYSTERY_BOXES,
+    openMysteryBox,
+    // Achievements
+    ACHIEVEMENTS,
+    getUnlockedAchievements,
+    checkNewAchievements,
 };
+

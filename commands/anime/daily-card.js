@@ -1,6 +1,6 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const animeCard = require('../../utils/animeCardCanvas');
@@ -47,6 +47,11 @@ async function handleDailyCard(reply, user, guildId) {
     ];
     if (playerData.wishlist.includes(character.id)) lines.push(`\n🌟 **WISHLIST HIT!**`);
     addTextDisplay(c, lines.join('\n'));
+    c.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL('attachment://card.png')
+        )
+    );
 
     return reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'card.png' })], flags: MessageFlags.IsComponentsV2 });
 }

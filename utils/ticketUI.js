@@ -20,33 +20,33 @@ const {
 
 /* ───────────────────────────── colors ───────────────────────────── */
 const COLOR = {
-    BRAND:   0xCAD7E6,
+    BRAND: 0xCAD7E6,
     SUCCESS: 0x57F287,
     WARNING: 0xF1C40F,
-    DANGER:  0xED4245,
-    INFO:    0x5865F2,
+    DANGER: 0xED4245,
+    INFO: 0x5865F2,
 };
 
 /* ───────────────────────────── emojis ───────────────────────────── */
 // Single source of truth so we don't end up with mixed unicode + custom
 // emojis bleeding into the same panel/welcome.
 const E = {
-    ok:        '<:Checkedbox:1521227734943269077>',
-    cancel:    '<:Cancel:1521227723916181644>',
-    info:      '<:Inforect:1521228008285929532>',
-    warn:      '<:Infotriangle:1521227710381428926>',
-    pin:       '<:Pin:1521227932625014916>',
-    document:  '<:Document:1521227875016114266>',
+    ok: '<:Checkedbox:1521227734943269077>',
+    cancel: '<:Cancel:1521227723916181644>',
+    info: '<:Inforect:1521228008285929532>',
+    warn: '<:Infotriangle:1521227710381428926>',
+    right: '<:Caretright:1521227704953864202>',
+    document: '<:Document:1521227875016114266>',
     clipboard: '<:Clipboard:1521228175298920448>',
-    transcript:'<:Clipboardalt:1521228169753923755>',
-    bookopen:  '<:Bookopen:1521227911137595605>',
-    star:      '<:Star:1521227981685526568>',
-    settings:  '<:Settings:1521227767780343879>',
-    edit:      '<:Edit:1521227886634205298>',
-    chat:      '<:Hashtag:1521227771957870604>',
-    bulb:      '<:Lightbulbalt:1521227880703463675>',
-    lock:      '<:Lock:1521227892770734120>',
-    ticket:    '<:Document:1521227875016114266>',  // alias for visual variety
+    transcript: '<:Clipboardalt:1521228169753923755>',
+    bookopen: '<:Bookopen:1521227911137595605>',
+    star: '<:Star:1521227981685526568>',
+    settings: '<:Settings:1521227767780343879>',
+    edit: '<:Edit:1521227886634205298>',
+    chat: '<:Hashtag:1521227771957870604>',
+    bulb: '<:Lightbulbalt:1521227880703463675>',
+    lock: '<:Lock:1521227892770734120>',
+    ticket: '<:Document:1521227875016114266>',  // alias for visual variety
 };
 
 /* ───────────────────────────── buttons ──────────────────────────── */
@@ -86,10 +86,10 @@ function buildContainer(text, color = COLOR.BRAND) {
         .addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
 }
 
-function successContainer(text) {  return buildContainer(`${E.ok} ${text}`,    COLOR.SUCCESS); }
-function errorContainer(text)   {  return buildContainer(`${E.cancel} ${text}`,COLOR.DANGER);  }
-function infoContainer(text)    {  return buildContainer(`${E.info} ${text}`,  COLOR.BRAND);   }
-function warnContainer(text)    {  return buildContainer(`${E.warn} ${text}`,  COLOR.WARNING); }
+function successContainer(text) { return buildContainer(`${E.ok} ${text}`, COLOR.SUCCESS); }
+function errorContainer(text) { return buildContainer(`${E.cancel} ${text}`, COLOR.DANGER); }
+function infoContainer(text) { return buildContainer(`${E.info} ${text}`, COLOR.BRAND); }
+function warnContainer(text) { return buildContainer(`${E.warn} ${text}`, COLOR.WARNING); }
 
 function v2Reply(container, ephemeral = false) {
     return {

@@ -1,6 +1,6 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const animeCard = require('../../utils/animeCardCanvas');
@@ -46,6 +46,11 @@ async function handleCharInfo(reply, user, guildId, characterName) {
         playerData.wishlist.includes(char.id) ? `> ⭐ On your wishlist` : '',
         playerData.favorites.includes(char.id) ? `> 💜 In your favorites` : '',
     ].filter(Boolean).join('\n'));
+    c.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL('attachment://char.png')
+        )
+    );
 
     return reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'char.png' })], flags: MessageFlags.IsComponentsV2 });
 }
