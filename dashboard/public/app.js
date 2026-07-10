@@ -95,6 +95,128 @@ function renderDiscord(input) {
     s = s.replace(/@@\u00a7(\d+)\u00a7@@/g, (m, i) => store[+i] || '');
     return s;
 }
+
+// —— Advanced Discord Message Simulator ——
+function buildDiscordPreview(cfg, botInfo) {
+    const avatar = botInfo?.avatar 
+        ? `https://cdn.discordapp.com/avatars/${botInfo.id}/${botInfo.avatar}.png` 
+        : null;
+    const username = botInfo?.username || 'xNico';
+    
+    // Components Builder
+    let componentsHtml = '';
+    
+    // Custom Buttons (Message Builder / Welcomer Action Buttons)
+    if (cfg.actionButtons && cfg.actionButtons.length > 0) {
+        componentsHtml += `<div class="d-action-row">`;
+        cfg.actionButtons.forEach(btnId => {
+            const btn = state.customBtns?.[btnId];
+            if (!btn) return;
+            const styleClass = `d-btn-${btn.style || 'primary'}`;
+            componentsHtml += `<button class="d-button ${styleClass}">${btn.emoji ? esc(btn.emoji) + ' ' : ''}${esc(btn.label)}</button>`;
+        });
+        componentsHtml += `</div>`;
+    }
+    
+    // Legacy/Direct buttons array (Welcomer)
+    if (cfg.buttons && cfg.buttons.length > 0) {
+        componentsHtml += `<div class="d-action-row">`;
+        cfg.buttons.forEach(b => {
+            componentsHtml += `<button class="d-button d-btn-link">${b.emoji ? esc(b.emoji) + ' ' : ''}${esc(b.label || 'Link')} ↗</button>`;
+        });
+        componentsHtml += `</div>`;
+    }
+
+    // Action Menus
+    if (cfg.actionMenus && cfg.actionMenus.length > 0) {
+        cfg.actionMenus.forEach(menuId => {
+            const menu = state.customMenus?.[menuId];
+            if (!menu) return;
+            componentsHtml += `<div class="d-action-row"><div class="d-select"><div class="d-select-value">${esc(menu.placeholder || 'Make a selection...')}</div><div class="d-select-icon">▼</div></div></div>`;
+        });
+    }
+
+    // Embed Builder
+    let embedHtml = '';
+    let msgContent = '';
+    let embedDesc = cfg.description || '';
+    
+    // In welcomer, if mode is 'components', content goes to embed description usually.
+    // In message-builder, embed mode means content is outside, description is inside.
+    const mode = cfg.mode || 'components';
+    
+    if (mode === 'text') {
+        msgContent = cfg.content || 'Welcome to the server!';
+    } else if (cfg._isWelcomer) {
+        // Welcomer logic: content is the embed description, no external content usually
+        embedDesc = cfg.content || 'Welcome @User to **Server**!';
+    } else {
+        // Message builder logic
+        msgContent = cfg.content || '';
+        embedDesc = cfg.description || '';
+    }
+
+    const hasEmbed = !!cfg.title || !!embedDesc || !!cfg.footer || !!cfg.author || !!cfg.image || (cfg.images && cfg.images.length > 0) || !!cfg.thumbnail || (!!cfg.color && !cfg.colorless) || (cfg.fields && cfg.fields.length > 0);
+
+    if (hasEmbed && mode !== 'text') {
+        const color = cfg.colorless ? 'transparent' : (cfg.color || '#bcf1e4');
+        
+        let fieldsHtml = '';
+        if (cfg.fields && cfg.fields.length > 0) {
+            fieldsHtml = `<div class="d-embed-fields">`;
+            cfg.fields.forEach(f => {
+                fieldsHtml += `<div class="d-embed-field ${f.inline ? 'd-embed-field-inline' : ''}">
+                    <div class="d-embed-field-name">${renderDiscord(f.name || '\u200B')}</div>
+                    <div class="d-embed-field-value">${renderDiscord(f.value || '\u200B')}</div>
+                </div>`;
+            });
+            fieldsHtml += `</div>`;
+        }
+
+        let imagesHtml = '';
+        if (cfg.image) {
+            imagesHtml += `<img class="d-embed-image" src="${esc(cfg.image)}">`;
+        } else if (cfg.images && cfg.images.length > 0) {
+            cfg.images.forEach(img => {
+                imagesHtml += `<img class="d-embed-image" src="${esc(img)}">`;
+            });
+        }
+
+        embedHtml = `<div class="d-embed-wrapper">
+            <div class="d-embed-color" style="background-color: ${esc(color)}"></div>
+            <div class="d-embed-inner">
+                ${cfg.author ? `<div class="d-embed-author">${renderDiscord(cfg.author)}</div>` : ''}
+                ${cfg.title ? `<div class="d-embed-title">${renderDiscord(cfg.title)}</div>` : ''}
+                ${embedDesc ? `<div class="d-embed-description">${renderDiscord(embedDesc)}</div>` : ''}
+                ${fieldsHtml}
+                ${imagesHtml}
+                ${cfg.footer ? `<div class="d-embed-footer">${renderDiscord(cfg.footer)}</div>` : ''}
+            </div>
+            ${cfg.thumbnail ? `<img class="d-embed-thumbnail" src="${esc(cfg.thumbnail)}">` : ''}
+        </div>`;
+    }
+
+    const today = new Date().toLocaleDateString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+
+    return `
+    <div class="d-message">
+        <div class="d-avatar" style="background-color: #5865F2;">
+            ${avatar ? `<img src="${avatar}">` : username.charAt(0)}
+        </div>
+        <div class="d-message-body">
+            <div class="d-msg-header">
+                <span class="d-username">${esc(username)}</span>
+                <span class="d-bot-tag"><span class="d-bot-check">✓</span> APP</span>
+                <span class="d-timestamp">Today at ${today}</span>
+            </div>
+            ${msgContent ? `<div class="d-message-content">${renderDiscord(msgContent)}</div>` : ''}
+            ${embedHtml}
+            ${componentsHtml ? `<div class="d-components">${componentsHtml}</div>` : ''}
+        </div>
+    </div>
+    `;
+}
+
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${window.XNICO_ICONS[name] || window.XNICO_ICONS.grid}</svg>`;
 const toast = (msg, type = 'info') => {
     const c = $('#toasts'); if (!c) return;

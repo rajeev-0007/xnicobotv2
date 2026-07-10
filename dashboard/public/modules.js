@@ -501,6 +501,17 @@ window.XNICO_MODULES = [
         ]
     },
     {
+        id: 'broadcaster',
+        name: 'Broadcaster',
+        group: 'Utility',
+        description: 'Send a notification to a specific channel when you activate new features.',
+        icon: 'bell',
+        fields: [
+            { key: 'enabled', label: 'Enable Broadcaster', type: 'toggle' },
+            { key: 'channelId', label: 'Broadcast Channel', type: 'channel' }
+        ]
+    },
+    {
         id: 'guildtags',
         name: 'Guild Tag',
         group: 'Utility',

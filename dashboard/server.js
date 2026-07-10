@@ -1,4 +1,4 @@
-﻿/**
+/**
  * xNico Dashboard â€” Express Server v2
  * Full REST API with Discord OAuth2 login + module configuration
  */
@@ -1008,6 +1008,57 @@ function getAutomodDefaults() {
     return { enabled: false, badWords: { enabled: false, words: [], action: 'delete' }, spam: { enabled: false, messageLimit: 5, timeWindow: 5000, action: 'timeout' }, links: { enabled: false, action: 'delete', whitelist: [] }, invites: { enabled: false, action: 'delete' }, massMention: { enabled: false, limit: 5, action: 'delete' }, caps: { enabled: false, percentage: 70, minLength: 10, action: 'delete' }, profanity: { enabled: false, action: 'delete' }, sexualContent: { enabled: false, action: 'delete' }, slurs: { enabled: false, action: 'delete' }, logChannel: null, ignoredRoles: [], ignoredChannels: [], bypassRoleId: null };
 }
 
+// --- Broadcaster interceptor ---
+async function sendBroadcasterMessage(guildId, moduleName) {
+    if (!BOT_TOKEN) return;
+    const bcData = readBotStore('broadcaster') || {};
+    const cfg = bcData[guildId];
+    if (!cfg || !cfg.enabled || !cfg.channelId) return;
+
+    const prettyName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
+    const content = `📢 The **${prettyName}** feature was just activated via the dashboard!`;
+
+    try {
+        await fetch(`https://discord.com/api/channels/${cfg.channelId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bot ${BOT_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content })
+        });
+    } catch (e) {
+        console.error('Broadcaster failed:', e);
+    }
+}
+
+app.use((req, res, next) => {
+    if (req.method !== 'PUT' || !req.body || req.body.enabled !== true) return next();
+    
+    const match = req.originalUrl.match(/^\/api\/guild\/(\d+)\/([^\/?]+)/);
+    if (!match) return next();
+
+    const guildId = match[1];
+    let rawModule = match[2];
+    rawModule = rawModule.replace('-config', '').replace('-settings', '');
+    if (!rawModule || rawModule === 'broadcaster') return next();
+
+    const storeName = MODULE_TO_STORE[rawModule] || rawModule;
+    const oldData = readBotStore(storeName)?.[guildId] || {};
+
+    if (!oldData.enabled) {
+        const originalJson = res.json;
+        res.json = function(body) {
+            if (body && !body.error && !body._error) {
+                sendBroadcasterMessage(guildId, rawModule);
+            }
+            return originalJson.call(this, body);
+        };
+    }
+    next();
+});
+// -------------------------------
+
 // Generic module config endpoints
 const MODULE_DEFAULTS = {
     welcomer: getWelcomerDefaults,
@@ -1038,8 +1089,9 @@ const MODULE_DEFAULTS = {
         bypassRoleId: null,
         logChannel: null
     }),
+    broadcaster: () => ({ enabled: false, channelId: null }),
     verification: () => ({ enabled: false, type: 'button', roleId: null, channelId: null, message: 'Click the button below to verify yourself!', logChannel: null }),
-    starboard: () => ({ enabled: false, channelId: null, minStars: 3, emoji: 'â­', selfStar: false, ignoredChannels: [] }),
+    starboard: () => ({ enabled: false, channelId: null, minStars: 3, emoji: '⭐', selfStar: false, ignoredChannels: [] }),
     autorole: () => ({ humans: [], bots: [] }),
     antialt: () => ({ enabled: false, minAge: 7, action: 'kick', logChannel: null }),
     antiraid: () => ({ enabled: false, joinLimit: 10, timeWindow: 10, action: 'kick', logChannel: null }),
@@ -1671,7 +1723,115 @@ app.put('/api/guild/:guildId/trust-config', authMiddleware, (req, res) => {
     res.json(data[gid]);
 });
 
-// â”€â”€ Invite Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ———— Server Backup System ———————————————————————————————————————————————————————————————————
+const BACKUP_MODULES = ['welcomer', 'automod', 'tickets', 'verification', 'autoreact', 'autoresponder', 'reactionroles', 'economy-settings', 'levelroles', 'button-commands', 'select-menus', 'logging', 'starboard', 'suggestions', 'join2create', 'media-only', 'sticky', 'bot-customize'];
+
+app.get('/api/guild/:guildId/backups', authMiddleware, (req, res) => {
+    const data = readBotStore('server_backups') || [];
+    const guildBackups = (Array.isArray(data) ? data : [])
+        .filter(b => b.guildId === req.params.guildId || b.guild_id === req.params.guildId)
+        .map(b => ({ id: b.id || b.backup_id, name: b.name || b.guild_name, createdAt: b.createdAt || b.created_at, size: b.size || '—', modules: b.modules || [] }))
+        .slice(0, 10);
+    res.json(guildBackups);
+});
+
+app.post('/api/guild/:guildId/backups/create', authMiddleware, (req, res) => {
+    const guildId = req.params.guildId;
+    const backupData = {};
+    
+    for (const mod of BACKUP_MODULES) {
+        const storeData = readBotStore(mod);
+        if (storeData && storeData[guildId]) {
+            backupData[mod] = storeData[guildId];
+        }
+    }
+
+    const payload = JSON.stringify(backupData);
+    const sizeKb = Math.max(1, Math.round(payload.length / 1024));
+
+    const backupObj = {
+        id: Math.random().toString(36).substring(2, 10),
+        guildId,
+        name: `Backup ${new Date().toLocaleDateString()}`,
+        createdAt: Date.now(),
+        size: `${sizeKb} KB`,
+        modules: Object.keys(backupData),
+        data: backupData
+    };
+
+    let allBackups = readBotStore('server_backups') || [];
+    if (!Array.isArray(allBackups)) allBackups = [];
+    allBackups.unshift(backupObj);
+    
+    const guildBackups = allBackups.filter(b => b.guildId === guildId || b.guild_id === guildId);
+    if (guildBackups.length > 10) {
+        const toKeep = new Set(guildBackups.slice(0, 10).map(b => b.id || b.backup_id));
+        allBackups = allBackups.filter(b => (b.guildId !== guildId && b.guild_id !== guildId) || toKeep.has(b.id || b.backup_id));
+    }
+
+    writeBotStore('server_backups', allBackups);
+    res.json({ success: true, backup: backupObj });
+});
+
+app.post('/api/guild/:guildId/backups/upload', authMiddleware, express.json({limit: '5mb'}), (req, res) => {
+    const guildId = req.params.guildId;
+    let importedData = req.body.data;
+    
+    if (!importedData || typeof importedData !== 'object') {
+        return res.status(400).json({ error: 'Invalid backup format' });
+    }
+    
+    // Support the export format payload which wraps data in { kind, data }
+    if (importedData.kind === 'xnico-backup' && importedData.data) {
+        importedData = importedData.data;
+    }
+
+    const payload = JSON.stringify(importedData);
+    const sizeKb = Math.max(1, Math.round(payload.length / 1024));
+
+    const backupObj = {
+        id: Math.random().toString(36).substring(2, 10),
+        guildId,
+        name: `Imported Backup`,
+        createdAt: Date.now(),
+        size: `${sizeKb} KB`,
+        modules: Object.keys(importedData).filter(k => BACKUP_MODULES.includes(k)),
+        data: importedData
+    };
+
+    let allBackups = readBotStore('server_backups') || [];
+    if (!Array.isArray(allBackups)) allBackups = [];
+    allBackups.unshift(backupObj);
+    
+    const guildBackups = allBackups.filter(b => b.guildId === guildId || b.guild_id === guildId);
+    if (guildBackups.length > 10) {
+        const toKeep = new Set(guildBackups.slice(0, 10).map(b => b.id || b.backup_id));
+        allBackups = allBackups.filter(b => (b.guildId !== guildId && b.guild_id !== guildId) || toKeep.has(b.id || b.backup_id));
+    }
+
+    writeBotStore('server_backups', allBackups);
+    res.json({ success: true, backup: backupObj });
+});
+
+app.get('/api/guild/:guildId/backups/:backupId/download', authMiddleware, (req, res) => {
+    const data = readBotStore('server_backups') || [];
+    const backup = (Array.isArray(data) ? data : []).find(b => (b.guildId === req.params.guildId || b.guild_id === req.params.guildId) && (b.id === req.params.backupId || b.backup_id === req.params.backupId));
+    
+    if (!backup) return res.status(404).send('Backup not found');
+
+    const exportPayload = {
+        kind: 'xnico-backup',
+        version: 1,
+        exportedAt: backup.createdAt || backup.created_at || Date.now(),
+        data: backup.data || {}
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="xnico-backup-${backup.id || backup.backup_id}.json"`);
+    res.send(JSON.stringify(exportPayload, null, 2));
+});
+
+// ———— Invite Tracking ————————————————————————————————————————————————————————————————————————
 app.get('/api/guild/:guildId/invites-config', authMiddleware, (req, res) => {
     const gid = req.params.guildId;
     // Read from invites store (the actual invite manager store)
@@ -2250,11 +2410,11 @@ app.put('/api/guild/:guildId/starboard-config', authMiddleware, (req, res) => {
     const gid = req.params.guildId;
     const body = req.body || {};
     const data = readBotStore('starboard') || {};
-    if (body.enabled === false || !body.channelId) {
+    if (body.enabled === false) {
         delete data[gid];
     } else {
         if (!data[gid]) data[gid] = { starredMessages: {} };
-        if (body.channelId) data[gid].channelId = body.channelId;
+        if (body.channelId !== undefined) data[gid].channelId = body.channelId || null;
         if (Number.isFinite(Number(body.threshold))) data[gid].threshold = Math.max(1, Math.min(100, Number(body.threshold)));
     }
     writeBotStore('starboard', data);
@@ -2289,7 +2449,7 @@ app.put('/api/guild/:guildId/counting-config', authMiddleware, async (req, res) 
     const body = req.body || {};
     try {
         const { db } = require('../utils/database');
-        if (body.enabled === false || !body.channelId) {
+        if (body.enabled === false) {
             await db.delete(`counting_${gid}`);
             return res.json({ success: true, disabled: true });
         }
@@ -2297,7 +2457,7 @@ app.put('/api/guild/:guildId/counting-config', authMiddleware, async (req, res) 
             channelId: null, currentCount: 0, lastUserId: null,
             highScore: 0, totalCounts: 0, fails: 0
         };
-        if (body.channelId) existing.channelId = String(body.channelId);
+        if (body.channelId !== undefined) existing.channelId = body.channelId ? String(body.channelId) : null;
         if (body.reset)     { existing.currentCount = 0; existing.lastUserId = null; }
         await db.set(`counting_${gid}`, existing);
         res.json({ success: true });

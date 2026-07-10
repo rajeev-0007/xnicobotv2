@@ -526,36 +526,103 @@ async function pageBackups() {
     const list = Array.isArray(backups) ? backups : [];
 
     const listHtml = list.length ? `
-        <table class="tbl">
-            <thead><tr><th>ID</th><th>Name</th><th>Created</th></tr></thead>
+        <table class="tbl mt-2">
+            <thead><tr><th>ID</th><th>Name</th><th>Created</th><th>Size</th><th>Modules</th><th>Action</th></tr></thead>
             <tbody>${list.map(b => `<tr>
                 <td class="mono text-xs">${esc(b.id || '—')}</td>
                 <td>${esc(b.name || '—')}</td>
                 <td class="text-xs">${b.createdAt ? new Date(b.createdAt).toLocaleString() : '—'}</td>
+                <td class="text-xs">${esc(b.size || '—')}</td>
+                <td class="text-xs" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc((b.modules||[]).join(', '))}">${b.modules ? b.modules.length : 0} modules</td>
+                <td>
+                    <a class="btn small" href="/api/guild/${g.id}/backups/${b.id}/download" target="_blank">${icon('download')}</a>
+                </td>
             </tr>`).join('')}</tbody>
         </table>
-    ` : '<div class="text-sm text-mute">No backups found for this server.</div>';
+    ` : '<div class="text-sm text-mute mt-2">No backups found for this server.</div>';
 
     $('#page').innerHTML = `
-        <div class="page-h"><div><h1>Server Backups</h1><p>Configuration backups for ${esc(g.name)}.</p></div>
+        <div class="page-h"><div><h1>Backup & Restore</h1><p>Export your module settings to a file, then restore them via Discord.</p></div>
             <div class="row wrap"><a class="btn" href="#/server/${esc(g.id)}">${icon('home')} Overview</a></div></div>
 
         <div class="card mb-2">
-            <div class="card-h"><div class="ic">${icon('server')}</div><div class="tt"><div class="t">Backups (${list.length})</div><div class="s">Server structure and bot config backups.</div></div></div>
-            ${listHtml}
+            <div class="card-h"><div class="ic">${icon('download')}</div><div class="tt"><div class="t">Export</div></div></div>
+            <p class="text-sm mt-1 mb-2">Downloads a JSON of: Welcomer · Automod · Tickets · Verification · Quotes · Reaction Roles, etc. <br><span class="text-mute">(Security, permits & anti-nuke are excluded on purpose.)</span></p>
+            <button class="btn primary" id="btn-export" onclick="window.createBackup()">${icon('plus')} Download backup</button>
         </div>
 
-        <div class="card mb-2" style="font-size:.85rem">
-            <h3>Managing Backups</h3>
-            <p class="mt-1">Create and restore backups via Discord commands:</p>
-            <ul style="padding-left:1.2rem;margin:.5rem 0;line-height:1.8">
-                <li><code>/server-backup create</code> — Create a full server backup</li>
-                <li><code>/server-backup list</code> — View all backups</li>
-                <li><code>/server-backup restore</code> — Restore from a backup</li>
-                <li><code>/server-backup delete</code> — Delete a backup</li>
-            </ul>
-            <div class="hint">Backups include channels, roles, permissions, emojis, bot configs, and optionally messages.</div>
+        <div class="card mb-2">
+            <div class="card-h"><div class="ic">${icon('upload')}</div><div class="tt"><div class="t">Import / Restore</div></div></div>
+            <p class="text-sm mt-1 mb-2">Upload a file or paste a backup, then import. On a different server you'll re-select channels & roles afterward.</p>
+            <div class="form-row">
+                <input type="file" id="backup-file" accept=".json">
+            </div>
+            <div class="form-row">
+                <label>or paste below</label>
+                <textarea id="backup-paste" placeholder='{ "kind": "xnico-backup", "data": { ... } }' style="min-height:100px; font-family:monospace"></textarea>
+            </div>
+            <button class="btn primary" id="btn-import" onclick="window.importBackup()">${icon('upload')} Import selected</button>
+        </div>
+
+        <div class="card mb-2">
+            <div class="card-h"><div class="ic">${icon('server')}</div><div class="tt"><div class="t">Server Backups (${list.length})</div></div></div>
+            <div class="hint mt-1">To apply any of these backups to your server, run the <code>-server-backup restore</code> command in Discord!</div>
+            ${listHtml}
         </div>`;
+
+    window.createBackup = async () => {
+        const btn = document.getElementById('btn-export');
+        btn.classList.add('loading');
+        try {
+            const res = await api(`/api/guild/${g.id}/backups/create`, {method:'POST'});
+            if (res.success) {
+                window.location.href = `/api/guild/${g.id}/backups/${res.backup.id}/download`;
+                setTimeout(() => pageBackups(), 1000);
+            }
+        } finally {
+            btn.classList.remove('loading');
+        }
+    };
+
+    window.importBackup = async () => {
+        const btn = document.getElementById('btn-import');
+        const fileInput = document.getElementById('backup-file');
+        const pasteInput = document.getElementById('backup-paste');
+        let dataObj = null;
+
+        if (pasteInput.value.trim()) {
+            try {
+                dataObj = JSON.parse(pasteInput.value.trim());
+            } catch(e) {
+                return toast('Invalid JSON in text box', 'error');
+            }
+        } else if (fileInput.files.length > 0) {
+            const text = await fileInput.files[0].text();
+            try {
+                dataObj = JSON.parse(text);
+            } catch(e) {
+                return toast('Invalid JSON in file', 'error');
+            }
+        } else {
+            return toast('Please select a file or paste JSON data', 'error');
+        }
+
+        btn.classList.add('loading');
+        try {
+            const res = await api(`/api/guild/${g.id}/backups/upload`, {
+                method:'POST',
+                body: JSON.stringify({ data: dataObj })
+            });
+            if (res.success) {
+                toast('Backup successfully imported! Use the Discord command -server-backup restore to apply it.', 'success');
+                pageBackups();
+            } else {
+                toast(res.error || 'Failed to import backup', 'error');
+            }
+        } finally {
+            btn.classList.remove('loading');
+        }
+    };
 }
 
 
