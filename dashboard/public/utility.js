@@ -535,7 +535,7 @@ async function pageBackups() {
                 <td class="text-xs">${esc(b.size || '—')}</td>
                 <td class="text-xs" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc((b.modules||[]).join(', '))}">${b.modules ? b.modules.length : 0} modules</td>
                 <td>
-                    <a class="btn small" href="/api/guild/${g.id}/backups/${b.id}/download" target="_blank">${icon('download')}</a>
+                    <a class="btn small" href="/api/guild/${g.id}/backups/${b.id}/download?token=${state.token}" target="_blank">${icon('download')}</a>
                 </td>
             </tr>`).join('')}</tbody>
         </table>
@@ -576,9 +576,13 @@ async function pageBackups() {
         try {
             const res = await api(`/api/guild/${g.id}/backups/create`, {method:'POST'});
             if (res.success) {
-                window.location.href = `/api/guild/${g.id}/backups/${res.backup.id}/download`;
+                window.open(`/api/guild/${g.id}/backups/${res.backup.id}/download?token=${state.token}`, '_blank');
                 setTimeout(() => pageBackups(), 1000);
+            } else {
+                toast(res.error || 'Failed to create backup', 'error');
             }
+        } catch (e) {
+            toast('Failed to reach API', 'error');
         } finally {
             btn.classList.remove('loading');
         }

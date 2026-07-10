@@ -462,6 +462,7 @@ window.XNICO_MODULES = [
         group: 'Engagement',
         description: 'Announce and ping when members vote for the bot on listing sites.',
         icon: 'bell',
+        ownerOnly: true,
         fields: [
             { key: 'enabled', label: 'Enable Vote Notifications', type: 'toggle' },
             { key: 'channelId', label: 'Announcement Channel', type: 'channel' },
