@@ -5,7 +5,49 @@
 
 // ═══════════════════════════════════════════════════════════
 // AUTOROLE
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════// Global AutoRole event handlers
+window.__saveAutoRole = async function() {
+    try {
+        const g = state.currentGuild;
+        const payload = window.__working || {};
+        toast('Saving AutoRole config...', 'info');
+        const res = await api(`/api/guild/${g.id}/autorole-config`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        if (res._error) {
+            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+        } else {
+            toast('AutoRole saved!', 'success');
+            localStorage.removeItem(`draft:autorole:${g.id}`);
+        }
+    } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+    }
+};
+
+window.__addAutoRole = function(roleId, roleType = 'humans') {
+    if (!roleId) { toast('Select a role', 'error'); return; }
+    const cfg = window.__working || {};
+    if (!cfg[roleType]) cfg[roleType] = [];
+    if (!cfg[roleType].includes(roleId)) {
+        cfg[roleType].push(roleId);
+        window.__working = cfg;
+        localStorage.setItem(`draft:autorole:${state.currentGuild.id}`, JSON.stringify(cfg));
+        if (window.__renderModule) window.__renderModule();
+    }
+};
+
+window.__aroleRm = function(roleType, roleId) {
+    const cfg = window.__working || {};
+    if (cfg[roleType]) {
+        const idx = cfg[roleType].indexOf(roleId);
+        if (idx > -1) cfg[roleType].splice(idx, 1);
+        window.__working = cfg;
+        localStorage.setItem(`draft:autorole:${state.currentGuild.id}`, JSON.stringify(cfg));
+        if (window.__renderModule) window.__renderModule();
+    }
+};
 async function pageAutorole() {
     const g = state.currentGuild;
     const [cfg, roles] = await Promise.all([
@@ -14,7 +56,7 @@ async function pageAutorole() {
     ]);
     state.roles = Array.isArray(roles) ? roles.filter(r => r.name !== '@everyone') : [];
     const w = cfg && !cfg._error ? cfg : { humans: [], bots: [] };
-    window.__aroleWorking = JSON.parse(JSON.stringify(w));
+    window.__aroleWorking = structuredClone(w);
     _renderAutorolePage(g);
 }
 
@@ -122,8 +164,8 @@ async function pageSuggestions() {
         const r = await api(`/api/guild/${g.id}/suggestions-config`, { method: 'PUT', body: JSON.stringify({
             channelId: $('#sug-ch').value || null,
             logsChannelId: $('#sug-logs').value || null,
-            voteThreshold: parseInt($('#sug-threshold').value) || 10,
-            threadSlowmode: parseInt($('#sug-slowmode').value) || 0
+            voteThreshold: Number.parseInt($('#sug-threshold').value) || 10,
+            threadSlowmode: Number.parseInt($('#sug-slowmode').value) || 0
         })});
         btn.disabled = false; btn.innerHTML = icon('check') + ' Save';
         if (r && !r._error) toast('Suggestions saved!', 'success');
@@ -149,7 +191,7 @@ async function pageFeedback() {
     // Rating distribution bar
     const maxR = Math.max(1, ...Object.values(w.ratings || {}));
     const ratingBars = [5,4,3,2,1].map(n => {
-        const count = (w.ratings || {})[n] || 0;
+        const count = w.ratings?.[n] ?? 0;
         const pct = Math.round(count / maxR * 100);
         return `<div class="row" style="gap:.5rem;margin-bottom:.3rem">
             <span class="text-xs bold" style="width:20px">${n}⭐</span>

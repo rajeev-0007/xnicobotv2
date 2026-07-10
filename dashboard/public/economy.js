@@ -5,6 +5,37 @@
    Syncs to jsonStore 'economy-settings' + 'economy'.
    ========================================================= */
 
+// Global Economy event handlers
+window.__saveEconomy = async function() {
+    try {
+        const g = state.currentGuild;
+        const payload = window.__working || {};
+        toast('Saving Economy config...', 'info');
+        const res = await api(`/api/guild/${g.id}/economy`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        if (res._error) {
+            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+        } else {
+            toast('Economy saved!', 'success');
+            localStorage.removeItem(`draft:economy:${g.id}`);
+        }
+    } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+    }
+};
+
+window.__resetShop = async function() {
+    if (!confirm('Reset shop to default? This cannot be undone.')) return;
+    const g = state.currentGuild;
+    const cfg = window.__working || {};
+    cfg.shopItems = [];
+    window.__working = cfg;
+    localStorage.setItem(`draft:economy:${g.id}`, JSON.stringify(cfg));
+    if (window.__renderModule) window.__renderModule();
+};
+
 async function pageEconomy() {
     const g = state.currentGuild;
     const [cfg, board] = await Promise.all([
@@ -16,7 +47,7 @@ async function pageEconomy() {
         return;
     }
 
-    const w = JSON.parse(JSON.stringify(cfg || {}));
+    const w = structuredClone(cfg || {});
     state.econBoard = Array.isArray(board) ? board : [];
 
     // Draft recovery
@@ -34,7 +65,7 @@ async function pageEconomy() {
     } catch { localStorage.removeItem(draftKey); }
 
     window.__working = w;
-    window.__econSnapshot = JSON.parse(JSON.stringify(cfg));
+    window.__econSnapshot = structuredClone(cfg);
     window.__econDraftKey = draftKey;
     _renderEconomyBody(g, w, hasDraft);
 }
@@ -174,7 +205,7 @@ function _renderEconomyBody(g, w, hasDraft) {
         else {
             toast('Economy settings saved — live now!', 'success');
             try { localStorage.removeItem(window.__econDraftKey); } catch {}
-            window.__econSnapshot = JSON.parse(JSON.stringify(w));
+            window.__econSnapshot = structuredClone(w);
             const i = document.getElementById('econ-draft'); if (i) i.style.display = 'none';
             const st = document.getElementById('econ-status');
             if (st) st.textContent = `${w.currency || '💰'} ${w.currencyName || 'coins'}`;

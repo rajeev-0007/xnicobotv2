@@ -5,6 +5,49 @@
    Mode-specific fields show only for the selected mode.
    ========================================================= */
 
+// Global Welcomer event handlers
+window.__saveWelcomer = async function() {
+    try {
+        const g = state.currentGuild;
+        const payload = window.__working || {};
+        toast('Saving Welcomer config...', 'info');
+        const res = await api(`/api/guild/${g.id}/welcomer`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        if (res._error) {
+            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+        } else {
+            toast('Welcomer saved!', 'success');
+            localStorage.removeItem(`draft:welcomer:${g.id}`);
+        }
+    } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+    }
+};
+
+window.__testWelcome = async function() {
+    const g = state.currentGuild;
+    toast('Sending test welcome message...', 'info');
+    const res = await api(`/api/guild/${g.id}/welcomer/test`, { method: 'POST' });
+    if (res._error) {
+        toast(`Failed: ${res.error}`, 'error');
+    } else {
+        toast('Test message sent!', 'success');
+    }
+};
+
+window.__testLeave = async function() {
+    const g = state.currentGuild;
+    toast('Sending test leave message...', 'info');
+    const res = await api(`/api/guild/${g.id}/welcomer/test-leave`, { method: 'POST' });
+    if (res._error) {
+        toast(`Failed: ${res.error}`, 'error');
+    } else {
+        toast('Test message sent!', 'success');
+    }
+};
+
 async function pageWelcomer() {
     const g = state.currentGuild;
     const [cfg, channels, roles, customBtns, customMenus] = await Promise.all([
@@ -23,7 +66,7 @@ async function pageWelcomer() {
     state.customBtns = (customBtns && !customBtns._error) ? customBtns : {};
     state.customMenus = (customMenus && !customMenus._error) ? customMenus : {};
 
-    const saved = JSON.parse(JSON.stringify(cfg || {}));
+    const saved = structuredClone(cfg || {});
 
     // Check for unsaved draft in localStorage
     const draftKey = `draft:welcomer:${g.id}`;
@@ -86,10 +129,9 @@ function _renderWelcomerBody(g, w, hasDraft) {
         );
         return `<select data-key="${esc(key)}"><option value="">— None —</option>${list.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>`;
     };
-    const colorIn = (key, val) => {
-        const v = val || '#bcf1e4';
-        const hex = v.startsWith('#') ? v : '#bcf1e4';
-        return `<div class="row"><input type="color" data-key="${esc(key)}" value="${esc(hex)}"><input type="text" data-key="${esc(key)}" value="${esc(v)}" placeholder="#bcf1e4" style="flex:1"></div>`;
+    const colorIn = (key, val = '#bcf1e4') => {
+     const hex = val.startsWith('#') ? val : '#bcf1e4';
+     return `<div class="row"><input type="color" data-key="${esc(key)}" value="${esc(hex)}"><input type="text" data-key="${esc(key)}" value="${esc(val)}" placeholder="#bcf1e4" style="flex:1"></div>`;
     };
     const tog = (key, val, label, desc, extra) => {
         return `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${desc ? `<div class="desc">${esc(desc)}</div>` : ''}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
@@ -444,7 +486,7 @@ function _renderWelcomerBody(g, w, hasDraft) {
             toast('Welcomer saved — live now!', 'success');
             // Clear draft and update snapshot so indicator hides
             try { localStorage.removeItem(window.__draftKey); } catch {}
-            window.__savedSnapshot = JSON.parse(JSON.stringify(w));
+            window.__savedSnapshot = structuredClone(w);
             _updateDraftIndicator(false);
             $('#mod-status-tag').className = 'tag ' + (w.enabled ? 'green' : 'grey');
             $('#mod-status-tag').textContent = w.enabled ? 'Active' : 'Inactive';
@@ -464,7 +506,7 @@ function _bindWelcBtnEditors(working) {
     $$('#page [data-btn]').forEach(inp => {
         inp.addEventListener('input', () => {
             const key = inp.dataset.btn;
-            const idx = parseInt(inp.dataset.idx);
+            const idx = Number.parseInt(inp.dataset.idx);
             const field = inp.dataset.field;
             const arr = getDeep(working, key) || [];
             if (!arr[idx]) arr[idx] = {};

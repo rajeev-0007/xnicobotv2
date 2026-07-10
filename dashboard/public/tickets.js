@@ -5,6 +5,46 @@
    Syncs to jsonStore 'tickets' used by the bot.
    ========================================================= */
 
+// Global Tickets event handlers
+window.__saveTickets = async function() {
+    try {
+        const g = state.currentGuild;
+        const payload = window.__working || {};
+        toast('Saving Tickets config...', 'info');
+        const res = await api(`/api/guild/${g.id}/tickets`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        if (res._error) {
+            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+        } else {
+            toast('Tickets saved!', 'success');
+            localStorage.removeItem(`draft:tickets:${g.id}`);
+        }
+    } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+    }
+};
+
+window.__addTicketPanel = function() {
+    const g = state.currentGuild;
+    const cfg = window.__working || {};
+    if (!cfg.panels) cfg.panels = [];
+    cfg.panels.push({ name: 'New Panel', category: '', button: 'Create Ticket' });
+    window.__working = cfg;
+    localStorage.setItem(`draft:tickets:${g.id}`, JSON.stringify(cfg));
+    if (window.__renderModule) window.__renderModule();
+};
+
+window.__delTicketPanel = function(idx) {
+    const g = state.currentGuild;
+    const cfg = window.__working || {};
+    if (cfg.panels) cfg.panels.splice(idx, 1);
+    window.__working = cfg;
+    localStorage.setItem(`draft:tickets:${g.id}`, JSON.stringify(cfg));
+    if (window.__renderModule) window.__renderModule();
+};
+
 async function pageTickets() {
     const g = state.currentGuild;
     const [cfg, channels, roles, openTickets] = await Promise.all([
@@ -19,7 +59,7 @@ async function pageTickets() {
     const w = cfg && !cfg._error ? cfg : { configured: false, channelId: null, categoryId: null, supportRoleId: null, categories: [], openTickets: 0 };
     const tickets = Array.isArray(openTickets) ? openTickets : [];
 
-    window.__ticketWorking = JSON.parse(JSON.stringify(w));
+    window.__ticketWorking = structuredClone(w);
     _renderTicketsBody(g, window.__ticketWorking, tickets);
 }
 
@@ -184,7 +224,7 @@ window.__ticketAddCat = () => {
     const id = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32);
     const w = window.__ticketWorking;
     if (!w.categories) w.categories = [];
-    if (w.categories.find(c => c.id === id)) return toast('Category with this ID already exists', 'error');
+    if (w.categories.some(c => c.id === id)) return toast('Category with this ID already exists', 'error');
     w.categories.push({ id, label, emoji, description });
     _rerenderTicketsKeepScroll();
 };

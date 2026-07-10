@@ -76,8 +76,72 @@ function renderButtonEditor(g, id, btn, isNew) {
     } catch { localStorage.removeItem(draftKey); }
 
     window.__btnDraftKey = draftKey;
-    window.__btnSnapshot = JSON.parse(JSON.stringify(btn));
+    window.__btnSnapshot = structuredClone(btn);
     window.__currentBtnActions = btn.actions || [];
+
+    // Global button event handlers
+    window.__saveBtn = async function() {
+        try {
+            const payload = { ...btn, actions: window.__currentBtnActions };
+            toast('Saving...', 'info');
+            const res = await api(`/api/guild/${g.id}/button-commands/${id || '_new_'}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            });
+            if (res._error) {
+                toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+            } else {
+                toast('Button saved!', 'success');
+                localStorage.removeItem(draftKey);
+                setTimeout(() => window.location.hash = `#/server/${g.id}/buttons`, 300);
+            }
+        } catch (e) {
+            toast(`Error: ${e.message}`, 'error');
+        }
+    };
+
+    window.__delBtn = async function(btnId) {
+        if (!confirm('Delete this button? This action cannot be undone.')) return;
+        try {
+            toast('Deleting...', 'info');
+            const res = await api(`/api/guild/${g.id}/button-commands/${btnId}`, { method: 'DELETE' });
+            if (res._error) {
+                toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+            } else {
+                toast('Button deleted!', 'success');
+                setTimeout(() => pageButtonCreator(), 300);
+            }
+        } catch (e) {
+            toast(`Error: ${e.message}`, 'error');
+        }
+    };
+
+    window.__newBtn = function() {
+        window.location.hash = `#/server/${g.id}/button-new`;
+    };
+
+    window.__editBtn = function(btnId) {
+        window.location.hash = `#/server/${g.id}/button-edit/${btnId}`;
+    };
+
+    window.__addBtnAction = function() {
+        if (!window.__currentBtnActions) window.__currentBtnActions = [];
+        window.__currentBtnActions.push({ type: 'send_message', message: '' });
+        localStorage.setItem(draftKey, JSON.stringify({ ...btn, actions: window.__currentBtnActions }));
+        renderButtonActionsList(window.__currentBtnActions);
+    };
+
+    window.__delBtnAction = function(idx) {
+        window.__currentBtnActions.splice(idx, 1);
+        localStorage.setItem(draftKey, JSON.stringify({ ...btn, actions: window.__currentBtnActions }));
+        renderButtonActionsList(window.__currentBtnActions);
+    };
+
+    // Update button properties on input change
+    window.__updateBtn = function(key, val) {
+        btn[key] = val;
+        localStorage.setItem(draftKey, JSON.stringify({ ...btn, actions: window.__currentBtnActions }));
+    };
 
     function persistBtnDraft() {
         try {
@@ -196,7 +260,7 @@ window.__newBtn = () => {
 window.__editBtn = async (id) => {
     const g = state.currentGuild;
     const btns = await api(`/api/guild/${g.id}/buttons`);
-    if (btns && btns[id]) renderButtonEditor(g, id, btns[id], false);
+    if (btns?.[id]) renderButtonEditor(g, id, btns[id], false);
     else toast('Button not found', 'error');
 };
 window.__delBtn = async (id) => {

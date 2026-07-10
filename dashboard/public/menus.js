@@ -76,12 +76,75 @@ function renderMenuEditor(g, id, menu, isNew) {
     window.__menuDraftKey = draftKey;
     window.__currentMenuOpts = menu.options || [];
 
+    // Global menu event handlers
+    window.__saveMenu = async function() {
+        try {
+            const payload = { ...menu, options: window.__currentMenuOpts };
+            toast('Saving...', 'info');
+            const res = await api(`/api/guild/${g.id}/select-menus/${id || '_new_'}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            });
+            if (res._error) {
+                toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+            } else {
+                toast('Menu saved!', 'success');
+                localStorage.removeItem(draftKey);
+                setTimeout(() => window.location.hash = `#/server/${g.id}/menus`, 300);
+            }
+        } catch (e) {
+            toast(`Error: ${e.message}`, 'error');
+        }
+    };
+
+    window.__delMenu = async function(menuId) {
+        if (!confirm('Delete this menu? This action cannot be undone.')) return;
+        try {
+            toast('Deleting...', 'info');
+            const res = await api(`/api/guild/${g.id}/select-menus/${menuId}`, { method: 'DELETE' });
+            if (res._error) {
+                toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+            } else {
+                toast('Menu deleted!', 'success');
+                setTimeout(() => pageMenuCreator(), 300);
+            }
+        } catch (e) {
+            toast(`Error: ${e.message}`, 'error');
+        }
+    };
+
+    window.__newMenu = function() {
+        window.location.hash = `#/server/${g.id}/menu-new`;
+    };
+
+    window.__editMenu = function(menuId) {
+        window.location.hash = `#/server/${g.id}/menu-edit/${menuId}`;
+    };
+
+    window.__addMenuOpt = function() {
+        if (!window.__currentMenuOpts) window.__currentMenuOpts = [];
+        window.__currentMenuOpts.push({ label: 'Option', value: '', actions: [] });
+        localStorage.setItem(draftKey, JSON.stringify({ ...menu, options: window.__currentMenuOpts }));
+        renderMenuOptionsList(window.__currentMenuOpts);
+    };
+
+    window.__delMenuOpt = function(idx) {
+        window.__currentMenuOpts.splice(idx, 1);
+        localStorage.setItem(draftKey, JSON.stringify({ ...menu, options: window.__currentMenuOpts }));
+        renderMenuOptionsList(window.__currentMenuOpts);
+    };
+
+    window.__updateMenu = function(key, val) {
+        menu[key] = val;
+        localStorage.setItem(draftKey, JSON.stringify({ ...menu, options: window.__currentMenuOpts }));
+    };
+
     function persistMenuDraft() {
         try {
             const cur = {
                 placeholder: $('#menu-placeholder')?.value || 'Select an option...',
-                minValues: parseInt($('#menu-min')?.value) || 1,
-                maxValues: parseInt($('#menu-max')?.value) || 1,
+                minValues: Number.parseInt($('#menu-min')?.value) || 1,
+                maxValues: Number.parseInt($('#menu-max')?.value) || 1,
                 ephemeral: $('#menu-ephemeral')?.checked,
                 options: window.__currentMenuOpts
             };
@@ -160,8 +223,8 @@ function renderMenuEditor(g, id, menu, isNew) {
         const payload = {
             id: menuId,
             placeholder: $('#menu-placeholder').value || 'Select an option...',
-            minValues: parseInt($('#menu-min').value) || 1,
-            maxValues: parseInt($('#menu-max').value) || 1,
+            minValues: Number.parseInt($('#menu-min').value) || 1,
+            maxValues: Number.parseInt($('#menu-max').value) || 1,
             ephemeral: $('#menu-ephemeral').checked,
             options: window.__currentMenuOpts
         };
@@ -218,7 +281,7 @@ window.__newMenu = () => {
 window.__editMenu = async (id) => {
     const g = state.currentGuild;
     const menus = await api(`/api/guild/${g.id}/menus`);
-    if (menus && menus[id]) renderMenuEditor(g, id, menus[id], false);
+    if (menus?.[id]) renderMenuEditor(g, id, menus[id], false);
     else toast('Menu not found', 'error');
 };
 window.__delMenu = async (id) => {
@@ -236,20 +299,20 @@ window.__addMenuOpt = () => {
     // Re-render
     const g = state.currentGuild;
     const id = $('#menu-id')?.value || '';
-    const menu = { placeholder: $('#menu-placeholder').value, minValues: parseInt($('#menu-min').value), maxValues: parseInt($('#menu-max').value), ephemeral: $('#menu-ephemeral').checked, options: window.__currentMenuOpts };
+    const menu = { placeholder: $('#menu-placeholder').value, minValues: Number.parseInt($('#menu-min').value), maxValues: Number.parseInt($('#menu-max').value), ephemeral: $('#menu-ephemeral').checked, options: window.__currentMenuOpts };
     renderMenuEditor(g, id, menu, !$('#menu-id')?.disabled);
 };
 window.__rmMenuOpt = (idx) => {
     window.__currentMenuOpts.splice(idx, 1);
     const g = state.currentGuild;
     const id = $('#menu-id')?.value || '';
-    const menu = { placeholder: $('#menu-placeholder').value, minValues: parseInt($('#menu-min').value), maxValues: parseInt($('#menu-max').value), ephemeral: $('#menu-ephemeral').checked, options: window.__currentMenuOpts };
+    const menu = { placeholder: $('#menu-placeholder').value, minValues: Number.parseInt($('#menu-min').value), maxValues: Number.parseInt($('#menu-max').value), ephemeral: $('#menu-ephemeral').checked, options: window.__currentMenuOpts };
     renderMenuEditor(g, id, menu, !$('#menu-id')?.disabled);
 };
 window.__editMenuOpt = (optIdx) => {
     const g = state.currentGuild;
     const id = $('#menu-id')?.value || '';
-    const menu = { placeholder: $('#menu-placeholder')?.value, minValues: parseInt($('#menu-min')?.value), maxValues: parseInt($('#menu-max')?.value), ephemeral: $('#menu-ephemeral')?.checked, options: window.__currentMenuOpts };
+    const menu = { placeholder: $('#menu-placeholder')?.value, minValues: Number.parseInt($('#menu-min')?.value), maxValues: Number.parseInt($('#menu-max')?.value), ephemeral: $('#menu-ephemeral')?.checked, options: window.__currentMenuOpts };
     window.__currentMenuData = { id, menu, isNew: !$('#menu-id')?.disabled };
     renderOptActionEditor(g, id, menu, optIdx);
 };

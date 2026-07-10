@@ -26,6 +26,35 @@ function getMbDefaults() {
     };
 }
 
+// Global Message Builder event handlers
+window.__saveMsgTemplate = async function() {
+    try {
+        const g = state.currentGuild;
+        const payload = window.__working || {};
+        toast('Saving message template...', 'info');
+        const res = await api(`/api/guild/${g.id}/message-builder/templates`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        if (res._error) {
+            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
+        } else {
+            toast('Message template saved!', 'success');
+            window.__working = {};
+        }
+    } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+    }
+};
+
+window.__previewMsg = function() {
+    const cfg = window.__working || {};
+    const preview = document.getElementById('msg-preview');
+    if (preview) {
+        preview.innerHTML = renderDiscord(cfg.content || '');
+    }
+};
+
 async function pageMessageBuilder() {
     const g = state.currentGuild;
     const [channels, roles, customBtns, templates] = await Promise.all([
@@ -84,10 +113,9 @@ function _renderMbBody(g, w) {
         `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${desc ? `<div class="desc">${esc(desc)}</div>` : ''}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
     const sel = (key, val, opts) =>
         `<select data-key="${esc(key)}">${opts.map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
-    const colorIn = (key, val) => {
-        const v = val || '#bcf1e4';
-        const hex = v.startsWith('#') ? v : '#bcf1e4';
-        return `<div class="row"><input type="color" data-key="${esc(key)}" value="${esc(hex)}"><input type="text" data-key="${esc(key)}" value="${esc(v)}" placeholder="#bcf1e4" style="flex:1"></div>`;
+    const colorIn = (key, val = '#bcf1e4') => {
+     const hex = val.startsWith('#') ? val : '#bcf1e4';
+     return `<div class="row"><input type="color" data-key="${esc(key)}" value="${esc(hex)}"><input type="text" data-key="${esc(key)}" value="${esc(val)}" placeholder="#bcf1e4" style="flex:1"></div>`;
     };
 
     // Image gallery editor
@@ -152,8 +180,8 @@ function _renderMbBody(g, w) {
                 <span class="tag">${esc(name)}</span>
                 <span class="text-xs text-mute">${esc((state.msgTemplates[name].mode || 'components'))}</span>
                 <span class="spacer"></span>
-                <button class="btn sm" onclick="window.__mbLoadTemplate('${esc(name.replace(/'/g, "\\'"))}')" title="Load">📥</button>
-                <button class="btn sm danger" onclick="window.__mbDelTemplate('${esc(name.replace(/'/g, "\\'"))}')" title="Delete">×</button>
+                <button class="btn sm" onclick="window.__mbLoadTemplate('${esc(name)}')" title="Load">📥</button>
+                <button class="btn sm danger" onclick="window.__mbDelTemplate('${esc(name)}')" title="Delete">×</button>
             </div>
         </div>
     `).join('') : '<p class="text-sm text-mute">No templates saved yet.</p>';
@@ -204,7 +232,7 @@ function _renderMbBody(g, w) {
                 <div class="form-row mt-2"><label>Image Position</label>${sel('imagePosition', w.imagePosition || 'bottom', ['top','bottom','side'])}</div>
             </div>
             <div id="mb-image-single" ${vis(isEmbed)}>
-                <div class="form-row mt-2"><label>Image URL (single)</label><input type="url" id="mb-embed-image" value="${esc((w.images && w.images[0]) || w.image || '')}" onchange="window.__mbSetSingleImg(this.value)" placeholder="https://..."></div>
+                <div class="form-row mt-2"><label>Image URL (single)</label><input type="url" id="mb-embed-image" value="${esc((w.images?.[0]) || w.image || '')}" onchange="window.__mbSetSingleImg(this.value)" placeholder="https://..."></div>
             </div>
         </div>
 
@@ -363,7 +391,7 @@ window.__mbEditBtn = (i, key, value) => {
 // ── Action buttons (from Button Creator) ──
 window.__mbAddActionBtn = () => {
     const sel = $('#mb-ab-select');
-    if (!sel || !sel.value) return;
+    if (!sel?.value) return;
     window.__mbWorking.actionButtons = window.__mbWorking.actionButtons || [];
     if (!window.__mbWorking.actionButtons.includes(sel.value)) {
         window.__mbWorking.actionButtons.push(sel.value);
