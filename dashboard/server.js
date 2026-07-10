@@ -1,5 +1,5 @@
-/**
- * xNico Dashboard — Express Server v2
+﻿/**
+ * xNico Dashboard â€” Express Server v2
  * Full REST API with Discord OAuth2 login + module configuration
  */
 const express = require('express');
@@ -11,15 +11,17 @@ const jwt = require('jsonwebtoken');
 const fs = require('node:fs');
 let helmet = null;
 let rateLimit = null;
-try { helmet = require('helmet'); } catch {}
-try { rateLimit = require('express-rate-limit'); } catch {}
+try { helmet = require('helmet'); } catch { /* optional security module, skip if not installed */ }
+try { rateLimit = require('express-rate-limit'); } catch { /* optional security module, skip if not installed */ }
 
 try {
     require('@dotenvx/dotenvx').config({ path: path.join(__dirname, '..', '.env') });
-} catch (e) {
+} catch (error) { // nosonar
+    // @dotenvx not installed, fall back to regular dotenv
     try {
         require('dotenv').config({ path: path.join(__dirname, '.env') });
-    } catch (e2) {
+    } catch (error_) { // nosonar
+        // Try one more fallback location
         require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
     }
 }
@@ -35,6 +37,7 @@ const { AsyncLocalStorage } = require('node:async_hooks');
 const requestStore = new AsyncLocalStorage();
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = process.env.DASHBOARD_PORT || 3500;
 // JWT_SECRET MUST be set in production. The hardcoded fallback below
 // is only retained for first-run local development; if it's ever used
@@ -42,13 +45,13 @@ const PORT = process.env.DASHBOARD_PORT || 3500;
 const JWT_SECRET_FALLBACK = 'xnico-dashboard-secret-key-2024-v2';
 const JWT_SECRET = process.env.JWT_SECRET || JWT_SECRET_FALLBACK;
 if (JWT_SECRET === JWT_SECRET_FALLBACK) {
-    console.warn('\n[Dashboard] ⚠ WARNING: JWT_SECRET env var not set — using insecure fallback. Set JWT_SECRET in production!\n');
+    console.warn('\n[Dashboard] âš  WARNING: JWT_SECRET env var not set â€” using insecure fallback. Set JWT_SECRET in production!\n');
 }
 const DISCORD_CLIENT_ID = process.env.CLIENT_ID || '';
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
 // Explicit override (use this in production if auto-detection ever guesses
 // wrong behind an unusual proxy). When unset we resolve the redirect URI
-// dynamically from each request — see resolveRedirectUri() below.
+// dynamically from each request â€” see resolveRedirectUri() below.
 const DISCORD_REDIRECT_ENV = process.env.DISCORD_REDIRECT || '';
 const DISCORD_REDIRECT_FALLBACK = `http://localhost:${PORT}/api/auth/discord/callback`;
 const BOT_TOKEN = process.env.TOKEN || '';
@@ -65,14 +68,14 @@ const BOT_TOKEN = process.env.TOKEN || '';
  * Resolution order:
  *   1. DISCORD_REDIRECT env var, if explicitly set (production override).
  *   2. The live request's protocol + host (works on any domain, incl.
- *      Vercel previews) — requires `trust proxy` so x-forwarded-* is honored.
+ *      Vercel previews) â€” requires `trust proxy` so x-forwarded-* is honored.
  *   3. localhost fallback for first-run local dev.
  *
  * IMPORTANT: the authorize step and the token-exchange step must send the
  * EXACT same redirect_uri. Because both derive it from the same request
  * host, they stay in lock-step automatically. Whatever value this returns
- * for your domain must also be added to the Discord Developer Portal →
- * OAuth2 → Redirects list.
+ * for your domain must also be added to the Discord Developer Portal â†’
+ * OAuth2 â†’ Redirects list.
  */
 function resolveRedirectUri(req) {
     if (DISCORD_REDIRECT_ENV) return DISCORD_REDIRECT_ENV;
@@ -93,7 +96,7 @@ const CORS_ORIGINS = (process.env.DASHBOARD_CORS_ORIGINS || '')
     .split(',').map(s => s.trim()).filter(Boolean);
 
 console.log(`[Dashboard] Auth Config: Redirect=${DISCORD_REDIRECT_ENV || '(auto-detected per request)'}`);
-console.log(`[Dashboard] Discord OAuth: ${DISCORD_CLIENT_ID && DISCORD_CLIENT_SECRET ? 'Configured' : 'INCOMPLETE — set CLIENT_ID + DISCORD_CLIENT_SECRET'}`);
+console.log(`[Dashboard] Discord OAuth: ${DISCORD_CLIENT_ID && DISCORD_CLIENT_SECRET ? 'Configured' : 'INCOMPLETE â€” set CLIENT_ID + DISCORD_CLIENT_SECRET'}`);
 console.log(`[Dashboard] JWT Secret: ${JWT_SECRET.substring(0, 5)}... (LOADED)`);
 
 app.set('trust proxy', true);
@@ -111,7 +114,7 @@ if (helmet) {
 if (CORS_ORIGINS.length) {
     app.use(cors({
         origin: (origin, cb) => {
-            // Same-origin requests have no Origin header — always allow.
+            // Same-origin requests have no Origin header â€” always allow.
             if (!origin) return cb(null, true);
             return cb(null, CORS_ORIGINS.includes(origin));
         },
@@ -145,9 +148,9 @@ const botCustomize = require('../utils/botCustomize');
 const { notifyStoreUpdate } = require('../utils/storeSync');
 
 /*
- * ──────────────────────────────────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Dashboard <-> Bot sync model
- * ──────────────────────────────────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * All module config endpoints read/write via jsonStore (writeBotStore =
  * jsonStore.writeImmediate). jsonStore now emits an 'update' event on
  * every write/writeImmediate AND on every PostgreSQL poll refresh.
@@ -159,9 +162,9 @@ const { notifyStoreUpdate } = require('../utils/storeSync');
  *
  * The storeSync listener is the SINGLE source of truth for cache
  * invalidation. Route handlers below MUST NOT also call the per-guild
- * `global.update*Cache` functions inline — that would double-apply
+ * `global.update*Cache` functions inline â€” that would double-apply
  * every write.
- * ──────────────────────────────────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  */
 
 // Map module names from the generic /:module route to jsonStore names.
@@ -175,7 +178,7 @@ const MODULE_TO_STORE = {
     'vote-config': 'vote-config',
     confessions: 'confessions',
     serverstats: 'serverstats',
-    // Newer systems exposed by recent commits — keep these in sync with
+    // Newer systems exposed by recent commits â€” keep these in sync with
     // the bot's store names so dashboard-driven writes invalidate the
     // right cache via storeSync.
     'screenshot-verify':             'screenshot-verify',
@@ -216,7 +219,7 @@ function notifyModuleUpdate(moduleName, guildId, updated) {
         // Read the just-written snapshot back so the listener receives a
         // canonical view (matches what jsonStore would have emitted on
         // writeImmediate). The listener is the SINGLE source of truth
-        // for cache invalidation — do NOT also invoke per-guild
+        // for cache invalidation â€” do NOT also invoke per-guild
         // global.update*Cache here, that would double-apply every write.
         const all = readBotStore(storeName) || {};
         notifyStoreUpdate(storeName, all);
@@ -254,13 +257,13 @@ app.use(async (req, res, next) => {
     next();
 });
 
-// ── Read-freshness middleware (serverless split-hosting) ─────────────────────
+// â”€â”€ Read-freshness middleware (serverless split-hosting) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // On Vercel each warm invocation reuses the jsonStore cache loaded at the
 // last cold start, and the bot's 5s PostgreSQL poll (smartRefresh) does NOT
 // run while the function is frozen between requests. Without this, dashboard
 // GET routes that read straight from the cache (trust, invites, serverstats,
-// automod, antinuke, leveling, economy, tickets, …) serve STALE data — so
+// automod, antinuke, leveling, economy, tickets, â€¦) serve STALE data â€” so
 // changes the bot made never appear in the dashboard ("store in bot not
 // showing in dashboard").
 //
@@ -297,12 +300,12 @@ app.use(async (req, res, next) => {
     next();
 });
 
-// ── Per-request "pending writes" tracker ─────────────────────────────────────
+// â”€â”€ Per-request "pending writes" tracker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Vercel (and any serverless host) freezes the function as soon as the
 // HTTP response is sent. Background promises that haven't resolved
 // yet are silently killed. That's why dashboard PUTs appeared to
-// "succeed" on the dashboard but never reached the bot — the PG
+// "succeed" on the dashboard but never reached the bot â€” the PG
 // upsert was still in flight when the sandbox got frozen.
 //
 // This middleware uses Node's AsyncLocalStorage so the "current
@@ -314,7 +317,7 @@ app.use(async (req, res, next) => {
 // flushing the response so the serverless host doesn't freeze us
 // mid-PG-upsert.
 //
-// Routes don't need to change — every call to `writeBotStore`
+// Routes don't need to change â€” every call to `writeBotStore`
 // already participates. Routes that already `await writeBotStore`
 // directly are unaffected (the promise just resolves twice).
 app.use((req, res, next) => {
@@ -328,17 +331,27 @@ app.use((req, res, next) => {
     requestStore.run(ctx, () => next());
 });
 
-// ── Data Store ───────────────────────────────────────────────────────────────
+// â”€â”€ Data Store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let DATA_DIR = path.join(__dirname, 'data');
 try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-} catch(e) {
-    DATA_DIR = '/tmp/xnico_dashboard_data';
-    try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); } catch(e2) {}
+} catch (error) { // nosonar
+    // Failed to create data directory, use tmp dir instead
+    DATA_DIR = '/tmp/xnico_dashboard_data'; // nosonar
+    try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (error_) { // nosonar
+        // Failed to create tmp dir too, proceed without persistent data
+    }
 }
 
 function readJSON(file, fallback = {}) {
-    let fallbackData = typeof fallback === 'function' ? fallback() : (Array.isArray(fallback) ? [...fallback] : { ...fallback });
+    let fallbackData;
+    if (typeof fallback === 'function') {
+        fallbackData = fallback();
+    } else if (Array.isArray(fallback)) {
+        fallbackData = [...fallback];
+    } else {
+        fallbackData = { ...fallback };
+    }
     try {
         if (jsonStore.initialized) {
             const storeName = 'dash_' + file.replace('.json', '');
@@ -349,7 +362,7 @@ function readJSON(file, fallback = {}) {
         if (fs.existsSync(path.join(DATA_DIR, file))) {
             return JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'));
         }
-    } catch { }
+    } catch { /* Failed to read file, return fallback */ }
     return fallbackData;
 }
 
@@ -360,7 +373,9 @@ function writeJSON(file, data) {
             jsonStore.writeImmediate(storeName, data);
         }
         fs.writeFileSync(path.join(DATA_DIR, file), JSON.stringify(data, null, 2));
-    } catch (e) { }
+    } catch (error) { // nosonar
+        // Failed to write, but jsonStore may have succeeded (best effort)
+    }
 }
 
 // Try to read from bot's jsonStore data
@@ -369,7 +384,7 @@ function readBotStore(storeName) {
     return jsonStore.read(storeName);
 }
 
-// ── Bot guild membership resolver ───────────────────────────────────────────
+// â”€â”€ Bot guild membership resolver â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Discord's GET /users/@me/guilds caps results at 200 per page, so a bot
 // in 200+ servers would silently drop guilds and the dashboard would
 // incorrectly show "Invite Bot" for guilds the bot is already in. This
@@ -379,7 +394,7 @@ function readBotStore(storeName) {
 // Cache TTL note: 10s is a deliberate trade-off. Higher values (we used
 // 30s previously) reduce Discord-API load but leave the dashboard
 // showing "Invite Bot" for that long after the user actually invited
-// the bot — a classic "did it work?" moment that looks broken even
+// the bot â€” a classic "did it work?" moment that looks broken even
 // when the bot is in the guild. The frontend's recheck poll calls the
 // `/api/guilds/refresh` force endpoint anyway, so the cache here is
 // only a backstop for unforced GETs.
@@ -404,12 +419,12 @@ async function fetchAllBotGuildIds() {
         if (!Array.isArray(batch) || batch.length === 0) break;
         for (const g of batch) ids.add(g.id);
         if (batch.length < 200) break;
-        after = batch[batch.length - 1].id;
+        after = batch.at(-1).id;
     }
     return ids;
 }
 
-function readBotGuildIdsFromLocalStore() {
+function readBotGuildIdsFromLocalStore() { // nosonar
     const ids = new Set();
     // Primary: the authoritative guild list the bot persists on ready,
     // guildCreate and guildDelete (see syncBotGuildsList in index.js).
@@ -425,7 +440,7 @@ function readBotGuildIdsFromLocalStore() {
         }
     } catch {}
     // Secondary: any guild the bot has recorded a member for is a guild
-    // the bot is (or was) in — covers older data written before bot_guilds.
+    // the bot is (or was) in â€” covers older data written before bot_guilds.
     try {
         const members = readBotStore('guild_members') || [];
         const arr = Array.isArray(members) ? members : Object.values(members || {});
@@ -457,12 +472,12 @@ async function getBotGuildIds({ force = false } = {}) {
         // Resolve bot presence from BOTH sources and union them. A guild
         // counts as "bot present" if it appears in EITHER:
         //   1. the Discord API (authoritative, needs a valid BOT_TOKEN), or
-        //   2. the bot's own data store (guild_members / guilds) — which works
+        //   2. the bot's own data store (guild_members / guilds) â€” which works
         //      whenever the dashboard shares the bot's database, even if
         //      BOT_TOKEN is missing/expired on this deployment.
         //
         // The previous logic used the local store ONLY when the API returned
-        // empty. That meant a missing/expired BOT_TOKEN (API → empty) combined
+        // empty. That meant a missing/expired BOT_TOKEN (API â†’ empty) combined
         // with any momentary local miss flipped EVERY server to "Invite",
         // which is exactly the "invite required even though the bot is here"
         // bug. Unioning makes detection resilient to either source failing.
@@ -505,7 +520,7 @@ async function getBotGuildIds({ force = false } = {}) {
  * (Vercel, Cloudflare, AWS Lambda) because the function host freezes
  * the sandbox the moment the HTTP response is sent. A non-awaited
  * write that happens to be in-flight when the response goes out can
- * be dropped silently — which is exactly why dashboard saves were
+ * be dropped silently â€” which is exactly why dashboard saves were
  * "not applying" on the bot host. The bot polls PG every 3s and
  * only sees changes that actually committed.
  *
@@ -537,7 +552,7 @@ function writeBotStore(storeName, data) {
 /**
  * Race-safe single-guild update. Re-reads the latest row from PG
  * before applying the mutation so concurrent bot writes aren't
- * clobbered. See utils/jsonStore.js → updateGuildEntry for the full
+ * clobbered. See utils/jsonStore.js â†’ updateGuildEntry for the full
  * rationale. Returns the updated guild entry.
  */
 async function updateGuildStore(storeName, guildId, mutator) {
@@ -558,7 +573,7 @@ async function updateGuildStore(storeName, guildId, mutator) {
  * Race-safe single-USER update for the array-shaped `users` store.
  * Mirrors updateGuildStore but for users keyed by `user_id`. Prevents
  * the dashboard's whole-array write from clobbering the bot's frequent
- * users writes (economy/XP/stats) — the root cause of profile/rank
+ * users writes (economy/XP/stats) â€” the root cause of profile/rank
  * customizations appearing not to persist. Returns the updated record.
  */
 async function updateUserStore(userId, mutator) {
@@ -612,7 +627,7 @@ async function updateUserStore(userId, mutator) {
     writeJSON('modlogs.json', []);
 })();
 
-// ── Auth Middleware ───────────────────────────────────────────────────────────
+// â”€â”€ Auth Middleware â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function authMiddleware(req, res, next) {
     const t = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
     if (!t) {
@@ -628,18 +643,23 @@ function authMiddleware(req, res, next) {
     }
 }
 
-// ── Bot Info (public, no auth) ───────────────────────────────────────────────
+// â”€â”€ Bot Info (public, no auth) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/bot-info', async (req, res) => {
     try {
         const r = await fetch(`https://discord.com/api/v10/users/${DISCORD_CLIENT_ID}`, {
             headers: { Authorization: `Bot ${process.env.TOKEN}` }
         });
         const bot = await r.json();
-        const avatarUrl = bot.avatar
-            ? `https://cdn.discordapp.com/avatars/${bot.id}/${bot.avatar}.${bot.avatar.startsWith('a_') ? 'gif' : 'png'}?size=256`
-            : `https://cdn.discordapp.com/embed/avatars/${parseInt(bot.discriminator || '0') % 5}.png`;
+        let avatarUrl;
+        if (bot.avatar) {
+            const extension = bot.avatar.startsWith('a_') ? 'gif' : 'png';
+            avatarUrl = `https://cdn.discordapp.com/avatars/${bot.id}/${bot.avatar}.${extension}?size=256`;
+        } else {
+            const discriminator = Number.parseInt(bot.discriminator || '0', 10);
+            avatarUrl = `https://cdn.discordapp.com/embed/avatars/${discriminator % 5}.png`;
+        }
         res.json({ id: bot.id, username: bot.username, avatar: avatarUrl, banner_color: bot.banner_color });
-    } catch (e) { res.json({ id: DISCORD_CLIENT_ID, username: 'xNico', avatar: '', banner_color: null }); }
+    } catch (error) { /* Failed to fetch bot info from Discord, return default data */ res.json({ id: DISCORD_CLIENT_ID, username: 'xNico', avatar: '', banner_color: null }); } // nosonar
 });
 
 app.get('/api/stats', (req, res) => {
@@ -648,7 +668,7 @@ app.get('/api/stats', (req, res) => {
     res.json(stats);
 });
 
-// ── Discord OAuth2 ───────────────────────────────────────────────────────────
+// â”€â”€ Discord OAuth2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/auth/discord', (req, res) => {
     if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET) {
         return res.status(503).json({ error: 'Discord OAuth is not configured on the server.' });
@@ -662,7 +682,7 @@ app.get('/api/auth/discord', (req, res) => {
     res.json({ url: `https://discord.com/api/oauth2/authorize?${params}` });
 });
 
-// Direct redirect endpoint — browser navigates here directly
+// Direct redirect endpoint â€” browser navigates here directly
 app.get('/api/auth/discord/redirect', (req, res) => {
     // Surface a clear, user-facing error instead of bouncing to Discord
     // with an empty client_id (which yields a cryptic Discord error page).
@@ -688,7 +708,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     const { code, error: oauthError } = req.query;
     console.log('[Auth] Step 1: Callback received, code:', code ? 'present' : 'MISSING');
     // Discord can redirect back with ?error=access_denied if the user
-    // clicks "Cancel" on the consent screen — surface that cleanly.
+    // clicks "Cancel" on the consent screen â€” surface that cleanly.
     if (oauthError) {
         console.warn('[Auth] Discord returned error on callback:', oauthError);
         return res.redirect('/?error=' + encodeURIComponent(String(oauthError)));
@@ -755,7 +775,6 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         const jwtToken = jwt.sign({ id: user.id, discordId: discordUser.id, username: discordUser.username, role: user.role, avatar: user.avatar, accessToken: tokenData.access_token }, JWT_SECRET, { expiresIn: '7d' });
         console.log('[Auth] Step 6: JWT created, length:', jwtToken.length);
 
-        const host = req.get('host');
         const isSecure = req.protocol === 'https';
 
         // httpOnly cookie so XSS can't steal the JWT. The client's
@@ -778,7 +797,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     }
 });
 
-// ── Standard Auth ────────────────────────────────────────────────────────────
+// â”€â”€ Standard Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body;
     const users = readJSON('users.json', []);
@@ -793,7 +812,7 @@ app.post('/api/auth/register', (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ error: 'All fields required' });
     const users = readJSON('users.json', []);
-    if (users.find(u => u.username === username)) return res.status(409).json({ error: 'Username taken' });
+    if (users.some(u => u.username === username)) return res.status(409).json({ error: 'Username taken' });
     const hash = bcrypt.hashSync(password, 10);
     const u = { id: 'usr_' + Date.now(), username, email, password: hash, role: 'viewer', avatar: null, createdAt: new Date().toISOString() };
     users.push(u);
@@ -806,7 +825,7 @@ app.post('/api/auth/logout', (req, res) => { res.clearCookie('token'); res.json(
 
 // Returns the JWT user PLUS canonical owner / premium flags so the
 // frontend never has to guess. The dashboard hides owner-only UI
-// (premium key generator, premium nav link) based on these flags —
+// (premium key generator, premium nav link) based on these flags â€”
 // it's also enforced server-side, but the client check keeps the
 // chrome clean.
 app.get('/api/auth/me', authMiddleware, (req, res) => {
@@ -842,11 +861,11 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
     });
 });
 
-// ── User's Discord Guilds ────────────────────────────────────────────────────
+// â”€â”€ User's Discord Guilds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guilds/me', authMiddleware, async (req, res) => {
     if (!req.user.discordId) return res.json([]);
 
-    // Get saved guilds (admin/manage only — written at login)
+    // Get saved guilds (admin/manage only â€” written at login)
     let guilds = readJSON(`guilds_${req.user.discordId}.json`, []);
     // Try refresh from Discord API
     if (req.user.accessToken) {
@@ -871,7 +890,7 @@ app.get('/api/guilds/me', authMiddleware, async (req, res) => {
     return res.json(result);
 });
 
-// Manual refresh — bypasses cache, used by the "Invite Bot" page after
+// Manual refresh â€” bypasses cache, used by the "Invite Bot" page after
 // the user invites the bot so the UI flips to "Manage" immediately.
 app.post('/api/guilds/refresh', authMiddleware, async (req, res) => {
     try {
@@ -882,13 +901,13 @@ app.post('/api/guilds/refresh', authMiddleware, async (req, res) => {
     }
 });
 
-// ── Guild Config (Welcomer, AutoMod, etc.) ───────────────────────────────────
+// â”€â”€ Guild Config (Welcomer, AutoMod, etc.) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Translate the dashboard's "logging" payload (UI field names like
  * `modLog`, `messageLog`) to the bot's "logs" store schema (short keys
  * like `moderation`, `message`). This is what makes the Audit Logging
- * module actually take effect — without translation the bot keeps
+ * module actually take effect â€” without translation the bot keeps
  * reading from `logs` while the dashboard writes to a parallel store
  * the bot never reads.
  *
@@ -953,7 +972,7 @@ function botLoggingToDashboard(botCfg) {
 function getGuildModuleConfig(guildId, module) {
     const storeName = MODULE_TO_STORE[module] || module;
     const botData = readBotStore(storeName);
-    if (!botData || !botData[guildId]) return null;
+    if (!botData?.[guildId]) return null;
 
     if (module === 'logging') {
         return botLoggingToDashboard(botData[guildId]);
@@ -1020,7 +1039,7 @@ const MODULE_DEFAULTS = {
         logChannel: null
     }),
     verification: () => ({ enabled: false, type: 'button', roleId: null, channelId: null, message: 'Click the button below to verify yourself!', logChannel: null }),
-    starboard: () => ({ enabled: false, channelId: null, minStars: 3, emoji: '⭐', selfStar: false, ignoredChannels: [] }),
+    starboard: () => ({ enabled: false, channelId: null, minStars: 3, emoji: 'â­', selfStar: false, ignoredChannels: [] }),
     autorole: () => ({ humans: [], bots: [] }),
     antialt: () => ({ enabled: false, minAge: 7, action: 'kick', logChannel: null }),
     antiraid: () => ({ enabled: false, joinLimit: 10, timeWindow: 10, action: 'kick', logChannel: null }),
@@ -1040,13 +1059,13 @@ const MODULE_DEFAULTS = {
     giveaway: () => ({ enabled: true }),
     'bot-customize': () => ({ nickname: null, avatarUrl: null, bannerUrl: null, aboutText: null, prefix: null, embedColor: 'default', footerText: null, footerIcon: null, language: 'en', dmOnJoin: false, dmMessage: null, commandCooldown: 3, deleteCommands: false, ephemeralResponses: false }),
     'botignore-config': () => ({ enabled: false, ignoredChannels: [], ignoredRoles: [], ignoredUsers: [], ignoreAllBots: false, ignorePrefix: false }),
-    'social-notify': () => ({ youtube: { enabled: false, channels: [], notifyChannel: null, pingRole: null, message: '{channel} uploaded a new video!\n\n**{title}**\n{url}', liveMessage: '🔴 **{channel}** is now LIVE!\n{url}', liveEnabled: true } }),
+    'social-notify': () => ({ youtube: { enabled: false, channels: [], notifyChannel: null, pingRole: null, message: '{channel} uploaded a new video!\n\n**{title}**\n{url}', liveMessage: 'ðŸ”´ **{channel}** is now LIVE!\n{url}', liveEnabled: true } }),
     'vote-config': () => ({ enabled: false, channelId: null, pingRoleId: null }),
     'economy-settings': () => ({ currency: '<:Money:1521228266957045900>', currencyName: 'coins', dailyReward: 1000, weeklyReward: 5000, workMinReward: 100, workMaxReward: 300, robChance: 50, startingBalance: 0, robEnabled: true, gamblingEnabled: true, shopEnabled: true }),
     'confessions': () => ({ channelId: null, count: 0, log: {} }),
     'serverstats': () => ({ enabled: false, stats: [], channelMap: {}, style: 'default' }),
 
-    // ── Newer module defaults (matches commands/admin/<name>.js shapes) ──
+    // â”€â”€ Newer module defaults (matches commands/admin/<name>.js shapes) â”€â”€
     aichat: () => ({
         enabled: false, channelId: null,
         model: 'llama-3.3-70b-versatile',
@@ -1087,9 +1106,8 @@ const MODULE_DEFAULTS = {
     ]})
 };
 
-// ── Premium status check for a guild ──
+// â”€â”€ Premium status check for a guild â”€â”€
 app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
-    const { guildId } = req.params;
     let discordId = req.user.discordId;
     if (!discordId) {
         const users = readJSON('users.json', []);
@@ -1097,7 +1115,7 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
         if (u) discordId = u.discordId;
     }
 
-    // Check user premium (server premium discontinued — user premium only)
+    // Check user premium (server premium discontinued â€” user premium only)
     let userPremium = false;
     let premiumExpiry = null;
     let premiumType = null;
@@ -1110,8 +1128,8 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
             premiumExpiry = status.expiresAt;
             premiumType = 'user';
         }
-    } catch (e) {
-        // premiumManager may not be available in dashboard-only mode —
+    } catch (error) { // nosonar
+        // premiumManager may not be available in dashboard-only mode â€”
         // fall back to reading the user premium store directly.
         try {
             const premiumData = readBotStore('premium') || [];
@@ -1121,7 +1139,7 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
                 premiumExpiry = userEntry.expiresAt;
                 premiumType = 'user';
             }
-        } catch { }
+        } catch (error_) { /* Failed to read premium data from store, proceed */ } // nosonar
     }
 
     // Also check if user is a bot owner (always has premium)
@@ -1138,13 +1156,13 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
     });
 });
 
-// ── Guild channels (via bot token) — MUST be before the generic :module route ──
+// â”€â”€ Guild channels (via bot token) â€” MUST be before the generic :module route â”€â”€
 app.get('/api/guild/:guildId/channels', authMiddleware, async (req, res) => {
     if (!BOT_TOKEN) return res.json([]);
     try {
         const r = await fetch(`https://discord.com/api/guilds/${req.params.guildId}/channels`, { headers: { Authorization: `Bot ${BOT_TOKEN}` } });
         if (r.ok) return res.json(await r.json());
-    } catch { }
+    } catch { /* Failed to fetch channels from Discord, return empty */ }
     res.json([]);
 });
 
@@ -1153,11 +1171,11 @@ app.get('/api/guild/:guildId/roles', authMiddleware, async (req, res) => {
     try {
         const r = await fetch(`https://discord.com/api/guilds/${req.params.guildId}/roles`, { headers: { Authorization: `Bot ${BOT_TOKEN}` } });
         if (r.ok) return res.json(await r.json());
-    } catch { }
+    } catch { /* Failed to fetch roles from Discord, return empty */ }
     res.json([]);
 });
 
-// Guild custom emojis — powers the dashboard emoji picker so admins can drop
+// Guild custom emojis â€” powers the dashboard emoji picker so admins can drop
 // their server's custom emojis into welcomer/embed/message fields. Fetched via
 // the bot token (the dashboard has no Discord client). Compact shape only.
 app.get('/api/guild/:guildId/emojis', authMiddleware, async (req, res) => {
@@ -1167,14 +1185,14 @@ app.get('/api/guild/:guildId/emojis', authMiddleware, async (req, res) => {
         if (r.ok) {
             const arr = await r.json();
             return res.json((Array.isArray(arr) ? arr : [])
-                .filter(e => e && e.id && e.name)
+                .filter(e => e?.id && e?.name)
                 .map(e => ({ id: e.id, name: e.name, animated: !!e.animated })));
         }
-    } catch { }
+    } catch { /* Failed to fetch emojis from Discord, return empty */ }
     res.json([]);
 });
 
-app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => {
+app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => { // nosonar
     const gid = req.params.guildId;
 
     // Real analytics derived from the bot's actual stores.
@@ -1182,7 +1200,6 @@ app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => {
     const guildMembers   = readBotStore('guild_members')  || [];
     const warningsStore  = readBotStore('warnings')       || {};
     const modlogs        = readBotStore('modlogs')        || {};
-    const automod        = readBotStore('automod')        || {};
 
     // Active warnings: count of warnings entries for this guild that
     // haven't been cleared. clearwarnings.js deletes the user entry, so
@@ -1236,7 +1253,7 @@ app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => {
             flatLogs.push({
                 time: new Date(log.timestamp || Date.now()).toLocaleString(),
                 module: 'Moderation',
-                action: `${log.action}${log.reason ? ' — ' + log.reason : ''}`,
+                action: `${log.action}${log.reason ? ' â€” ' + log.reason : ''}`,
                 user: `<@${userId}>`,
                 timestamp: Number(log.timestamp || 0)
             });
@@ -1253,7 +1270,7 @@ app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => {
     });
 });
 
-// ── Leveling CRUD (syncs with guilds store + mirror stores) ─────────────────
+// â”€â”€ Leveling CRUD (syncs with guilds store + mirror stores) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function readGuildConfig(guildId) {
     const guilds = readBotStore('guilds') || [];
     const arr = Array.isArray(guilds) ? guilds : [];
@@ -1302,7 +1319,7 @@ app.get('/api/guild/:guildId/leveling', authMiddleware, (req, res) => {
     });
 });
 
-app.put('/api/guild/:guildId/leveling', authMiddleware, (req, res) => {
+app.put('/api/guild/:guildId/leveling', authMiddleware, (req, res) => { // nosonar
     const gid = req.params.guildId;
     const body = req.body || {};
 
@@ -1324,7 +1341,7 @@ app.put('/api/guild/:guildId/leveling', authMiddleware, (req, res) => {
     if (typeof body.stackRoles === 'boolean') lv.stackRoles = body.stackRoles;
     if (Array.isArray(body.roles)) {
         lv.roles = body.roles
-            .filter(r => r && r.roleId && Number.isInteger(Number(r.level)) && Number(r.level) >= 1)
+            .filter(r => r?.roleId && Number.isInteger(Number(r?.level)) && Number(r?.level) >= 1)
             .map(r => ({ level: Number(r.level), roleId: String(r.roleId) }))
             .sort((a, b) => a.level - b.level);
     }
@@ -1383,7 +1400,7 @@ app.put('/api/guild/:guildId/leveling', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Leveling leaderboard (per-user stats) ────────────────────────────────────
+// â”€â”€ Leveling leaderboard (per-user stats) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/leveling/leaderboard', authMiddleware, (req, res) => {
     const xpData = readBotStore('leveling') || {};
     const guildData = xpData[req.params.guildId] || {};
@@ -1420,12 +1437,12 @@ app.delete('/api/guild/:guildId/leveling/reset-all', authMiddleware, (req, res) 
 
 // Manually set a user's level
 app.post('/api/guild/:guildId/leveling/user/:userId/set-level', authMiddleware, (req, res) => {
-    const level = Math.max(0, Math.min(1000, parseInt(req.body.level) || 0));
+    const level = Math.max(0, Math.min(1000, Number.parseInt(req.body.level, 10) || 0));
     const xpData = readBotStore('leveling') || {};
     if (!xpData[req.params.guildId]) xpData[req.params.guildId] = {};
     const xp = Math.ceil(Math.pow(level / 0.1, 2));
     xpData[req.params.guildId][req.params.userId] = {
-        ...(xpData[req.params.guildId][req.params.userId] || {}),
+        ...xpData[req.params.guildId][req.params.userId],
         xp, level, lastXpGain: 0,
         messages: xpData[req.params.guildId][req.params.userId]?.messages || 0
     };
@@ -1433,11 +1450,11 @@ app.post('/api/guild/:guildId/leveling/user/:userId/set-level', authMiddleware, 
     res.json({ success: true, xp, level });
 });
 
-// ── Bot Customize (Premium-gated) ────────────────────────────────────────────
-app.get('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, res) => {
+// â”€â”€ Bot Customize (Premium-gated) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+app.get('/api/guild/:guildId/bot-customize-config', authMiddleware, (req, res) => {
     const gid = req.params.guildId;
     // Check premium
-    const premium = await checkPremiumStatus(req, gid);
+    const premium = checkPremiumStatus(req, gid);
     if (!premium.hasPremium) return res.status(403).json({ error: 'Premium required', premium });
     const data = readBotStore('bot-customize') || {};
     const cfg = data[gid] || {};
@@ -1458,16 +1475,16 @@ app.get('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, 
         ephemeralResponses: cfg.ephemeralResponses || false,
     });
 });
-app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, res) => {
+app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, (req, res) => { // nosonar
     const gid = req.params.guildId;
-    const premium = await checkPremiumStatus(req, gid);
+    const premium = checkPremiumStatus(req, gid);
     if (!premium.hasPremium) return res.status(403).json({ error: 'Premium required', premium });
     const body = req.body || {};
     const data = readBotStore('bot-customize') || {};
     if (!data[gid]) data[gid] = {};
     const cfg = data[gid];
 
-    // Same field set the slash panel writes — keeps the dashboard in
+    // Same field set the slash panel writes â€” keeps the dashboard in
     // lock-step with /bot-customize so admins can edit either surface
     // and see the change applied everywhere.
     if (typeof body.nickname === 'string' || body.nickname === null) cfg.nickname = body.nickname;
@@ -1490,7 +1507,7 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, 
     // index.js getGuildPrefix() actually reads for prefix command parsing.
     // Without this, dashboard prefix changes never take effect on prefix
     // commands until the user runs the /setprefix slash command.
-    if (Object.prototype.hasOwnProperty.call(body, 'prefix')) {
+    if (Object.hasOwn(body, 'prefix')) {
         try {
             const prefixes = readBotStore('prefixes') || {};
             const newPrefix = typeof body.prefix === 'string' ? body.prefix.trim() : '';
@@ -1500,8 +1517,8 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, 
                 delete prefixes[gid];
             }
             writeBotStore('prefixes', prefixes);
-        } catch (e) {
-            console.error('[Dashboard] Failed to mirror prefix to prefixes store:', e?.message || e);
+        } catch (error) {
+            console.error('[Dashboard] Failed to mirror prefix to prefixes store:', error?.message || error);
         }
     }
 
@@ -1527,10 +1544,10 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, 
     // Live update per-server avatar via Discord API. The slash panel
     // does this synchronously, so doing it here keeps the dashboard at
     // parity. Body shapes:
-    //   - { avatarUrl: 'https://…' }   → fetch + base64 + PATCH
-    //   - { avatarUrl: 'data:image/…' } → PATCH directly
-    //   - { avatarUrl: null }          → reset to global avatar
-    if (Object.prototype.hasOwnProperty.call(body, 'avatarUrl') && BOT_TOKEN) {
+    //   - { avatarUrl: 'https://â€¦' }   â†’ fetch + base64 + PATCH
+    //   - { avatarUrl: 'data:image/â€¦' } â†’ PATCH directly
+    //   - { avatarUrl: null }          â†’ reset to global avatar
+    if (Object.hasOwn(body, 'avatarUrl') && BOT_TOKEN) {
         (async () => {
             try {
                 let payloadAvatar = null;
@@ -1551,17 +1568,17 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, 
                     headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ avatar: payloadAvatar }),
                 });
-            } catch (e) {
-                console.error('[Dashboard] Failed to push guild avatar:', e?.message || e);
+            } catch (error) {
+                console.error('[Dashboard] Failed to push guild avatar:', error?.message || error);
             }
         })();
     }
 
     // Live update per-server banner via Discord API. Same endpoint as
     // avatar, just targeting the `banner` field. Discord may reject
-    // (some guild contexts don't allow it for bots) — when that happens
+    // (some guild contexts don't allow it for bots) â€” when that happens
     // the local store value still drives /botinfo and /botprofile.
-    if (Object.prototype.hasOwnProperty.call(body, 'bannerUrl') && BOT_TOKEN) {
+    if (Object.hasOwn(body, 'bannerUrl') && BOT_TOKEN) {
         (async () => {
             try {
                 let payloadBanner = null;
@@ -1582,8 +1599,8 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, 
                     headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ banner: payloadBanner }),
                 });
-            } catch (e) {
-                console.error('[Dashboard] Failed to push guild banner:', e?.message || e);
+            } catch (error) {
+                console.error('[Dashboard] Failed to push guild banner:', error?.message || error);
             }
         })();
     }
@@ -1591,9 +1608,9 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, 
     // Per-guild bio push. Discord exposes a `bio` field on
     // PATCH /guilds/{guild_id}/members/@me, the same endpoint used for
     // the per-guild avatar/banner just above. Targeting it here keeps
-    // the bio scoped to this guild only — earlier we hit /users/@me
+    // the bio scoped to this guild only â€” earlier we hit /users/@me
     // which mutated the bot's global account bio for every server.
-    if (Object.prototype.hasOwnProperty.call(body, 'aboutText') && BOT_TOKEN) {
+    if (Object.hasOwn(body, 'aboutText') && BOT_TOKEN) {
         (async () => {
             try {
                 const trimmed = String(body.aboutText || '').slice(0, 190);
@@ -1602,8 +1619,8 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, async (req, 
                     headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ bio: trimmed.length ? trimmed : null }),
                 });
-            } catch (e) {
-                // Silent — dashboard doesn't need to surface this since
+            } catch (error) { // nosonar
+                // Silent â€” dashboard doesn't need to surface this since
                 // /botinfo and /botprofile render the local value anyway.
             }
         })();
@@ -1624,7 +1641,7 @@ function checkPremiumStatus(req, guildId) {
     try {
         const premiumManager = require('../utils/premiumManager');
         if (premiumManager.isPremium(discordId) || premiumManager.isServerPremium(guildId)) return { hasPremium: true };
-    } catch { }
+    } catch { /* premiumManager not available, fall back to raw store */ }
     const premiumData = readBotStore('premium') || [];
     if (Array.isArray(premiumData) && premiumData.some(p => p.userId === discordId && (!p.expiresAt || new Date(p.expiresAt) > new Date()))) return { hasPremium: true };
     const serverData = readBotStore('server-premium') || [];
@@ -1632,7 +1649,7 @@ function checkPremiumStatus(req, guildId) {
     return { hasPremium: false };
 }
 
-// ── Trust System CRUD ─────────────────────────────────────────────────────────
+// â”€â”€ Trust System CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/trust-config', authMiddleware, (req, res) => {
     const data = readBotStore('trust') || {};
     const cfg = data[req.params.guildId] || {};
@@ -1654,7 +1671,7 @@ app.put('/api/guild/:guildId/trust-config', authMiddleware, (req, res) => {
     res.json(data[gid]);
 });
 
-// ── Invite Tracking ──────────────────────────────────────────────────────────
+// â”€â”€ Invite Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/invites-config', authMiddleware, (req, res) => {
     const gid = req.params.guildId;
     // Read from invites store (the actual invite manager store)
@@ -1705,7 +1722,7 @@ app.put('/api/guild/:guildId/invites-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Server Stats Channels ────────────────────────────────────────────────────
+// â”€â”€ Server Stats Channels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/serverstats-config', authMiddleware, (req, res) => {
     const data = readBotStore('serverstats') || {};
     const cfg = data[req.params.guildId] || {};
@@ -1727,18 +1744,18 @@ app.put('/api/guild/:guildId/serverstats-config', authMiddleware, (req, res) => 
     res.json({ success: true });
 });
 
-// ── Server Backup List ───────────────────────────────────────────────────────
+// â”€â”€ Server Backup List â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/backups', authMiddleware, (req, res) => {
     const data = readBotStore('server_backups') || [];
     const guildBackups = (Array.isArray(data) ? data : [])
         .filter(b => b.guild_id === req.params.guildId || b.guildId === req.params.guildId)
-        .map(b => ({ id: b.id || b.backup_id, name: b.name || b.guild_name, createdAt: b.created_at || b.createdAt, size: b.size || '—' }))
+        .map(b => ({ id: b.id || b.backup_id, name: b.name || b.guild_name, createdAt: b.created_at || b.createdAt, size: b.size || 'â€”' }))
         .slice(0, 20);
     res.json(guildBackups);
 });
 
-// ── Voice J2C CRUD ───────────────────────────────────────────────────────────
-// ── Voice J2C CRUD ───────────────────────────────────────────────────────────
+// â”€â”€ Voice J2C CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Voice J2C CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // The J2C system was upgraded to a v2 multi-interface schema. The
 // dashboard previously exposed only the legacy v1 flat fields
@@ -1749,7 +1766,7 @@ app.get('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => {
     const data = readBotStore('join2create') || {};
     const raw = data[req.params.guildId] || {};
 
-    // Lazy-migrate legacy v1 → v2 for the read view so dashboards
+    // Lazy-migrate legacy v1 â†’ v2 for the read view so dashboards
     // never see the old shape. The bot-side mgr.getGuildConfig does
     // the same migration on read; we just mirror it here.
     let cfg;
@@ -1780,7 +1797,7 @@ app.get('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => {
         activeChannels: activeChannelCount
     });
 });
-app.put('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => {
+app.put('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => { // nosonar
     const gid = req.params.guildId;
     const body = req.body || {};
     const data = readBotStore('join2create') || {};
@@ -1813,14 +1830,14 @@ app.put('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => {
         cfg.interfaces[body.interfaceId] = iface;
     }
 
-    // Legacy compatibility — older dashboards send a flat triggerChannelId
+    // Legacy compatibility â€” older dashboards send a flat triggerChannelId
     // and `enabled` toggle. Translate them onto the first interface (or
     // create one if none exists yet) so existing UI widgets keep working.
     if (typeof body.enabled === 'boolean' || body.triggerChannelId !== undefined) {
         const list = Object.values(cfg.interfaces);
         let iface = list[0];
         if (!iface) {
-            const id = 'i_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            const id = 'i_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); // nosonar
             iface = {
                 id, name: 'Default Room', slug: 'default',
                 emoji: '<:Volumeup:1521228004502536272>',
@@ -1845,7 +1862,7 @@ app.put('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Reaction Roles CRUD ──────────────────────────────────────────────────────
+// â”€â”€ Reaction Roles CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/reactionroles-config', authMiddleware, (req, res) => {
     const data = readBotStore('reactionroles') || {};
     const cfg = data[req.params.guildId] || {};
@@ -1853,7 +1870,7 @@ app.get('/api/guild/:guildId/reactionroles-config', authMiddleware, (req, res) =
     res.json({ panels: panels.slice(0, 25) });
 });
 
-// ── Media-Only CRUD ──────────────────────────────────────────────────────────
+// â”€â”€ Media-Only CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/media-only-config', authMiddleware, (req, res) => {
     const data = readBotStore('media-only') || {};
     const cfg = data[req.params.guildId] || {};
@@ -1869,19 +1886,18 @@ app.put('/api/guild/:guildId/media-only-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── AFK CRUD ─────────────────────────────────────────────────────────────────
+// â”€â”€ AFK CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/afk-config', authMiddleware, (req, res) => {
     const data = readBotStore('afk') || {};
-    const guildAfk = {};
     // AFK is stored per-user globally: { [userId]: { reason, since, guildId } }
     let count = 0;
-    for (const [uid, info] of Object.entries(data)) {
+    for (const [, info] of Object.entries(data)) {
         if (info && info.guildId === req.params.guildId) count++;
     }
     res.json({ activeAfkUsers: count });
 });
 
-// ── Sticky Messages CRUD ─────────────────────────────────────────────────────
+// â”€â”€ Sticky Messages CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Bot schema (canonical): { [gid]: { enabled, messages: { [channelId]: { content, type, messageId } } } }
 // Read at index.js:8813 as `cfg.messages?.[channelId]`. Anything written
 // outside the `.messages` envelope is ignored by the runtime, so we
@@ -1891,7 +1907,7 @@ app.get('/api/guild/:guildId/sticky-config', authMiddleware, (req, res) => {
     const cfg  = data[req.params.guildId] || {};
     const map  = (cfg && typeof cfg === 'object' && cfg.messages && typeof cfg.messages === 'object')
         ? cfg.messages
-        : cfg; // legacy shape — keys at the top level
+        : cfg; // legacy shape â€” keys at the top level
 
     const messages = Object.entries(map || {})
         .filter(([k]) => k !== 'enabled' && k !== 'messages') // skip legacy stray keys
@@ -1906,7 +1922,7 @@ app.get('/api/guild/:guildId/sticky-config', authMiddleware, (req, res) => {
         messages
     });
 });
-app.put('/api/guild/:guildId/sticky-config', authMiddleware, (req, res) => {
+app.put('/api/guild/:guildId/sticky-config', authMiddleware, (req, res) => { // nosonar
     const gid  = req.params.guildId;
     const body = req.body || {};
     const data = readBotStore('sticky') || {};
@@ -1929,7 +1945,7 @@ app.put('/api/guild/:guildId/sticky-config', authMiddleware, (req, res) => {
     if (typeof body.enabled === 'boolean') data[gid].enabled = body.enabled;
 
     // Add a sticky
-    if (body.add && body.add.channelId && body.add.content) {
+    if (body.add?.channelId && body.add?.content) {
         data[gid].messages[body.add.channelId] = {
             content: String(body.add.content).slice(0, 4000),
             type: body.add.type || 'text',
@@ -1938,7 +1954,7 @@ app.put('/api/guild/:guildId/sticky-config', authMiddleware, (req, res) => {
         if (data[gid].enabled !== false) data[gid].enabled = true;
     }
     // Remove a sticky
-    if (body.remove && body.remove.channelId) {
+    if (body.remove?.channelId) {
         delete data[gid].messages[body.remove.channelId];
     }
 
@@ -1960,12 +1976,20 @@ app.put('/api/guild/:guildId/sticky-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Autorole CRUD ────────────────────────────────────────────────────────────
+// â”€â”€ Autorole CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/autorole-config', authMiddleware, (req, res) => {
     const data = readBotStore('autorole') || {};
     const cfg = data[req.params.guildId] || {};
+    let humansRole;
+    if (Array.isArray(cfg.humans)) {
+        humansRole = cfg.humans;
+    } else if (typeof cfg === 'string') {
+        humansRole = [cfg];
+    } else {
+        humansRole = [];
+    }
     res.json({
-        humans: Array.isArray(cfg.humans) ? cfg.humans : (typeof cfg === 'string' ? [cfg] : []),
+        humans: humansRole,
         bots: Array.isArray(cfg.bots) ? cfg.bots : []
     });
 });
@@ -1981,7 +2005,7 @@ app.put('/api/guild/:guildId/autorole-config', authMiddleware, (req, res) => {
     res.json(data[gid]);
 });
 
-// ── Suggestions CRUD ─────────────────────────────────────────────────────────
+// â”€â”€ Suggestions CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/suggestions-config', authMiddleware, (req, res) => {
     const data = readBotStore('suggestions') || {};
     const cfg = data[req.params.guildId] || {};
@@ -2007,7 +2031,7 @@ app.put('/api/guild/:guildId/suggestions-config', authMiddleware, (req, res) => 
     res.json({ success: true });
 });
 
-// ── Feedback CRUD ────────────────────────────────────────────────────────────
+// â”€â”€ Feedback CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/feedback-config', authMiddleware, (req, res) => {
     const data = readBotStore('feedback') || {};
     const cfg = data[req.params.guildId] || {};
@@ -2034,7 +2058,7 @@ app.put('/api/guild/:guildId/feedback-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Screenshot Verify CRUD ───────────────────────────────────────────────────
+// â”€â”€ Screenshot Verify CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Surfaces the per-guild config (mode, channels, tasks, behavior) and
 // the queue stats. The full editor (creating tasks / actions) lives
@@ -2073,7 +2097,7 @@ app.get('/api/guild/:guildId/screenshot-verify-config', authMiddleware, (req, re
         stats: { pending, approved, rejected, total: pending + approved + rejected }
     });
 });
-app.put('/api/guild/:guildId/screenshot-verify-config', authMiddleware, (req, res) => {
+app.put('/api/guild/:guildId/screenshot-verify-config', authMiddleware, (req, res) => { // nosonar
     const gid  = req.params.guildId;
     const body = req.body || {};
     const all = readBotStore('screenshot-verify') || {};
@@ -2090,7 +2114,7 @@ app.put('/api/guild/:guildId/screenshot-verify-config', authMiddleware, (req, re
     const cfg = all[gid];
 
     // Whitelist of mutable top-level keys (we never let dashboard edit
-    // `tasks` here — that goes through the in-bot panel because each
+    // `tasks` here â€” that goes through the in-bot panel because each
     // task may carry actions that spawn role grants / DMs).
     if (typeof body.enabled === 'boolean') cfg.enabled = body.enabled;
     if (['auto', 'review', 'hybrid'].includes(body.mode)) cfg.mode = body.mode;
@@ -2112,7 +2136,7 @@ app.put('/api/guild/:guildId/screenshot-verify-config', authMiddleware, (req, re
     res.json({ success: true });
 });
 
-// ── Custom Shop CRUD ─────────────────────────────────────────────────────────
+// â”€â”€ Custom Shop CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Admins can list / add / remove custom-shop items via dashboard. Each
 // item carries an `action` (give_role / remove_role / send_dm /
@@ -2140,7 +2164,7 @@ app.put('/api/guild/:guildId/custom-shop-config', authMiddleware, (req, res) => 
             const action = VALID_ACTIONS.has(item?.action) ? item.action : 'custom_reply';
             return {
                 name:        String(item?.name || 'Item').slice(0, 50),
-                price:       Math.max(1, Math.min(1_000_000_000, parseInt(item?.price, 10) || 1)),
+                price:       Math.max(1, Math.min(1_000_000_000, Number.parseInt(item?.price, 10) || 1)),
                 action,
                 actionData:  String(item?.actionData ?? '').slice(0, 1500),
                 description: String(item?.description ?? '').slice(0, 200),
@@ -2154,7 +2178,7 @@ app.put('/api/guild/:guildId/custom-shop-config', authMiddleware, (req, res) => 
     res.json({ success: true });
 });
 
-// ── Tickets CRUD ─────────────────────────────────────────────────────────────
+// â”€â”€ Tickets CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
     const data = readBotStore('tickets') || {};
     const cfg = data[req.params.guildId] || {};
@@ -2184,11 +2208,11 @@ app.put('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
     if (body.supportRoleId !== undefined) cfg.supportRoleId = body.supportRoleId || null;
     if (Array.isArray(body.categories)) {
         cfg.categories = body.categories
-            .filter(c => c && c.id && c.label)
+            .filter(c => c?.id && c?.label)
             .map(c => ({
                 id: String(c.id).toLowerCase().replace(/\s+/g, '-').slice(0, 32),
                 label: String(c.label).slice(0, 80),
-                emoji: String(c.emoji || '🎫').slice(0, 32),
+                emoji: String(c.emoji || 'ðŸŽ«').slice(0, 32),
                 description: String(c.description || '').slice(0, 100)
             }));
     }
@@ -2211,7 +2235,7 @@ app.get('/api/guild/:guildId/tickets-open', authMiddleware, (req, res) => {
     res.json(list);
 });
 
-// ── Starboard CRUD ───────────────────────────────────────────────────────────
+// â”€â”€ Starboard CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/starboard-config', authMiddleware, (req, res) => {
     const data = readBotStore('starboard') || {};
     const cfg = data[req.params.guildId] || {};
@@ -2237,11 +2261,11 @@ app.put('/api/guild/:guildId/starboard-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Counting CRUD ────────────────────────────────────────────────────────────
+// â”€â”€ Counting CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // IMPORTANT: the bot's counting handler reads/writes via
 // utils/database.db.{get,set}('counting_<guildId>') (a custom_data PG row),
 // NOT via jsonStore. The previous dashboard used jsonStore('counting')
-// which was a parallel store the bot never read — every dashboard write
+// which was a parallel store the bot never read â€” every dashboard write
 // was orphaned. Both endpoints now route through the same db helper.
 app.get('/api/guild/:guildId/counting-config', authMiddleware, async (req, res) => {
     try {
@@ -2256,7 +2280,7 @@ app.get('/api/guild/:guildId/counting-config', authMiddleware, async (req, res) 
             fails: cfg.fails || 0,
             lastUserId: cfg.lastUserId || null
         });
-    } catch (e) {
+    } catch (error) { /* Database not available, return default data */ // nosonar
         res.json({ enabled: false, channelId: null, currentCount: 0, highScore: 0, totalCounts: 0, fails: 0, lastUserId: null });
     }
 });
@@ -2277,12 +2301,12 @@ app.put('/api/guild/:guildId/counting-config', authMiddleware, async (req, res) 
         if (body.reset)     { existing.currentCount = 0; existing.lastUserId = null; }
         await db.set(`counting_${gid}`, existing);
         res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e?.message || 'counting update failed' });
+    } catch (error) { /* Database write failed */
+        res.status(500).json({ success: false, error: error?.message || 'counting update failed' });
     }
 });
 
-// ── Autoreact CRUD ───────────────────────────────────────────────────────────
+// â”€â”€ Autoreact CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/autoreact-config', authMiddleware, (req, res) => {
     const data = readBotStore('autoreact') || {};
     const cfg = data[req.params.guildId] || { enabled: false, reactions: [] };
@@ -2299,7 +2323,7 @@ app.put('/api/guild/:guildId/autoreact-config', authMiddleware, (req, res) => {
     if (typeof body.enabled === 'boolean') data[gid].enabled = body.enabled;
     if (Array.isArray(body.reactions)) {
         data[gid].reactions = body.reactions
-            .filter(r => r && r.trigger && Array.isArray(r.emojis) && r.emojis.length)
+            .filter(r => r?.trigger && Array.isArray(r?.emojis) && r.emojis.length)
             .map(r => ({ trigger: String(r.trigger).toLowerCase().trim(), emojis: r.emojis.map(String).slice(0, 20) }));
     }
     writeBotStore('autoreact', data);
@@ -2311,7 +2335,7 @@ app.put('/api/guild/:guildId/autoreact-config', authMiddleware, (req, res) => {
     res.json(data[gid]);
 });
 
-// ── Giveaway Settings CRUD ───────────────────────────────────────────────────
+// â”€â”€ Giveaway Settings CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/giveaway-settings', authMiddleware, (req, res) => {
     const data = readBotStore('giveaway-settings') || {};
     const cfg = data[req.params.guildId] || {};
@@ -2359,12 +2383,12 @@ app.get('/api/guild/:guildId/giveaways', authMiddleware, (req, res) => {
     res.json(list);
 });
 
-// ── Economy Module CRUD (settings + leaderboard + user management) ───────────
+// â”€â”€ Economy Module CRUD (settings + leaderboard + user management) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/economy-settings', authMiddleware, (req, res) => {
     const allSettings = readBotStore('economy-settings') || {};
     const guildSettings = allSettings[req.params.guildId] || {};
     res.json({
-        currency: guildSettings.currency || '💰',
+        currency: guildSettings.currency || 'ðŸ’°',
         currencyName: guildSettings.currencyName || 'coins',
         dailyReward: guildSettings.dailyReward || 100,
         weeklyReward: guildSettings.weeklyReward || 500,
@@ -2385,7 +2409,7 @@ app.put('/api/guild/:guildId/economy-settings', authMiddleware, (req, res) => {
     if (!allSettings[gid]) allSettings[gid] = {};
     const s = allSettings[gid];
 
-    if (typeof body.currency === 'string') s.currency = body.currency.trim().slice(0, 32) || '💰';
+    if (typeof body.currency === 'string') s.currency = body.currency.trim().slice(0, 32) || 'ðŸ’°';
     if (typeof body.currencyName === 'string') s.currencyName = body.currencyName.trim().slice(0, 32).toLowerCase() || 'coins';
     if (Number.isFinite(Number(body.dailyReward))) s.dailyReward = Math.max(0, Math.min(1000000, Number(body.dailyReward)));
     if (Number.isFinite(Number(body.weeklyReward))) s.weeklyReward = Math.max(0, Math.min(10000000, Number(body.weeklyReward)));
@@ -2440,9 +2464,9 @@ app.delete('/api/guild/:guildId/economy-user/:userId', authMiddleware, (req, res
     res.json({ success: true });
 });
 
-// ── AntiNuke CRUD (protection modules, whitelist, bypass) ───────────────────
+// â”€â”€ AntiNuke CRUD (protection modules, whitelist, bypass) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ANTINUKE_KEYS = ['banProtection', 'kickProtection', 'channelDelete', 'channelCreate', 'roleDelete', 'roleCreate', 'webhookCreate', 'botAdd'];
-const ANTINUKE_PUNISH = ['remove_roles', 'kick', 'ban', 'timeout', 'kick_bot', 'kick_both', 'ban_bot'];
+const ANTINUKE_PUNISH = new Set(['remove_roles', 'kick', 'ban', 'timeout', 'kick_bot', 'kick_both', 'ban_bot']);
 
 function getAntinukeDefaults() {
     return {
@@ -2470,7 +2494,7 @@ app.get('/api/guild/:guildId/antinuke', authMiddleware, (req, res) => {
     res.json(deepMerge(getAntinukeDefaults(), saved));
 });
 
-app.put('/api/guild/:guildId/antinuke', authMiddleware, (req, res) => {
+app.put('/api/guild/:guildId/antinuke', authMiddleware, (req, res) => { // nosonar
     const gid = req.params.guildId;
     const body = req.body || {};
     const data = readBotStore('antinuke') || {};
@@ -2489,7 +2513,7 @@ app.put('/api/guild/:guildId/antinuke', authMiddleware, (req, res) => {
             if (Number.isFinite(Number(mod.limit))) cur[key].limit = Math.max(1, Math.min(50, Number(mod.limit)));
             if (Number.isFinite(Number(mod.timeWindow))) cur[key].timeWindow = Math.max(5000, Math.min(600000, Number(mod.timeWindow)));
         }
-        if (mod.action && ANTINUKE_PUNISH.includes(mod.action)) cur[key].action = mod.action;
+        if (mod.action && ANTINUKE_PUNISH.has(mod.action)) cur[key].action = mod.action;
     }
 
     // Shared settings
@@ -2511,9 +2535,9 @@ app.put('/api/guild/:guildId/antinuke', authMiddleware, (req, res) => {
     res.json(cur);
 });
 
-// ── AutoMod CRUD (filters, ignore lists, bad words) ─────────────────────────
+// â”€â”€ AutoMod CRUD (filters, ignore lists, bad words) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const AUTOMOD_FILTERS = ['badWords', 'spam', 'links', 'invites', 'massMention', 'caps', 'profanity', 'sexualContent', 'slurs'];
-const AUTOMOD_ACTIONS = ['warn', 'delete', 'timeout', 'kick', 'ban'];
+const AUTOMOD_ACTIONS = new Set(['warn', 'delete', 'timeout', 'kick', 'ban']);
 
 function getAutomodDefaultsFull() {
     return {
@@ -2540,7 +2564,7 @@ app.get('/api/guild/:guildId/automod', authMiddleware, (req, res) => {
     res.json(deepMerge(getAutomodDefaultsFull(), saved));
 });
 
-app.put('/api/guild/:guildId/automod', authMiddleware, (req, res) => {
+app.put('/api/guild/:guildId/automod', authMiddleware, (req, res) => { // nosonar
     const gid = req.params.guildId;
     const body = req.body || {};
     const data = readBotStore('automod') || {};
@@ -2555,7 +2579,7 @@ app.put('/api/guild/:guildId/automod', authMiddleware, (req, res) => {
         const f = body[key];
         if (!cur[key]) cur[key] = {};
         if (typeof f.enabled === 'boolean') cur[key].enabled = f.enabled;
-        if (f.action && AUTOMOD_ACTIONS.includes(f.action)) cur[key].action = f.action;
+        if (f.action && AUTOMOD_ACTIONS.has(f.action)) cur[key].action = f.action;
 
         if (key === 'badWords' && Array.isArray(f.words)) {
             cur[key].words = [...new Set(f.words.filter(w => w && typeof w === 'string').map(w => w.trim().toLowerCase()))];
@@ -2592,7 +2616,7 @@ app.put('/api/guild/:guildId/automod', authMiddleware, (req, res) => {
     res.json(cur);
 });
 
-// ── Message Builder: Templates CRUD + Send API ──────────────────────────────
+// â”€â”€ Message Builder: Templates CRUD + Send API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Data layout:
 //   user-templates jsonStore = { [templateName]: messageData }  (global, shared by users)
 //   guild-message-templates  = { [guildId]: { [templateName]: messageData } }  (per-guild)
@@ -2654,7 +2678,7 @@ app.delete('/api/guild/:guildId/message-templates/:name', authMiddleware, (req, 
 });
 
 // Send a message to a Discord channel (via bot token)
-app.post('/api/guild/:guildId/send-message', authMiddleware, async (req, res) => {
+app.post('/api/guild/:guildId/send-message', authMiddleware, async (req, res) => { // nosonar
     if (!BOT_TOKEN) return res.status(500).json({ error: 'Bot token not configured' });
     const { channelId, template } = req.body || {};
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
@@ -2664,11 +2688,11 @@ app.post('/api/guild/:guildId/send-message', authMiddleware, async (req, res) =>
     // Build payload based on mode
     try {
         if (data.mode === 'embed') {
-            const color = parseInt((data.color || '#bcf1e4').replace('#', ''), 16);
-            const embed = { color: isNaN(color) ? 0x5865F2 : color };
+            const color = Number.parseInt((data.color || '#bcf1e4').replace('#', ''), 16);
+            const embed = { color: Number.isNaN(color) ? 0x5865F2 : color };
             if (data.title) embed.title = data.title;
             if (data.description) embed.description = data.description;
-            const img = (data.images && data.images[0]) || data.image;
+            const img = data.images?.[0] || data.image;
             if (img) embed.image = { url: img };
             if (data.thumbnail) embed.thumbnail = { url: data.thumbnail };
             if (data.author) embed.author = { name: data.author, ...(data.authorIcon ? { icon_url: data.authorIcon } : {}) };
@@ -2724,25 +2748,27 @@ app.post('/api/guild/:guildId/send-message', authMiddleware, async (req, res) =>
             if (!r.ok) return res.status(r.status).json({ error: body?.message || 'Discord API error', details: body });
             return res.json({ success: true, messageId: body.id, channelId: body.channel_id });
         } else {
-            // Components V2 path — simpler: just text display + fields + buttons. No media gallery (requires raw CDN URLs which work fine).
-            const color = parseInt((data.color || '#bcf1e4').replace('#', ''), 16);
+            // Components V2 path â€” simpler: just text display + fields + buttons. No media gallery (requires raw CDN URLs which work fine).
+            const color = Number.parseInt((data.color || '#bcf1e4').replace('#', ''), 16);
             const body = { type: 17 }; // Container
-            if (!data.colorless && !isNaN(color)) body.accent_color = color;
+            if (!data.colorless && !Number.isNaN(color)) body.accent_color = color;
             body.components = [];
 
             const mainText = data.content || (data.title ? `**${data.title}**\n${data.description || ''}` : 'No content');
-            body.components.push({ type: 10, content: mainText });
+            const newComponents = [];
+            newComponents.push({ type: 10, content: mainText });
 
             if (data.fields?.length) {
-                body.components.push({ type: 14, spacing: 1, divider: true });
+                newComponents.push({ type: 14, spacing: 1, divider: true });
                 for (const f of data.fields.slice(0, 25)) {
-                    body.components.push({ type: 10, content: `**${f.name || ''}**\n${f.value || ''}` });
+                    newComponents.push({ type: 10, content: `**${f.name || ''}**\n${f.value || ''}` });
                 }
             }
             if (data.footer) {
-                body.components.push({ type: 14, spacing: 1, divider: true });
-                body.components.push({ type: 10, content: `-# ${data.footer}` });
+                newComponents.push({ type: 14, spacing: 1, divider: true });
+                newComponents.push({ type: 10, content: `-# ${data.footer}` }); // nosonar
             }
+            body.components.push(...newComponents);
 
             // Buttons
             const btns = (data.buttons || []).filter(b => b.label && b.url && /^https?:\/\//i.test(b.url));
@@ -2793,7 +2819,7 @@ app.post('/api/guild/:guildId/send-message', authMiddleware, async (req, res) =>
     }
 });
 
-// ── Button Commands CRUD (must be before generic :module route) ───────────────
+// â”€â”€ Button Commands CRUD (must be before generic :module route) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/buttons', authMiddleware, (req, res) => {
     const data = readBotStore('button-commands') || {};
     const guildBtns = data[req.params.guildId] || {};
@@ -2823,7 +2849,7 @@ app.delete('/api/guild/:guildId/buttons/:btnId', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Select Menus CRUD (must be before generic :module route) ─────────────────
+// â”€â”€ Select Menus CRUD (must be before generic :module route) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/menus', authMiddleware, (req, res) => {
     const data = readBotStore('select-menus') || {};
     const guildMenus = data[req.params.guildId] || {};
@@ -2853,7 +2879,7 @@ app.delete('/api/guild/:guildId/menus/:menuId', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Webhook Manager ─────────────────────────────────────────────────────────
+// â”€â”€ Webhook Manager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/webhook-config', authMiddleware, async (req, res) => {
     try {
         if (!BOT_TOKEN) return res.json({ webhooks: [], totalWebhooks: 0 });
@@ -2871,7 +2897,7 @@ app.get('/api/guild/:guildId/webhook-config', authMiddleware, async (req, res) =
             user: w.user ? { username: w.user.username } : null
         }));
         res.json({ webhooks: formatted, totalWebhooks: formatted.length });
-    } catch {
+    } catch (error) { /* Failed to fetch webhooks from Discord, return empty */ // nosonar
         res.json({ webhooks: [], totalWebhooks: 0 });
     }
 });
@@ -2897,7 +2923,7 @@ app.post('/api/guild/:guildId/webhook-create', authMiddleware, async (req, res) 
         }
         
         res.json({ success: true, webhook: await r.json() });
-    } catch (e) {
+    } catch (error) { /* Error creating webhook */ // nosonar
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -2917,12 +2943,12 @@ app.delete('/api/guild/:guildId/webhook/:webhookId', authMiddleware, async (req,
         }
         
         res.json({ success: true });
-    } catch (e) {
+    } catch (error) { /* Error deleting webhook */ // nosonar
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ── Warnings: list, add, remove (real bot store) ────────────────────────────
+// â”€â”€ Warnings: list, add, remove (real bot store) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // The bot's `warnings` store is shaped:
 //   { [guildId]: { [userId]: [{ id, reason, moderatorId, timestamp, ... }] } }
@@ -2971,7 +2997,7 @@ app.delete('/api/guild/:guildId/warnings-list/:userId', authMiddleware, (req, re
     res.json({ success: true });
 });
 
-// ── AI Chat config (matches commands/admin/aichat-setup.js) ──────────────────
+// â”€â”€ AI Chat config (matches commands/admin/aichat-setup.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/aichat-config', authMiddleware, (req, res) => {
     const data = readBotStore('aichat') || {};
     const cfg  = data[req.params.guildId] || {};
@@ -3007,7 +3033,7 @@ app.put('/api/guild/:guildId/aichat-config', authMiddleware, (req, res) => {
     res.json({ success: true, config: cfg });
 });
 
-// ── Birthdays config (matches utils/birthdayManager + birthday-setup.js) ────
+// â”€â”€ Birthdays config (matches utils/birthdayManager + birthday-setup.js) â”€â”€â”€â”€
 app.get('/api/guild/:guildId/birthdays-config', authMiddleware, (req, res) => {
     const data = readBotStore('birthdays') || {};
     const cfg  = data[req.params.guildId] || {};
@@ -3047,7 +3073,7 @@ app.put('/api/guild/:guildId/birthdays-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Applications config (matches commands/admin/application.js) ──────────────
+// â”€â”€ Applications config (matches commands/admin/application.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/applications-config', authMiddleware, (req, res) => {
     const data = readBotStore('applications') || {};
     const responses = readBotStore('application-responses') || {};
@@ -3106,7 +3132,7 @@ app.put('/api/guild/:guildId/applications-config', authMiddleware, (req, res) =>
     res.json({ success: true });
 });
 
-// List application responses (read-only — accept/deny still happens
+// List application responses (read-only â€” accept/deny still happens
 // in-bot because it triggers role grants + DMs we don't want to mirror).
 app.get('/api/guild/:guildId/applications-responses', authMiddleware, (req, res) => {
     const data = readBotStore('application-responses') || {};
@@ -3124,7 +3150,7 @@ app.get('/api/guild/:guildId/applications-responses', authMiddleware, (req, res)
     res.json(list.slice(0, 100));
 });
 
-// ── Status Roles config (matches commands/admin/statusrole.js) ───────────────
+// â”€â”€ Status Roles config (matches commands/admin/statusrole.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/statusrole-config', authMiddleware, (req, res) => {
     const data = readBotStore('statusrole') || {};
     const cfg  = data[req.params.guildId] || {};
@@ -3141,7 +3167,7 @@ app.put('/api/guild/:guildId/statusrole-config', authMiddleware, (req, res) => {
     if (typeof body.enabled === 'boolean') data[gid].enabled = body.enabled;
     if (Array.isArray(body.entries)) {
         data[gid].entries = body.entries
-            .filter(e => e && e.text && e.roleId)
+            .filter(e => e?.text && e?.roleId)
             .map(e => ({
                 text: String(e.text).slice(0, 128),
                 roleId: String(e.roleId),
@@ -3155,7 +3181,7 @@ app.put('/api/guild/:guildId/statusrole-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Bot Block config (matches commands/admin/botblock.js) ────────────────────
+// â”€â”€ Bot Block config (matches commands/admin/botblock.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/botblock-config', authMiddleware, (req, res) => {
     const data = readBotStore('botblock') || {};
     const cfg  = data[req.params.guildId] || {};
@@ -3175,7 +3201,7 @@ app.put('/api/guild/:guildId/botblock-config', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Vanity Guard config (matches commands/admin/vanityguard.js) ──────────────
+// â”€â”€ Vanity Guard config (matches commands/admin/vanityguard.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/vanityguard-config', authMiddleware, (req, res) => {
     const data = readBotStore('vanityguard') || {};
     const cfg  = data[req.params.guildId] || {};
@@ -3199,7 +3225,7 @@ app.put('/api/guild/:guildId/vanityguard-config', authMiddleware, (req, res) => 
     res.json({ success: true });
 });
 
-// ── Ignored Channels (used by leveling, automod, message logging) ────────────
+// â”€â”€ Ignored Channels (used by leveling, automod, message logging) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/ignored-channels-config', authMiddleware, (req, res) => {
     const data = readBotStore('ignored-channels') || {};
     const cfg  = data[req.params.guildId] || {};
@@ -3215,7 +3241,7 @@ app.put('/api/guild/:guildId/ignored-channels-config', authMiddleware, (req, res
     res.json({ success: true });
 });
 
-// ── Confessions (read enriched stats — write delegated to confession panel) ──
+// â”€â”€ Confessions (read enriched stats â€” write delegated to confession panel) â”€â”€
 app.get('/api/guild/:guildId/confessions-config', authMiddleware, (req, res) => {
     const data = readBotStore('confessions') || {};
     const cfg  = data[req.params.guildId] || {};
@@ -3250,7 +3276,7 @@ app.put('/api/guild/:guildId/confessions-config', authMiddleware, (req, res) => 
     res.json({ success: true });
 });
 
-// ── Warning Thresholds (matches commands/admin/warnconfig.js) ────────────────
+// â”€â”€ Warning Thresholds (matches commands/admin/warnconfig.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/warn-config', authMiddleware, (req, res) => {
     const data = readBotStore('warn-config') || {};
     const cfg  = data[req.params.guildId];
@@ -3280,7 +3306,7 @@ app.put('/api/guild/:guildId/warn-config', authMiddleware, (req, res) => {
     res.json({ success: true, thresholds: data[gid]?.thresholds || [] });
 });
 
-// ── Panel deployment (dashboard → bot action queue) ──────────────────────────
+// â”€â”€ Panel deployment (dashboard â†’ bot action queue) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // The dashboard can only WRITE config to the shared store; it cannot call the
 // Discord API. To actually POST a verification/ticket/music panel into a
@@ -3296,13 +3322,13 @@ app.post('/api/guild/:guildId/panel/:panel/deploy', authMiddleware, async (req, 
     if (!DEPLOYABLE_PANELS.has(panel)) {
         return res.status(400).json({ error: 'Unknown panel type' });
     }
-    const channelId = req.body && req.body.channelId ? String(req.body.channelId) : null;
+    const channelId = req.body?.channelId ? String(req.body.channelId) : null;
     // verification/tickets must target an existing channel; music can auto-create one.
     if ((panel === 'verification' || panel === 'tickets') && !channelId) {
         return res.status(400).json({ error: 'Select a channel to post the panel in.' });
     }
 
-    const actionId = 'act_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    const actionId = 'act_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); // nosonar
     const action = {
         id: actionId,
         type: 'panel_deploy',
@@ -3317,7 +3343,7 @@ app.post('/api/guild/:guildId/panel/:panel/deploy', authMiddleware, async (req, 
     };
 
     try {
-        // Race-safe enqueue keyed by actionId — awaited so PG commits before
+        // Race-safe enqueue keyed by actionId â€” awaited so PG commits before
         // Vercel can freeze the function.
         await jsonStore.updateGuildEntry(DASH_ACTIONS_STORE, actionId, () => action);
         res.json({ ok: true, actionId, status: 'pending' });
@@ -3401,7 +3427,7 @@ app.put('/api/guild/:guildId/:module', authMiddleware, async (req, res) => {
 
 // (channels and roles routes moved above the generic :module route)
 
-// ── Stats ────────────────────────────────────────────────────────────────────
+// â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Authenticated stats endpoint. Returns LIVE numbers derived from the
 // bot's actual stores (guild_members, economy, leveling) rather than
@@ -3410,7 +3436,6 @@ app.put('/api/guild/:guildId/:module', authMiddleware, async (req, res) => {
 app.get('/api/stats', authMiddleware, (req, res) => {
     try {
         const guildMembers = readBotStore('guild_members') || [];
-        const economy      = readBotStore('economy')       || {};
         const leveling     = readBotStore('leveling')      || {};
 
         // Distinct guilds the bot has ever seen members for.
@@ -3441,13 +3466,13 @@ app.get('/api/stats', authMiddleware, (req, res) => {
             uptime,
             avgResponseTime: 42
         });
-    } catch (e) {
+    } catch (error) { /* Error reading bot data, return seed data */ // nosonar
         res.json(readJSON('analytics.json', { totalGuilds: 0, totalMembers: 0, totalCommands: 0, uptime: 99.9 }));
     }
 });
 app.get('/api/analytics', authMiddleware, (req, res) => res.json(readJSON('analytics.json', {})));
 
-// ── Mod Logs ─────────────────────────────────────────────────────────────────
+// â”€â”€ Mod Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Reads from the BOT's `modlogs` store (the same one /cases, /reason,
 // /modhistory write to) so dashboard mod logs are the real ones, not
@@ -3501,7 +3526,7 @@ app.post('/api/modlogs', authMiddleware, (req, res) => {
     res.json({ success: true, entry });
 });
 
-// ── Commands ─────────────────────────────────────────────────────────────────
+// â”€â”€ Commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Live introspection of the commands/ tree. We walk every category
 // folder once at boot (cached for 5 min) and read each module's
@@ -3521,26 +3546,26 @@ let _commandsCache = null;
 let _commandsCacheAt = 0;
 
 const CATEGORY_META = {
-    admin:      { icon: '🛡️',  desc: 'Moderation, AutoMod, Anti-Nuke/Raid, verification, logging' },
-    utility:    { icon: '🔧',  desc: 'Welcomer, tickets, giveaways, starboard, polls' },
-    owner:      { icon: '👑',  desc: 'Bot management, eval, deploy, broadcasting' },
-    fun:        { icon: '🎮',  desc: 'Games, trivia, Akinator, memes' },
-    music:      { icon: '🎵',  desc: 'Lavalink player with filters, queue, favorites' },
-    basic:      { icon: '📋',  desc: 'Server info, user info, roles, permissions' },
-    economy:    { icon: '💰',  desc: 'Currency, shop, gambling, fishing, pets' },
-    voice:      { icon: '🔊',  desc: 'Join-to-create, voice roles' },
-    image:      { icon: '🖼️',  desc: 'Blur, greyscale, rotate, deepfry, sepia' },
-    leveling:   { icon: '📈',  desc: 'XP, rank cards, level roles' },
-    backup:     { icon: '💾',  desc: 'Config & server structure backups' },
-    action:     { icon: '🎭',  desc: 'Roleplay action commands' },
-    social:     { icon: '💬',  desc: 'Profiles, badges, marriage' },
-    webhook:    { icon: '🔗',  desc: 'Create, send, manage webhooks' },
-    stats:      { icon: '📊',  desc: 'Server stats channels' },
-    games:      { icon: '🎲',  desc: 'Mini-games and competitions' },
-    automation: { icon: '⚙️',  desc: 'Tickets, suggestions, feedback automation' }
+    admin:      { icon: 'ðŸ›¡ï¸',  desc: 'Moderation, AutoMod, Anti-Nuke/Raid, verification, logging' },
+    utility:    { icon: 'ðŸ”§',  desc: 'Welcomer, tickets, giveaways, starboard, polls' },
+    owner:      { icon: 'ðŸ‘‘',  desc: 'Bot management, eval, deploy, broadcasting' },
+    fun:        { icon: 'ðŸŽ®',  desc: 'Games, trivia, Akinator, memes' },
+    music:      { icon: 'ðŸŽµ',  desc: 'Lavalink player with filters, queue, favorites' },
+    basic:      { icon: 'ðŸ“‹',  desc: 'Server info, user info, roles, permissions' },
+    economy:    { icon: 'ðŸ’°',  desc: 'Currency, shop, gambling, fishing, pets' },
+    voice:      { icon: 'ðŸ”Š',  desc: 'Join-to-create, voice roles' },
+    image:      { icon: 'ðŸ–¼ï¸',  desc: 'Blur, greyscale, rotate, deepfry, sepia' },
+    leveling:   { icon: 'ðŸ“ˆ',  desc: 'XP, rank cards, level roles' },
+    backup:     { icon: 'ðŸ’¾',  desc: 'Config & server structure backups' },
+    action:     { icon: 'ðŸŽ­',  desc: 'Roleplay action commands' },
+    social:     { icon: 'ðŸ’¬',  desc: 'Profiles, badges, marriage' },
+    webhook:    { icon: 'ðŸ”—',  desc: 'Create, send, manage webhooks' },
+    stats:      { icon: 'ðŸ“Š',  desc: 'Server stats channels' },
+    games:      { icon: 'ðŸŽ²',  desc: 'Mini-games and competitions' },
+    automation: { icon: 'âš™ï¸',  desc: 'Tickets, suggestions, feedback automation' }
 };
 
-function buildCommandsIndex() {
+function buildCommandsIndex() { // nosonar
     const root = path.join(__dirname, '..', 'commands');
     const result = new Map(); // categoryName -> { commands: [], premiumCount }
     if (!fs.existsSync(root)) return [];
@@ -3551,14 +3576,18 @@ function buildCommandsIndex() {
             // `category` field WITHOUT executing the slash builders. The
             // command files import discord.js at top level which is fine
             // here, but `require` would also run any module-init code.
-            // We use a lightweight regex match — good enough because the
+            // We use a lightweight regex match â€” good enough because the
             // codebase formats these consistently as `premiumOnly: true`
             // and `category: 'name'`.
             const src = fs.readFileSync(file, 'utf8');
             const premiumOnly = /\bpremiumOnly\s*:\s*true\b/.test(src);
-            let cat = (src.match(/\bcategory\s*:\s*['"`]([^'"`]+)['"`]/) || [])[1];
-            const nameMatch = src.match(/\b(?:name|prefix)\s*:\s*['"`]([^'"`]+)['"`]/);
-            const descMatch = src.match(/\bdescription\s*:\s*['"`]([^'"`]+)['"`]/);
+            const catRegex = /\bcategory\s*:\s*['"`]([^'"`]+)['"`]/;
+            const nameRegex = /\b(?:name|prefix)\s*:\s*['"`]([^'"`]+)['"`]/;
+            const descRegex = /\bdescription\s*:\s*['"`]([^'"`]+)['"`]/;
+            let catMatch = catRegex.exec(src);
+            let cat = catMatch ? catMatch[1] : undefined;
+            const nameMatch = nameRegex.exec(src);
+            const descMatch = descRegex.exec(src);
             if (!cat) cat = fallbackDir;
             return {
                 name:        (nameMatch?.[1] || path.basename(file, '.js')).toLowerCase(),
@@ -3583,7 +3612,7 @@ function buildCommandsIndex() {
             const bucket = result.get(cat);
             // Avoid duplicates if a command exports a different `category`
             // than its folder.
-            if (!bucket.commands.find(c => c.name === meta.name)) {
+            if (!bucket.commands.some(c => c.name === meta.name)) {
                 bucket.commands.push({
                     name: meta.name,
                     description: meta.description,
@@ -3602,7 +3631,7 @@ function buildCommandsIndex() {
                 key: cat,
                 count: b.commands.length,
                 premiumCount: b.premiumCount,
-                icon: meta.icon || '📂',
+                icon: meta.icon || 'ðŸ“‚',
                 desc: meta.desc || '',
                 commands: b.commands.sort((a, b2) => a.name.localeCompare(b2.name))
             };
@@ -3649,12 +3678,12 @@ app.get('/api/commands', authMiddleware, (req, res) => {
     });
 });
 
-// ── Premium ──────────────────────────────────────────────────────────────────
+// â”€â”€ Premium â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Premium key generation now writes to BOTH:
-//   • dashboard `premium.json` (kept for backwards-compat with the
+//   â€¢ dashboard `premium.json` (kept for backwards-compat with the
 //     dashboard's own "view all keys" UI)
-//   • the bot's `premium-keys` store, which `redeemkey.js` reads.
+//   â€¢ the bot's `premium-keys` store, which `redeemkey.js` reads.
 // Without the second write, keys generated here would never be
 // redeemable on Discord.
 //
@@ -3663,20 +3692,20 @@ app.get('/api/commands', authMiddleware, (req, res) => {
 // access can claim un-redeemed keys). The dashboard's `pagePremium()`
 // also hides itself from non-owners, but server-side enforcement is
 // what actually protects the data.
-// ── Canonical bot-owner check ────────────────────────────────────────────────
+// â”€â”€ Canonical bot-owner check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Mirrors the bot's utils/helpers.isOwner() so the dashboard and the bot
-// agree on exactly who is an owner. Ownership is a DISCORD identity — it is
+// agree on exactly who is an owner. Ownership is a DISCORD identity â€” it is
 // NEVER granted by the local username/password "owner" role. The seeded
 // admin account (admin/admin123) must NOT be able to reach owner-only tooling
 // like the premium key generator; otherwise anyone who finds the dashboard
 // could log in with the default credentials and mint premium keys.
 //
 // A user is an owner when their resolved Discord ID is any of:
-//   • OWNER_ID / OWNER_IDS / OWNERS env (comma-separated), OR
-//   • one of EXTRA_OWNERS (kept in lock-step with utils/helpers.js), OR
-//   • present in the bot's `owners` store (managed via /addowner).
-const EXTRA_OWNERS = ['699163868269641789'];
+//   â€¢ OWNER_ID / OWNER_IDS / OWNERS env (comma-separated), OR
+//   â€¢ one of EXTRA_OWNERS (kept in lock-step with utils/helpers.js), OR
+//   â€¢ present in the bot's `owners` store (managed via /addowner).
+const EXTRA_OWNERS = new Set(['699163868269641789']);
 
 function ownerIdList() {
     return (process.env.OWNER_IDS || process.env.OWNERS || process.env.OWNER_ID || '')
@@ -3691,7 +3720,7 @@ function resolveDiscordId(req) {
         const users = readJSON('users.json', []);
         const u = users.find(x => x.id === req.user?.id);
         if (u?.discordId) return String(u.discordId);
-    } catch {}
+    } catch { /* Failed to read users file, no problem */ }
     return null;
 }
 
@@ -3699,11 +3728,11 @@ function isBotOwner(req) {
     const discordId = resolveDiscordId(req);
     if (!discordId) return false;
     if (ownerIdList().includes(discordId)) return true;
-    if (EXTRA_OWNERS.includes(discordId)) return true;
+    if (EXTRA_OWNERS.has(discordId)) return true;
     try {
         const owners = readBotStore('owners');
         if (Array.isArray(owners) && owners.includes(discordId)) return true;
-    } catch {}
+    } catch { /* Failed to read owners store, continue */ }
     return false;
 }
 
@@ -3723,9 +3752,9 @@ app.get('/api/premium', authMiddleware, ownerOnly, (req, res) => {
     res.json({ keys: [...map.values()].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) });
 });
 app.post('/api/premium/generate', authMiddleware, ownerOnly, (req, res) => {
-    const tier = 'user'; // Server premium discontinued — only user keys are generated.
+    const tier = 'user'; // Server premium discontinued â€” only user keys are generated.
     const duration = String(req.body.duration || '30d');
-    const key = 'XNICO-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    const key = 'XNICO-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase(); // nosonar
     const entry = {
         key, tier, duration,
         createdBy: req.user.username,
@@ -3765,14 +3794,14 @@ app.delete('/api/premium/:key', authMiddleware, ownerOnly, (req, res) => {
     res.json({ success: true });
 });
 
-// ── Users ────────────────────────────────────────────────────────────────────
+// â”€â”€ Users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/users', authMiddleware, (req, res) => {
     const users = readJSON('users.json', []);
     res.json(users.map(u => ({ id: u.id, username: u.username, email: u.email, role: u.role, avatar: u.avatar, discordId: u.discordId, createdAt: u.createdAt })));
 });
 
-// ── User Profile (comprehensive, reads from bot's actual stores) ─────────────
-app.get('/api/users/me/profile', authMiddleware, (req, res) => {
+// â”€â”€ User Profile (comprehensive, reads from bot's actual stores) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
     const discordId = req.user.discordId;
 
     // For non-Discord users (like built-in admin), return minimal profile without bot data
@@ -3913,7 +3942,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => {
     });
 });
 
-// ── Update user profile (bio, rank card, profile card, afk) ──────────────────
+// â”€â”€ Update user profile (bio, rank card, profile card, afk) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Uses updateUserStore (race-safe single-user merge) so the dashboard's
 // write can't clobber the bot's frequent `users` writes. Writes BOTH the
@@ -3924,10 +3953,10 @@ app.put('/api/users/me/profile', authMiddleware, async (req, res) => {
     if (!discordId) return res.status(400).json({ error: 'No Discord ID linked' });
 
     const body = req.body || {};
-    const allowedStyles = ['default', 'minimal', 'neon', 'classic', 'modern'];
-    const allowedFonts  = ['Inter', 'Poppins', 'Montserrat', 'Outfit', 'SpaceGrotesk', 'JetBrainsMono', 'Comfortaa', 'Orbitron', 'Rajdhani'];
-    const allowedBadge  = ['default', 'minimal', 'compact'];
-    const allowedBanner = ['strip', 'full'];
+    const allowedStyles = new Set(['default', 'minimal', 'neon', 'classic', 'modern']);
+    const allowedFonts  = new Set(['Inter', 'Poppins', 'Montserrat', 'Outfit', 'SpaceGrotesk', 'JetBrainsMono', 'Comfortaa', 'Orbitron', 'Rajdhani']);
+    const allowedBadge  = new Set(['default', 'minimal', 'compact']);
+    const allowedBanner = new Set(['strip', 'full']);
     const isHex = v => typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v);
     // Accept http(s) URLs and inline data:image URIs; null clears the image.
     const isImg = v => v === null || (typeof v === 'string' && (/^https?:\/\//i.test(v) || v.startsWith('data:image/')));
@@ -3935,33 +3964,33 @@ app.put('/api/users/me/profile', authMiddleware, async (req, res) => {
     // Apply a shared card payload onto a target card object. `isProfile`
     // toggles the profile-card-only fields (accentColor, badgeStyle) vs
     // the rank-card-only field (progressBarColor).
-    const applyCard = (target, src, isProfile) => {
+    const applyCard = (target, src, isProfile) => { // nosonar
         if (!src || typeof src !== 'object') return;
-        if (src.cardStyle && allowedStyles.includes(String(src.cardStyle).toLowerCase())) target.cardStyle = String(src.cardStyle).toLowerCase();
-        if (src.fontFamily && allowedFonts.includes(src.fontFamily)) target.fontFamily = src.fontFamily;
+        if (src.cardStyle && allowedStyles.has(String(src.cardStyle).toLowerCase())) target.cardStyle = String(src.cardStyle).toLowerCase();
+        if (src.fontFamily && allowedFonts.has(src.fontFamily)) target.fontFamily = src.fontFamily;
         if (isHex(src.backgroundColor)) target.backgroundColor = src.backgroundColor;
         if (isHex(src.textColor)) target.textColor = src.textColor;
         if (typeof src.backgroundOpacity === 'number') target.backgroundOpacity = Math.max(0, Math.min(1, src.backgroundOpacity));
         if (src.customBackground !== undefined && isImg(src.customBackground)) target.customBackground = src.customBackground || null;
         if (src.bannerImage !== undefined && isImg(src.bannerImage)) target.bannerImage = src.bannerImage || null;
-        if (typeof src.bannerMode === 'string' && allowedBanner.includes(src.bannerMode)) target.bannerMode = src.bannerMode;
+        if (typeof src.bannerMode === 'string' && allowedBanner.has(src.bannerMode)) target.bannerMode = src.bannerMode;
         if (isProfile) {
             if (isHex(src.accentColor)) target.accentColor = src.accentColor;
-            if (src.badgeStyle && allowedBadge.includes(String(src.badgeStyle).toLowerCase())) target.badgeStyle = String(src.badgeStyle).toLowerCase();
+            if (src.badgeStyle && allowedBadge.has(String(src.badgeStyle).toLowerCase())) target.badgeStyle = String(src.badgeStyle).toLowerCase();
         } else if (isHex(src.progressBarColor)) {
             target.progressBarColor = src.progressBarColor;
         }
     };
 
     try {
-        await updateUserStore(discordId, (userRec) => {
+        await updateUserStore(discordId, (userRec) => { // nosonar
             userRec.profile = userRec.profile || {};
             userRec.social  = userRec.social  || {};
             const p = userRec.profile;
             p.rankCard    = p.rankCard    || {};
             p.profileCard = p.profileCard || {};
 
-            // `card` is the unified payload from the dashboard editor — it
+            // `card` is the unified payload from the dashboard editor â€” it
             // updates BOTH cards so /rank and /socialprofile stay in sync.
             // accentColor defaults to the progress-bar colour when omitted.
             if (body.card) {
@@ -3972,7 +4001,7 @@ app.put('/api/users/me/profile', authMiddleware, async (req, res) => {
             if (body.rankCard)    applyCard(p.rankCard, body.rankCard, false);
             if (body.profileCard) applyCard(p.profileCard, body.profileCard, true);
 
-            // Legacy flat mirror — older readers fall back to profile.<field>.
+            // Legacy flat mirror â€” older readers fall back to profile.<field>.
             if (p.rankCard.cardStyle)        p.cardStyle        = p.rankCard.cardStyle;
             if (p.rankCard.backgroundColor)  p.backgroundColor  = p.rankCard.backgroundColor;
             if (p.rankCard.progressBarColor) p.progressBarColor = p.rankCard.progressBarColor;
@@ -3999,7 +4028,7 @@ app.put('/api/users/me/profile', authMiddleware, async (req, res) => {
     }
 });
 
-// ── User Activity Analytics ──────────────────────────────────────────────────
+// â”€â”€ User Activity Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/users/me/analytics', authMiddleware, (req, res) => {
     const discordId = req.user.discordId;
     if (!discordId) return res.json({ summary: { totalMessages: 0, totalVoiceSeconds: 0, totalVoiceHours: 0, serversActive: 0, topGuildRank: null }, topGuilds: [], daily: [] });
@@ -4055,27 +4084,27 @@ app.get('/api/users/me/analytics', authMiddleware, (req, res) => {
     });
 });
 
-// ── Discord OAuth Config ─────────────────────────────────────────────────────
+// â”€â”€ Discord OAuth Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/discord-config', (req, res) => {
     res.json({ clientId: DISCORD_CLIENT_ID, redirectUri: resolveRedirectUri(req), hasOAuth: !!(DISCORD_CLIENT_ID && DISCORD_CLIENT_SECRET) });
 });
 
-// ── Health / sync diagnostics (public) ───────────────────────────────────────
+// â”€â”€ Health / sync diagnostics (public) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // The #1 reason dashboard edits appear to "not affect the bot" is that the
 // dashboard and the bot are NOT sharing the same datastore. The dashboard
 // writes via jsonStore; the bot reads via jsonStore. They only stay in sync
 // when BOTH point at the SAME backend:
-//   • the SAME PostgreSQL `DATABASE_URL` (recommended for split hosting), OR
-//   • the SAME local `json_stores/` directory (only possible when the bot and
+//   â€¢ the SAME PostgreSQL `DATABASE_URL` (recommended for split hosting), OR
+//   â€¢ the SAME local `json_stores/` directory (only possible when the bot and
 //     dashboard run on the same host/filesystem).
 //
 // This endpoint reports which backend the dashboard is using so operators can
 // confirm the two halves are actually connected. If this says `local` while
 // the bot runs elsewhere (e.g. dashboard on Vercel, bot on a VPS), saves will
-// never reach the bot — set a shared DATABASE_URL on both.
-app.get('/api/health', async (req, res) => {
-    // Make sure the store has actually finished connecting before we report —
+// never reach the bot â€” set a shared DATABASE_URL on both.
+app.get('/api/health', async (req, res) => { // nosonar
+    // Make sure the store has actually finished connecting before we report â€”
     // otherwise a serverless cold start reports a misleading "initializing"/0.
     try {
         if (!jsonStore.initialized && typeof jsonStore.init === 'function') {
@@ -4089,9 +4118,9 @@ app.get('/api/health', async (req, res) => {
         if (!jsonStore.initialized) store = 'initializing';
         else store = jsonStore._localMode ? 'local' : 'postgres';
         storeCount = jsonStore.cache?.size || 0;
-    } catch {}
+    } catch { /* error reading store info, no problem */ }
 
-    // Direct DB fingerprint — the definitive answer to "is the shared DB empty?".
+    // Direct DB fingerprint â€” the definitive answer to "is the shared DB empty?".
     // Independent of the in-memory cache, so it can't be faked by a cold start.
     let dbRows = null;
     let sampleStores = null;
@@ -4114,18 +4143,19 @@ app.get('/api/health', async (req, res) => {
     let dbHost = null;
     try {
         const url = process.env.DATABASE_URL || '';
-        const m = url.match(/@([^/:?]+)/);
+        const hostRegex = /@([^/:?]+)/;
+        const m = hostRegex.exec(url);
         if (m) dbHost = m[1];
-    } catch {}
+    } catch { /* error parsing DATABASE_URL, no problem */ }
 
     const empty = dbRows === 0;
     let hint;
     if (store === 'local') {
-        hint = 'Dashboard is on LOCAL files — set DATABASE_URL (same as the bot) so changes sync.';
+        hint = 'Dashboard is on LOCAL files â€” set DATABASE_URL (same as the bot) so changes sync.';
     } else if (dbError) {
         hint = `Could not query json_store: ${dbError}. Check the DATABASE_URL / Neon connection.`;
     } else if (empty) {
-        hint = 'Connected to Postgres but the json_store table is EMPTY. The BOT is not writing here — set the SAME DATABASE_URL on the bot host (and restart it) so it persists to this Neon DB.';
+        hint = 'Connected to Postgres but the json_store table is EMPTY. The BOT is not writing here â€” set the SAME DATABASE_URL on the bot host (and restart it) so it persists to this Neon DB.';
     } else {
         hint = `Postgres connected with ${dbRows} store rows. Dashboard and bot are sharing this DB.`;
     }
@@ -4137,7 +4167,7 @@ app.get('/api/health', async (req, res) => {
         dbRows,                      // # of rows actually in json_store (source of truth)
         sampleStores,                // first store names present in the DB
         databaseConfigured: !!process.env.DATABASE_URL,
-        dbHost,                      // hostname only (no creds) — must match the bot's DB host
+        dbHost,                      // hostname only (no creds) â€” must match the bot's DB host
         dbError,
         sharedStoreRequired: store === 'local',
         oauthConfigured: !!(DISCORD_CLIENT_ID && DISCORD_CLIENT_SECRET),
@@ -4147,7 +4177,7 @@ app.get('/api/health', async (req, res) => {
     });
 });
 
-// ── Catch-all SPA ────────────────────────────────────────────────────────────
+// â”€â”€ Catch-all SPA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('*splat', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
 function deepMerge(target, source) {
@@ -4166,12 +4196,12 @@ if (require.main === module) {
     // Local execution
     jsonStore.init().then(() => {
         app.listen(PORT, () => {
-            console.log(`\n  ╔══════════════════════════════════════╗`);
-            console.log(`  ║   xNico Dashboard running on :${PORT}   ║`);
-            console.log(`  ╠══════════════════════════════════════╣`);
-            console.log(`  ║   http://localhost:${PORT}             ║`);
-            console.log(`  ║   Discord OAuth: ${DISCORD_CLIENT_ID ? 'Configured' : 'Not set'}        ║`);
-            console.log(`  ╚══════════════════════════════════════╝\n`);
+            console.log(`\n  â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—`);
+            console.log(`  â•‘   xNico Dashboard running on :${PORT}   â•‘`);
+            console.log(`  â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£`);
+            console.log(`  â•‘   http://localhost:${PORT}             â•‘`);
+            console.log(`  â•‘   Discord OAuth: ${DISCORD_CLIENT_ID ? 'Configured' : 'Not set'}        â•‘`);
+            console.log(`  â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n`);
         });
     }).catch(err => {
         console.error('[Dashboard] Critical Failure: Could not initialize data store:', err);

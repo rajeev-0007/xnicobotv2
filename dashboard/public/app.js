@@ -267,7 +267,7 @@ async function showDashboard() {
 
         // Apply saved theme 
         const theme = localStorage.getItem('theme');
-        if (theme === 'light') document.documentElement.dataset('data-theme', 'light');
+        if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
         updateThemeIcon();
 
         $('#dashboard').classList.remove('hidden');
