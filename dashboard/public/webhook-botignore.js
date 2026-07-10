@@ -59,8 +59,8 @@ function _renderWebhookPage(g, data) {
             ${icon('webhook')}
             <p class="text-mute">No webhooks found in this server.</p>
         </div>`;
-
-    const chSel = `<select id="wh-channel" style="flex:1"><option value="">— Select channel —</option>${textCh.map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('')}</select>`;
+    const opts = textCh.map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('');
+    const chSel = `<select id="wh-channel" style="flex:1"><option value="">— Select channel —</option>${opts}</select>`;
 
     $('#page').innerHTML = `
         <div class="page-h"><div><h1>Webhook Manager</h1><p>Create, view, and manage Discord webhooks for ${esc(g.name)}.</p></div>
@@ -166,7 +166,7 @@ async function pageBotIgnore() {
     state.channels = Array.isArray(channels) ? channels : [];
     state.roles = Array.isArray(roles) ? roles.filter(r => r.name !== '@everyone') : [];
     const w = cfg && !cfg._error ? cfg : { enabled: false, ignoredChannels: [], ignoredRoles: [], ignoredUsers: [], ignoreAllBots: false, ignorePrefix: false };
-    window.__biWorking = JSON.parse(JSON.stringify(w));
+    window.__biWorking = structuredClone(w);
     _renderBotIgnorePage(g);
 }
 
@@ -290,7 +290,7 @@ function _renderBotIgnorePage(g) {
             saveBtn.disabled = false; saveBtn.innerHTML = icon('check') + ' Save Changes';
             if (r && !r._error) {
                 toast('Bot Ignore saved!', 'success');
-                window.__biWorking = JSON.parse(JSON.stringify(r));
+                window.__biWorking = structuredClone(r);
                 _renderBotIgnorePage(g);
             } else {
                 toast(r?.error || 'Save failed', 'error');

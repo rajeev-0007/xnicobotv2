@@ -109,10 +109,14 @@ function _renderMbBody(g, w) {
     const isCV2 = mode === 'components';
     const vis = (cond) => cond ? '' : 'style="display:none"';
 
-    const tog = (key, val, label, desc, extra) =>
-        `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${desc ? `<div class="desc">${esc(desc)}</div>` : ''}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
-    const sel = (key, val, opts) =>
-        `<select data-key="${esc(key)}">${opts.map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    const tog = (key, val, label, desc, extra) => {
+        const descHtml = desc ? `<div class="desc">${esc(desc)}</div>` : '';
+        return `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${descHtml}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
+    };
+    const sel = (key, val, opts) => {
+        const optHtml = opts.map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
+        return `<select data-key="${esc(key)}">${optHtml}</select>`;
+    };
     const colorIn = (key, val = '#bcf1e4') => {
      const hex = val.startsWith('#') ? val : '#bcf1e4';
      return `<div class="row"><input type="color" data-key="${esc(key)}" value="${esc(hex)}"><input type="text" data-key="${esc(key)}" value="${esc(val)}" placeholder="#bcf1e4" style="flex:1"></div>`;
@@ -188,7 +192,8 @@ function _renderMbBody(g, w) {
 
     // Channel picker
     const textChannels = state.channels.filter(c => c.type === 0 || c.type === 5);
-    const channelPicker = `<select id="mb-send-channel"><option value="">— Pick channel —</option>${textChannels.map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('')}</select>`;
+    const channelOpts = textChannels.map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('');
+    const channelPicker = `<select id="mb-send-channel"><option value="">— Pick channel —</option>${channelOpts}</select>`;
 
     const html = `
         <div class="page-h">
@@ -282,7 +287,7 @@ function _renderMbBody(g, w) {
         <div class="card mb-2">
             <div class="card-h"><div class="ic">${icon('chat')}</div><div class="tt"><div class="t">Send Message</div><div class="s">Send directly to any channel. Bot sends as itself.</div></div></div>
             <div class="form-row"><label>Target Channel</label>${channelPicker}</div>
-            <button class="btn primary" onclick="window.__mbSend()">${icon('check')} Send Message</button>
+            <button class="btn primary" onclick="window.__mbSend(event)">${icon('check')} Send Message</button>
         </div>
 
         <div class="save-bar">
@@ -448,11 +453,11 @@ window.__mbDelTemplate = async (name) => {
 };
 
 // ── Send ──
-window.__mbSend = async () => {
+window.__mbSend = async (e) => {
     const channelId = $('#mb-send-channel').value;
     if (!channelId) return toast('Pick a channel', 'error');
     const g = state.currentGuild;
-    const btn = event?.target?.closest('button');
+    const btn = e?.target?.closest('button');
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     const r = await api(`/api/guild/${g.id}/send-message`, {
         method: 'POST',

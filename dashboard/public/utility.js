@@ -18,8 +18,10 @@ async function pageVoice() {
     const textChannels = state.channels.filter(c => c.type === 0 || c.type === 5);
     const activeCount = Object.keys(w.activeChannels || {}).length;
 
-    const chSel = `<select id="j2c-trigger"><option value="">— None —</option>${voiceChannels.map(c => `<option value="${esc(c.id)}" ${w.triggerChannelId === c.id ? 'selected' : ''}>🔊 ${esc(c.name)}</option>`).join('')}</select>`;
-    const interfaceSel = `<select id="j2c-interface"><option value="">— None —</option>${textChannels.map(c => `<option value="${esc(c.id)}" ${w.interfaceChannelId === c.id ? 'selected' : ''}># ${esc(c.name)}</option>`).join('')}</select>`;
+    const triggerOpts = voiceChannels.map(c => `<option value="${esc(c.id)}" ${w.triggerChannelId === c.id ? 'selected' : ''}>🔊 ${esc(c.name)}</option>`).join('');
+    const interfaceOpts = textChannels.map(c => `<option value="${esc(c.id)}" ${w.interfaceChannelId === c.id ? 'selected' : ''}># ${esc(c.name)}</option>`).join('');
+    const chSel = `<select id="j2c-trigger"><option value="">— None —</option>${triggerOpts}</select>`;
+    const interfaceSel = `<select id="j2c-interface"><option value="">— None —</option>${interfaceOpts}</select>`;
 
     $('#page').innerHTML = `
         <div class="page-h"><div><h1>Voice / Join-to-Create</h1><p>Temporary voice channels for ${esc(g.name)}.</p></div>
@@ -251,7 +253,7 @@ async function pageTrust() {
     ]);
     state.roles = Array.isArray(roles) ? roles.filter(r => r.name !== '@everyone') : [];
     const w = cfg && !cfg._error ? cfg : { admins: [], mods: [], vcmods: [] };
-    window.__trustWorking = JSON.parse(JSON.stringify(w));
+    window.__trustWorking = structuredClone(w);
     _renderTrustPage(g);
 }
 
@@ -353,7 +355,8 @@ async function pageInvites() {
 function _renderInvitesPage(g, data) {
     const w = window.__invWorking;
     const textCh = state.channels.filter(c => c.type === 0 || c.type === 5);
-    const chSel = `<select id="inv-ch"><option value="">— None (no logging) —</option>${textCh.map(c => `<option value="${esc(c.id)}" ${w.channel === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>`;
+    const opts = textCh.map(c => `<option value="${esc(c.id)}" ${w.channel === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('');
+    const chSel = `<select id="inv-ch"><option value="">— None (no logging) —</option>${opts}</select>`;
 
     // Rewards editor
     const rewardsHtml = (w.rewards || []).map((r, i) => {
@@ -443,7 +446,7 @@ function _renderInvitesPage(g, data) {
     };
 }
 window.__invAddReward = () => {
-    const count = parseInt($('#inv-reward-count').value);
+    const count = Number.parseInt($('#inv-reward-count').value);
     const roleId = $('#inv-reward-role').value;
     if (!count || count < 1) return toast('Enter invites required (≥1)', 'error');
     if (!roleId) return toast('Pick a role', 'error');
@@ -628,7 +631,7 @@ async function pageBotCustomize() {
             embedColor: ch.value || '#5865F2',
             footerText: $('#bc-footer').value || null,
             language: $('#bc-lang').value || 'en',
-            commandCooldown: parseInt($('#bc-cooldown').value) || 5,
+            commandCooldown: Number.parseInt($('#bc-cooldown').value) || 5,
             deleteCommands: $('#bc-delete').checked,
             ephemeralResponses: $('#bc-ephemeral').checked
         })});

@@ -54,8 +54,7 @@ function renderMenuList(g, data) {
 }
 
 function renderMenuEditor(g, id, menu, isNew) {
-    const actionTypes = ['add_role','remove_role','toggle_role','send_message','send_dm','create_ticket'];
-    const roleSel = `<select id="opt-action-role"><option value="">— Select Role —</option>${state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select>`;
+
 
     // Check for unsaved draft
     const draftKey = `draft:menu:${g.id}:${id || '__new__'}`;
@@ -75,6 +74,8 @@ function renderMenuEditor(g, id, menu, isNew) {
 
     window.__menuDraftKey = draftKey;
     window.__currentMenuOpts = menu.options || [];
+    window.__currentMenuId = id;
+    window.__currentMenuIsNew = isNew;
 
     // Global menu event handlers
     window.__saveMenu = async function() {
@@ -121,18 +122,7 @@ function renderMenuEditor(g, id, menu, isNew) {
         window.location.hash = `#/server/${g.id}/menu-edit/${menuId}`;
     };
 
-    window.__addMenuOpt = function() {
-        if (!window.__currentMenuOpts) window.__currentMenuOpts = [];
-        window.__currentMenuOpts.push({ label: 'Option', value: '', actions: [] });
-        localStorage.setItem(draftKey, JSON.stringify({ ...menu, options: window.__currentMenuOpts }));
-        renderMenuOptionsList(window.__currentMenuOpts);
-    };
-
-    window.__delMenuOpt = function(idx) {
-        window.__currentMenuOpts.splice(idx, 1);
-        localStorage.setItem(draftKey, JSON.stringify({ ...menu, options: window.__currentMenuOpts }));
-        renderMenuOptionsList(window.__currentMenuOpts);
-    };
+    // Option array mutations are handled globally below
 
     window.__updateMenu = function(key, val) {
         menu[key] = val;
@@ -245,7 +235,8 @@ function renderOptActionEditor(g, id, menu, optIdx) {
     const opt = menu.options[optIdx];
     if (!opt) return pageMenuCreator();
     const actionTypes = ['add_role','remove_role','toggle_role','send_message','send_dm','create_ticket'];
-    const roleSel = `<select id="oa-role"><option value="">— Select Role —</option>${state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select>`;
+    const roleOpts = state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+    const roleSel = `<select id="oa-role"><option value="">— Select Role —</option>${roleOpts}</select>`;
 
     const actionsHtml = (opt.actions || []).map((a, i) => `
         <div class="listi" style="display:block;margin-bottom:.4rem">
@@ -298,23 +289,23 @@ window.__addMenuOpt = () => {
     window.__currentMenuOpts.push({ label, value, description: $('#opt-desc').value || '', emoji: $('#opt-emoji').value || null, actions: [] });
     // Re-render
     const g = state.currentGuild;
-    const id = $('#menu-id')?.value || '';
+    const currentId = window.__currentMenuIsNew ? ($('#menu-id')?.value || '') : window.__currentMenuId;
     const menu = { placeholder: $('#menu-placeholder').value, minValues: Number.parseInt($('#menu-min').value), maxValues: Number.parseInt($('#menu-max').value), ephemeral: $('#menu-ephemeral').checked, options: window.__currentMenuOpts };
-    renderMenuEditor(g, id, menu, !$('#menu-id')?.disabled);
+    renderMenuEditor(g, currentId, menu, window.__currentMenuIsNew);
 };
 window.__rmMenuOpt = (idx) => {
     window.__currentMenuOpts.splice(idx, 1);
     const g = state.currentGuild;
-    const id = $('#menu-id')?.value || '';
+    const currentId = window.__currentMenuIsNew ? ($('#menu-id')?.value || '') : window.__currentMenuId;
     const menu = { placeholder: $('#menu-placeholder').value, minValues: Number.parseInt($('#menu-min').value), maxValues: Number.parseInt($('#menu-max').value), ephemeral: $('#menu-ephemeral').checked, options: window.__currentMenuOpts };
-    renderMenuEditor(g, id, menu, !$('#menu-id')?.disabled);
+    renderMenuEditor(g, currentId, menu, window.__currentMenuIsNew);
 };
 window.__editMenuOpt = (optIdx) => {
     const g = state.currentGuild;
-    const id = $('#menu-id')?.value || '';
+    const currentId = window.__currentMenuIsNew ? ($('#menu-id')?.value || '') : window.__currentMenuId;
     const menu = { placeholder: $('#menu-placeholder')?.value, minValues: Number.parseInt($('#menu-min')?.value), maxValues: Number.parseInt($('#menu-max')?.value), ephemeral: $('#menu-ephemeral')?.checked, options: window.__currentMenuOpts };
-    window.__currentMenuData = { id, menu, isNew: !$('#menu-id')?.disabled };
-    renderOptActionEditor(g, id, menu, optIdx);
+    window.__currentMenuData = { id: currentId, menu, isNew: window.__currentMenuIsNew };
+    renderOptActionEditor(g, currentId, menu, optIdx);
 };
 window.__addOptAction = (optIdx) => {
     const type = $('#oa-type').value;

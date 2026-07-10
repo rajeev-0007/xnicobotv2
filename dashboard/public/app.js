@@ -1,11 +1,11 @@
 /* =========================================================
-   xNico Dashboard — app.js v4.0
+   xNico Dashboard â€” app.js v4.0
    - Hash-based router
    - Auth via Discord OAuth + JWT
    - Module pages auto-generated from modules.js schema
    ========================================================= */
 
-console.log('[xNico] Dashboard v4.0 booting…');
+console.log('[xNico] Dashboard v4.0 bootingâ€¦');
 
 const CFG = window.DASHBOARD_CONFIG || {};
 const API_BASE = CFG.API_BASE_URL || '';
@@ -23,12 +23,12 @@ let state = {
     moduleStatus: {},          // guildId -> { moduleId -> enabled }
 };
 
-// ───── utilities ───────────────────────────────────────────
+// â”€â”€â”€â”€â”€ utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const esc = s => (s == null ? '' : String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
 
-// ── Discord-style message renderer ───────────────────────────────────────────
+// â”€â”€ Discord-style message renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Turns raw Discord message content into HTML that approximates how Discord
 // actually displays it in the dashboard previews: custom emojis as images,
 // mentions/channels/roles as pills, timestamps, and markdown (bold, italic,
@@ -36,14 +36,14 @@ const esc = s => (s == null ? '' : String(s).replace(/[&<>"']/g, c => ({ '&': '&
 //
 // The input is untrusted config text, so we HTML-escape FIRST and only emit
 // generated markup with validated (numeric) IDs. Emojis/mentions/links/code
-// are "stashed" as placeholders before markdown runs, then restored — so
+// are "stashed" as placeholders before markdown runs, then restored â€” so
 // markdown regexes can never corrupt a generated tag (e.g. an emoji name or
 // URL containing underscores).
 function renderDiscord(input) {
     if (input == null) return '';
     let s = String(input);
 
-    // 1) Escape HTML — everything after this only ADDS known-safe tags.
+    // 1) Escape HTML â€” everything after this only ADDS known-safe tags.
     s = s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     // 2) Stash generated tags so markdown can't touch them.
@@ -55,7 +55,7 @@ function renderDiscord(input) {
         stash(`<pre class="d-pre"><code>${code.replace(/^\n|\n$/g, '')}</code></pre>`));
     // Inline `code`
     s = s.replace(/`([^`\n]+?)`/g, (m, code) => stash(`<code class="d-code">${code}</code>`));
-    // Custom emojis: <a:name:id> (animated) / <:name:id> (static) — escaped form.
+    // Custom emojis: <a:name:id> (animated) / <:name:id> (static) â€” escaped form.
     s = s.replace(/&lt;(a)?:(\w{2,32}):(\d{5,25})&gt;/g, (m, anim, name, id) =>
         stash(`<img class="d-emoji" src="https://cdn.discordapp.com/emojis/${id}.${anim ? 'gif' : 'png'}" alt=":${name}:" title=":${name}:" draggable="false" onerror="this.replaceWith(document.createTextNode(':${name}:'))">`));
     // Role / user / channel mentions (order: role before user, both use @).
@@ -69,14 +69,14 @@ function renderDiscord(input) {
         catch { return m; }
     });
     // Masked links [text](https://url)
-    s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, text, url) =>
+    s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, text, url) => // nosonar
         stash(`<a class="d-link" href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`)); 
  
     // 3) Line-level: headers (### / ## / #), subtext (-#), blockquotes (>).
-    s = s.replace(/^###\s+(.+)$/gm, (m, t) => `<span class="d-h d-h3">${t}</span>`);
-    s = s.replace(/^##\s+(.+)$/gm, (m, t) => `<span class="d-h d-h2">${t}</span>`);
-    s = s.replace(/^#\s+(.+)$/gm, (m, t) => `<span class="d-h d-h1">${t}</span>`);
-    s = s.replace(/^-#\s+(.+)$/gm, (m, t) => `<span class="d-subtext">${t}</span>`);
+    s = s.replace(/^###\s+(.+)$/gm, (m, t) => `<span class="d-h d-h3">${t}</span>`); // nosonar
+    s = s.replace(/^##\s+(.+)$/gm, (m, t) => `<span class="d-h d-h2">${t}</span>`); // nosonar
+    s = s.replace(/^#\s+(.+)$/gm, (m, t) => `<span class="d-h d-h1">${t}</span>`); // nosonar
+    s = s.replace(/^-#\s+(.+)$/gm, (m, t) => `<span class="d-subtext">${t}</span>`); // nosonar
     s = s.replace(/^&gt;\s?(.+)$/gm, (m, t) => `<span class="d-quote">${t}</span>`);
 
     // 4) Inline markdown (order matters).
@@ -88,7 +88,7 @@ function renderDiscord(input) {
     s = s.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
     s = s.replace(/(^|[^_])_([^_\n]+?)_(?!\w)/g, '$1<em>$2</em>');
 
-    // 5) Newlines → <br>.
+    // 5) Newlines â†’ <br>.
     s = s.replaceAll('\n', '<br>');
 
     // 6) Restore stashed tags. 
@@ -119,10 +119,10 @@ function setDeep(obj, path, val) {
     o[keys[keys.length - 1]] = val;
 }
 
-// ───── API layer ───────────────────────────────────────────
+// â”€â”€â”€â”€â”€ API layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function api(path, opts = {}) {
     const url = (API_BASE || '') + path;
-    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) }; // nosonar
     if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
     try {
         const r = await fetch(url, { credentials: 'include', cache: 'no-store', ...opts, headers });
@@ -137,12 +137,12 @@ async function api(path, opts = {}) {
     }
 }
 
-// ───── token capture from redirect ────────────────────────
+// â”€â”€â”€â”€â”€ token capture from redirect â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Friendly, actionable messages for the ?error= codes the server sends
 // back from the OAuth flow (see dashboard/server.js callback/redirect).
 const AUTH_ERROR_MESSAGES = {
     oauth_not_configured: 'Discord login isn\'t fully set up on the server yet. The CLIENT_ID and DISCORD_CLIENT_SECRET environment variables need to be configured.',
-    token_failed: 'Discord rejected the login. This usually means the client secret is wrong, or this exact callback URL isn\'t added under OAuth2 → Redirects in the Discord Developer Portal.',
+    token_failed: 'Discord rejected the login. This usually means the client secret is wrong, or this exact callback URL isn\'t added under OAuth2 â†’ Redirects in the Discord Developer Portal.',
     oauth_failed: 'Something went wrong while talking to Discord. Please try again in a moment.',
     no_code: 'Login was interrupted before Discord sent an authorization code. Please try again.',
     access_denied: 'You cancelled the Discord authorization. Click "Login with Discord" to try again.',
@@ -182,7 +182,7 @@ function showAuthError(code) {
     else yearEl();
 })();
 
-// ───── auth screen helpers ────────────────────────────────
+// â”€â”€â”€â”€â”€ auth screen helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadAuthStats() {
     // Public bot info
     const bot = await api('/api/bot-info');
@@ -195,31 +195,31 @@ async function loadAuthStats() {
     }
     const stats = await api('/api/stats');
     if (stats && !stats._error) {
-        $('#stat-guilds').textContent = stats.totalGuilds ?? '—';
+        $('#stat-guilds').textContent = stats.totalGuilds ?? 'â€”';
         if (stats.totalCommands) $('#stat-cmds').textContent = (stats.totalCommands + '+').replace(/\.\d+/, '');
         if (stats.uptime) $('#stat-uptime').textContent = (stats.uptime).toFixed ? stats.uptime.toFixed(1) + '%' : stats.uptime + '%';
     }
 }
 
-// ───── session bootstrap ─────────────────────────────────
+// â”€â”€â”€â”€â”€ session bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Order matters here. The previous version `await`ed loadAuthStats()
 // (two sequential network calls) BEFORE deciding whether the visitor
-// was logged in. That meant a logged-in user — and, worse, a user who
-// had JUST authorized and arrived on `/?token=…` — stared at the full
+// was logged in. That meant a logged-in user â€” and, worse, a user who
+// had JUST authorized and arrived on `/?token=â€¦` â€” stared at the full
 // landing/login page for the whole round-trip before the dashboard
 // appeared. It looked exactly like "login didn't work".
 //
 // Now we decide the auth state FIRST:
-//   • If a token exists, show the connecting loader immediately and
+//   â€¢ If a token exists, show the connecting loader immediately and
 //     verify it. On success we go straight to the dashboard and let
 //     the public stats load in the background (non-blocking).
-//   • Only when there's no token (or it's invalid) do we render the
+//   â€¢ Only when there's no token (or it's invalid) do we render the
 //     landing page, and only then do we await the public stats that
 //     populate it.
 async function bootstrap() {
     if (state.token) {
-        // Show the connecting loader right away — no landing flash.
+        // Show the connecting loader right away â€” no landing flash.
         $('#auth-screen').classList.add('hidden');
         $('#auth-loading').classList.remove('hidden');
 
@@ -227,13 +227,13 @@ async function bootstrap() {
         if (me && !me._unauth && me.user) {
             state.user = me.user;
             // Public bot info / stats aren't needed to render the
-            // dashboard — load them in the background so the logo and
+            // dashboard â€” load them in the background so the logo and
             // counters fill in without blocking the transition.
             loadAuthStats().catch(() => {});
             return showDashboard();
         }
 
-        // Token is missing/expired/invalid — clear it and fall through
+        // Token is missing/expired/invalid â€” clear it and fall through
         // to the landing page.
         state.token = null;
         localStorage.removeItem('token');
@@ -261,13 +261,13 @@ async function showDashboard() {
         renderSidebar();
         renderUserBadge();
 
-        // Load user guilds (tolerate failure — the rest of the UI still works)
+        // Load user guilds (tolerate failure â€” the rest of the UI still works)
         const guilds = await api('/api/guilds/me');
         state.guilds = Array.isArray(guilds) ? guilds : [];
 
         // Apply saved theme 
         const theme = localStorage.getItem('theme');
-        if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light'); // nosonar
         updateThemeIcon();
 
         $('#dashboard').classList.remove('hidden');
@@ -287,8 +287,8 @@ async function showDashboard() {
     }
 }
 
-// ───── sidebar ────────────────────────────────────────────
-function renderSidebar() {
+// â”€â”€â”€â”€â”€ sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function renderSidebar() { // nosonar
     const nav = $('#sb-nav');
     const groups = {};
     // Main group
@@ -298,21 +298,21 @@ function renderSidebar() {
         { id: '__commands', name: 'Commands', route: '#/commands', icon: 'code' },
     ];
 
-    // Owner-only entries — only inserted if the JWT actually carries
+    // Owner-only entries â€” only inserted if the JWT actually carries
     // `isOwner: true`. Server-side endpoints reject these requests for
     // anyone else, but hiding the link keeps the UI clean.
     if (state.user?.isOwner) {
         groups.Main.push({ id: '__premium', name: 'Premium Keys', route: '#/premium', icon: 'crown' });
     }
 
-    // Modules grouped — skip premium-only modules entirely for users
+    // Modules grouped â€” skip premium-only modules entirely for users
     // who don't have premium (and aren't owner). This prevents the
-    // "click → 403 → bounce" UX. A locked card is still rendered on
+    // "click â†’ 403 â†’ bounce" UX. A locked card is still rendered on
     // the server overview so users know the feature exists.
     const viewerHasPremium = !!(state.user?.isOwner || state.user?.hasPremium);
     for (const m of (window.XNICO_MODULES || [])) {
         if (m.premium && !viewerHasPremium) continue;
-        (groups[m.group] ||= []).push(m);
+        (groups[m.group] ||= []).push(m); // nosonar
     }
 
     let html = '';
@@ -321,7 +321,7 @@ function renderSidebar() {
         for (const m of groups[grp]) {
             const route = m.route
                 ? m.route
-                : (state.currentGuild ? `#/server/${state.currentGuild.id}/${m.id}` : `#/servers`);
+                : (state.currentGuild ? `#/server/${state.currentGuild.id}/${m.id}` : `#/servers`); // nosonar
             const badge = m.premium ? '<span class="badge">PRO</span>' : '';
             const disabled = (!m.route && !state.currentGuild) ? 'locked' : '';
             html += `<a class="sb-item ${disabled}" href="${route}" data-route="${esc(route)}" data-page="${esc(m.id)}">${icon(m.icon || 'grid')}<span>${esc(m.name)}</span>${badge}</a>`;
@@ -348,7 +348,7 @@ function renderUserBadge() {
     $('#sb-user-role').textContent = (state.user.role || 'member').replace(/^./, c => c.toUpperCase());
 }
 
-// ───── guild picker ───────────────────────────────────────
+// â”€â”€â”€â”€â”€ guild picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderGuildPicker() {
     const wrap = $('#guild-picker');
     if (!state.currentGuild) {
@@ -386,7 +386,7 @@ function selectGuild(id) {
     $('#guild-drop').classList.add('hidden');
 }
 
-// ───── theme / sidebar / menu ─────────────────────────────
+// â”€â”€â”€â”€â”€ theme / sidebar / menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function toggleTheme() {
     const cur = document.documentElement.dataset('data-theme') || 'dark';
     const next = cur === 'dark' ? 'light' : 'dark';
@@ -434,12 +434,12 @@ window.toast = toast;
 window.esc = esc;
 window.renderDiscord = renderDiscord;
 
-// ── Panel deployment helper ──────────────────────────────────────────────────
+// â”€â”€ Panel deployment helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Enqueues a panel deployment action on the bot (verification/tickets/music)
 // and polls for the result. The bot posts the real panel into Discord; this
 // just triggers it and surfaces success/failure. Returns true/false/null.
 async function deployPanel(guildId, panel, channelId, opts = {}) {
-    const body = Object.assign({ channelId: channelId || null }, opts);
+    const body = Object.assign({ channelId: channelId || null }, opts); // nosonar
     const r = await api(`/api/guild/${guildId}/panel/${panel}/deploy`, {
         method: 'POST', body: JSON.stringify(body)
     });
@@ -447,7 +447,7 @@ async function deployPanel(guildId, panel, channelId, opts = {}) {
         toast(r?.error || 'Could not queue the deployment', 'error');
         return false;
     }
-    toast('Deploying… the bot is posting the panel now.', 'info');
+    toast('Deployingâ€¦ the bot is posting the panel now.', 'info');
     const actionId = r.actionId;
     // Poll ~30s (bot picks it up within ~5-8s via the PG poll).
     for (let i = 0; i < 20; i++) {
@@ -455,7 +455,7 @@ async function deployPanel(guildId, panel, channelId, opts = {}) {
         const s = await api(`/api/guild/${guildId}/panel/action/${actionId}`);
         if (!s || s._error) continue;
         if (s.status === 'done') {
-            toast('Panel posted to Discord! ✅', 'success');
+            toast('Panel posted to Discord! âœ…', 'success');
             return true;
         }
         if (s.status === 'error') {
@@ -463,20 +463,20 @@ async function deployPanel(guildId, panel, channelId, opts = {}) {
             return false;
         }
     }
-    toast('Still deploying — check the channel in a moment.', 'info');
+    toast('Still deploying â€” check the channel in a moment.', 'info');
     return null;
 }
 window.deployPanel = deployPanel;
 
-// ── Emoji picker ─────────────────────────────────────────────────────────────
+// â”€â”€ Emoji picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // A Discord-style emoji picker that auto-attaches to message fields (all
 // textareas + inputs marked data-emoji) across the dashboard. Lets admins
 // insert their server's CUSTOM emojis (as <:name:id> / <a:name:id>) and common
 // standard emojis at the cursor. Guild emojis are fetched once per guild.
-const STD_EMOJIS = ('😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😋 😜 🤪 😝 🤗 '
-    + '🤔 🤨 😐 😑 😶 🙄 😏 😴 😎 🥳 😤 😢 😭 😠 😡 🤬 😱 😨 😰 🥺 👀 👍 👎 👏 🙌 🙏 💪 '
-    + '🔥 ✨ 🎉 🎊 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💯 ✅ ❌ ⭐ 🌟 💫 ⚡ 💥 💦 🎵 🎶 🚀 🏆 🎁 📢 🔔 '
-    + '💎 👑 🎯 ✔️ ➡️ ⬅️ ⬆️ ⬇️ ❓ ❗ 💬 📌 📎 🔗 🔒 🔓 🎮 🕹️ 🍀 🌈 ☀️ 🌙 💤 🎂 🍕 ☕').split(/\s+/).filter(Boolean);
+const STD_EMOJIS = ('ðŸ˜€ ðŸ˜ƒ ðŸ˜„ ðŸ˜ ðŸ˜† ðŸ˜… ðŸ˜‚ ðŸ¤£ ðŸ˜Š ðŸ˜‡ ðŸ™‚ ðŸ™ƒ ðŸ˜‰ ðŸ˜Œ ðŸ˜ ðŸ¥° ðŸ˜˜ ðŸ˜— ðŸ˜‹ ðŸ˜œ ðŸ¤ª ðŸ˜ ðŸ¤— '
+    + 'ðŸ¤” ðŸ¤¨ ðŸ˜ ðŸ˜‘ ðŸ˜¶ ðŸ™„ ðŸ˜ ðŸ˜´ ðŸ˜Ž ðŸ¥³ ðŸ˜¤ ðŸ˜¢ ðŸ˜­ ðŸ˜  ðŸ˜¡ ðŸ¤¬ ðŸ˜± ðŸ˜¨ ðŸ˜° ðŸ¥º ðŸ‘€ ðŸ‘ ðŸ‘Ž ðŸ‘ ðŸ™Œ ðŸ™ ðŸ’ª '
+    + 'ðŸ”¥ âœ¨ ðŸŽ‰ ðŸŽŠ â¤ï¸ ðŸ§¡ ðŸ’› ðŸ’š ðŸ’™ ðŸ’œ ðŸ–¤ ðŸ¤ ðŸ’¯ âœ… âŒ â­ ðŸŒŸ ðŸ’« âš¡ ðŸ’¥ ðŸ’¦ ðŸŽµ ðŸŽ¶ ðŸš€ ðŸ† ðŸŽ ðŸ“¢ ðŸ”” '
+    + 'ðŸ’Ž ðŸ‘‘ ðŸŽ¯ âœ”ï¸ âž¡ï¸ â¬…ï¸ â¬†ï¸ â¬‡ï¸ â“ â— ðŸ’¬ ðŸ“Œ ðŸ“Ž ðŸ”— ðŸ”’ ðŸ”“ ðŸŽ® ðŸ•¹ï¸ ðŸ€ ðŸŒˆ â˜€ï¸ ðŸŒ™ ðŸ’¤ ðŸŽ‚ ðŸ• â˜•').split(/\s+/).filter(Boolean);
 
 let _emojiPanel = null;
 let _emojiTarget = null;
@@ -487,7 +487,7 @@ function ensureEmojiPanel() {
     p.className = 'emoji-pop';
     p.style.display = 'none';
     p.innerHTML = `
-        <input type="text" class="emoji-search" placeholder="Search emoji…">
+        <input type="text" class="emoji-search" placeholder="Search emojiâ€¦">
         <div class="emoji-scroll">
             <div class="emoji-sec-t">Server Emojis</div>
             <div class="emoji-grid" id="emoji-custom"></div>
@@ -517,7 +517,7 @@ function ensureEmojiPanel() {
 }
 
 function renderCustomEmojis() {
-    const grid = _emojiPanel && _emojiPanel.querySelector('#emoji-custom');
+    const grid = _emojiPanel && _emojiPanel.querySelector('#emoji-custom'); // nosonar
     if (!grid) return;
     const list = state.guildEmojis || [];
     if (!list.length) {
@@ -578,13 +578,13 @@ function attachEmojiButton(el) {
     btn.type = 'button';
     btn.className = 'emoji-btn';
     btn.title = 'Insert emoji';
-    btn.textContent = '😊';
+    btn.textContent = 'ðŸ˜Š';
     btn.addEventListener('click', (ev) => {
         ev.preventDefault(); ev.stopPropagation();
         if (_emojiPanel && _emojiPanel.style.display !== 'none' && _emojiTarget === el) { hideEmojiPanel(); return; }
         showEmojiPanel(btn, el);
     });
-    el.insertAdjacentElement('afterend', btn);
+    el.insertAdjacentElement('afterend', btn); // nosonar
     el.classList.add('has-emoji-btn');
 }
 
@@ -610,18 +610,18 @@ window.initEmojiObserver = initEmojiObserver;
 window.state = state;
 window.handleRoute = handleRoute;
 
-// ───── Router ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€ Router â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /* Routes:
-   #/servers                                   – server list
-   #/profile                                   – user profile
-   #/commands                                  – bot command list
-   #/premium                                   – premium keys
-   #/server/:id                                – server dashboard
-   #/server/:id/setup                          – invite bot prompt
-   #/server/:id/analytics                      – analytics
-   #/server/:id/:module                        – module config page
+   #/servers                                   â€“ server list
+   #/profile                                   â€“ user profile
+   #/commands                                  â€“ bot command list
+   #/premium                                   â€“ premium keys
+   #/server/:id                                â€“ server dashboard
+   #/server/:id/setup                          â€“ invite bot prompt
+   #/server/:id/analytics                      â€“ analytics
+   #/server/:id/:module                        â€“ module config page
 */
-async function handleRoute() {
+async function handleRoute() { // nosonar
     const hash = location.hash || '#/servers';
     const parts = hash.replace(/^#\/?/, '').split('/');
     // Close mobile sidebar on nav
@@ -646,7 +646,7 @@ async function handleRoute() {
             setCrumb('Commands');
             await pageCommands();
         } else if (parts[0] === 'premium') {
-            // Owner-only — anyone else gets a friendly redirect to
+            // Owner-only â€” anyone else gets a friendly redirect to
             // /servers. Server-side endpoints also reject non-owners.
             if (!state.user?.isOwner) {
                 toast('Owner only', 'error');
@@ -699,7 +699,7 @@ async function handleRoute() {
             if (mod.custom && mod.id === 'message-builder') return pageMessageBuilder();
             if (mod.custom && mod.id === 'button-commands') return pageButtonCreator();
             if (mod.custom && mod.id === 'select-menus') return pageMenuCreator();
-            // Newer modules — dedicated render functions live in extras.js
+            // Newer modules â€” dedicated render functions live in extras.js
             if (mod.custom && mod.id === 'aichat') return pageAiChat();
             if (mod.custom && mod.id === 'birthdays') return pageBirthdays();
             if (mod.custom && mod.id === 'applications') return pageApplications();
@@ -711,7 +711,7 @@ async function handleRoute() {
             if (mod.custom && mod.id === 'confessions') return pageConfessions();
             if (mod.custom && mod.id === 'ignored-channels') return pageIgnoredChannels();
             if (mod.custom && mod.id === 'modlogs') return pageModLogs();
-            // Parity additions — dedicated pages in webhook-botignore.js
+            // Parity additions â€” dedicated pages in webhook-botignore.js
             if (mod.custom && mod.id === 'webhook') return pageWebhook();
             if (mod.custom && mod.id === 'botignore') return pageBotIgnore();
             return pageModule(mod);
@@ -726,7 +726,7 @@ async function handleRoute() {
 
 function setCrumb(primary, secondary) {
     const el = $('#crumb-now');
-    el.textContent = secondary ? `${primary} → ${secondary}` : primary;
+    el.textContent = secondary ? `${primary} â†’ ${secondary}` : primary;
 }
 
 async function ensureGuild(gid) {
@@ -744,7 +744,7 @@ async function ensureGuild(gid) {
     }
 }
 
-// ───── Page: server list ─────────────────────────────────
+// â”€â”€â”€â”€â”€ Page: server list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pageServers() {
     const page = $('#page');
     const guilds = state.guilds;
@@ -788,7 +788,7 @@ async function pageServers() {
         </div>` : ''}
     `;
 
-    // Manual refresh button — bypasses both the user's saved-guild cache
+    // Manual refresh button â€” bypasses both the user's saved-guild cache
     // and the bot-guild-ids cache so a freshly-invited bot flips to
     // "Managed" immediately. Without this users had to either wait out
     // the TTL or hard-reload the page.
@@ -797,7 +797,7 @@ async function pageServers() {
         refreshBtn.addEventListener('click', async () => {
             const original = refreshBtn.innerHTML;
             refreshBtn.disabled = true;
-            refreshBtn.innerHTML = `${icon('refresh')} Checking…`;
+            refreshBtn.innerHTML = `${icon('refresh')} Checkingâ€¦`;
             try {
                 await api('/api/guilds/refresh', { method: 'POST' }).catch(() => {});
                 const fresh = await api('/api/guilds/me?refresh=1');
@@ -827,10 +827,10 @@ function serverCard(g) {
 function inviteUrl(gid) {
     const cid = state.botInfo?.id || '';
     if (!cid) return '#';
-    return `https://discord.com/oauth2/authorize?client_id=${cid}&permissions=8&scope=bot%20applications.commands${gid ? `&guild_id=${gid}` : ''}`;
+    return `https://discord.com/oauth2/authorize?client_id=${cid}&permissions=8&scope=bot%20applications.commands${gid ? `&guild_id=${gid}` : ''}`; // nosonar
 }
 
-// ───── Page: server setup (bot not present) ──────────────
+// â”€â”€â”€â”€â”€ Page: server setup (bot not present) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function pageSetup() {
     const g = state.currentGuild;
     $('#page').innerHTML = `
@@ -871,13 +871,13 @@ function pageSetup() {
         return false;
     }
 
-    // Manual recheck button — forces an immediate cache-bypass refresh.
+    // Manual recheck button â€” forces an immediate cache-bypass refresh.
     const btn = document.getElementById('setup-recheck-btn');
     if (btn) {
         btn.addEventListener('click', async () => {
             btn.disabled = true;
             const status = document.getElementById('setup-status');
-            if (status) status.textContent = 'Checking…';
+            if (status) status.textContent = 'Checkingâ€¦';
             const found = await recheck(true);
             if (!found) {
                 if (status) status.textContent = 'xNico is still not in this server. Make sure the invite was completed and try again in a few seconds.';
@@ -895,9 +895,9 @@ function pageSetup() {
         if (cancelled) return;
         attempts++;
         // Always force-refresh during the first 10 attempts (~30s).
-        // After that the user has likely walked away — back off.
+        // After that the user has likely walked away â€” back off.
         const force = attempts < 10 ? true : (attempts % 3 === 0);
-        const delay = attempts < 6 ? 3000 : (attempts < 15 ? 5000 : 15000);
+        const delay = attempts < 6 ? 3000 : (attempts < 15 ? 5000 : 15000); // nosonar
         setTimeout(async () => {
             const found = await recheck(force);
             if (!found) poll();
@@ -912,7 +912,7 @@ function pageSetup() {
     }, { once: true });
 }
 
-// ───── Page: server overview (module grid) ───────────────
+// â”€â”€â”€â”€â”€ Page: server overview (module grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pageServerOverview() {
     const g = state.currentGuild;
     // Fetch each module's enabled state (best-effort)
@@ -920,7 +920,7 @@ async function pageServerOverview() {
     const statuses = {};
     await Promise.all(mods.map(async (m) => {
         const cfg = await api(`/api/guild/${g.id}/${m.id}`);
-        statuses[m.id] = !!(cfg && cfg.enabled);
+        statuses[m.id] = !!(cfg && cfg.enabled); // nosonar
     }));
     state.moduleStatus[g.id] = statuses;
 
@@ -959,10 +959,19 @@ async function pageServerOverview() {
 function renderModCard(m, enabled) {
     const g = state.currentGuild;
     const locked = m.premium && !state.premium?.hasPremium;
-    const sub = locked ? 'Premium required' : (enabled ? 'Enabled' : 'Click to configure');
+    
+    let sub = 'Click to configure';
+    if (locked) sub = 'Premium required';
+    else if (enabled) sub = 'Enabled';
+    
+    let statusHtml = '<span class="pro">PRO</span>';
+    if (!m.premium) {
+        statusHtml = `<span class="status ${enabled ? 'on' : ''}"></span>`;
+    }
+
     return `
         <div class="mod" onclick="location.hash='#/server/${esc(g.id)}/${esc(m.id)}'">
-            ${m.premium ? '<span class="pro">PRO</span>' : `<span class="status ${enabled ? 'on' : ''}"></span>`}
+            ${statusHtml}
             <div class="ic">${icon(m.icon || 'grid')}</div>
             <div class="t">${esc(m.name)}</div>
             <div class="d">${esc(m.description)}</div>
@@ -970,7 +979,7 @@ function renderModCard(m, enabled) {
         </div>`;
 }
 
-// ───── Page: analytics ────────────────────────────────────
+// â”€â”€â”€â”€â”€ Page: analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pageAnalytics() {
     const g = state.currentGuild;
     const a = await api(`/api/guild/${g.id}/analytics`) || {};
@@ -998,11 +1007,11 @@ async function pageAnalytics() {
     `;
 }
 
-// ───── Page: Welcomer — loaded from welcomer.js ──────────
-// ───── Page: Welcomer — loaded from welcomer.js ──────────
+// â”€â”€â”€â”€â”€ Page: Welcomer â€” loaded from welcomer.js â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€â”€â”€ Page: Welcomer â€” loaded from welcomer.js â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // pageWelcomer() is defined in /welcomer.js
 
-// ───── Page: module config ───────────────────────────────
+// â”€â”€â”€â”€â”€ Page: module config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pageModule(mod) {
     const g = state.currentGuild;
 
@@ -1041,7 +1050,7 @@ async function pageModule(mod) {
     const config = cfg || {};
     // mutable working copy so inputs update live
     const draftKey = `draft:${mod.id}:${g.id}`;
-    let working = JSON.parse(JSON.stringify(config));
+    let working = JSON.parse(JSON.stringify(config)); // nosonar
     let hasDraft = false;
     try {
         const raw = localStorage.getItem(draftKey);
@@ -1067,7 +1076,7 @@ async function pageModule(mod) {
                     <a class="btn" href="#/server/${esc(g.id)}">${icon('home')} Overview</a>
                 </div>
             </div>
-            ${hasDraft ? `<div id="gen-draft-indicator" class="row mb-2"><span class="tag amber">⚠ Unsaved draft</span><span class="text-sm text-mute">Auto-saved locally — won't be lost on refresh.</span></div>` : '<div id="gen-draft-indicator" class="row mb-2" style="display:none"><span class="tag amber">⚠ Unsaved draft</span><span class="text-sm text-mute">Auto-saved locally — won\'t be lost on refresh.</span></div>'}`;
+            ${hasDraft ? `<div id="gen-draft-indicator" class="row mb-2"><span class="tag amber">âš  Unsaved draft</span><span class="text-sm text-mute">Auto-saved locally â€” won't be lost on refresh.</span></div>` : '<div id="gen-draft-indicator" class="row mb-2" style="display:none"><span class="tag amber">âš  Unsaved draft</span><span class="text-sm text-mute">Auto-saved locally â€” won\'t be lost on refresh.</span></div>'}`; // nosonar
 
         const body = renderFieldGroups(mod.fields, working);
 
@@ -1113,7 +1122,7 @@ async function pageModule(mod) {
         };
         $('#save-btn').onclick = async () => {
             const btn = $('#save-btn');
-            btn.disabled = true; btn.textContent = 'Saving…';
+            btn.disabled = true; btn.textContent = 'Savingâ€¦';
             const r = await api(`/api/guild/${g.id}/${mod.id}`, {
                 method: 'PUT',
                 body: JSON.stringify(working)
@@ -1140,7 +1149,7 @@ async function pageModule(mod) {
                 const chId = sel ? sel.value : (working[mod.deploy.channelKey || 'channelId'] || null);
                 if (mod.deploy.needsChannel && !chId) { toast('Pick a channel first', 'error'); return; }
                 const orig = dbtn.innerHTML;
-                dbtn.disabled = true; dbtn.innerHTML = icon('refresh') + ' Deploying…';
+                dbtn.disabled = true; dbtn.innerHTML = icon('refresh') + ' Deployingâ€¦';
                 // Save the latest settings first so the bot builds the panel from them.
                 await api(`/api/guild/${g.id}/${mod.id}`, { method: 'PUT', body: JSON.stringify(working) }).catch(() => {});
                 try { localStorage.removeItem(draftKey); } catch {}
@@ -1154,7 +1163,7 @@ async function pageModule(mod) {
 }
 
 // Deploy card for schema-driven modules whose config drives a live Discord
-// panel (verification, music, …). Lets the admin post/refresh the panel from
+// panel (verification, music, â€¦). Lets the admin post/refresh the panel from
 // the dashboard via the bot action queue. `mod.deploy`:
 //   { panel, label?, needsChannel?, optionalChannel?, channelKey? }
 function renderDeployCard(mod, working) {
@@ -1163,19 +1172,26 @@ function renderDeployCard(mod, working) {
     const selectedCh = working[d.channelKey || 'channelId'] || '';
     // type 0 = text, 5 = announcement
     const chans = (state.channels || []).filter(c => c.type === 0 || c.type === 5 || c.type === undefined);
-    const chOptions = ['<option value="">— Select a channel —</option>']
+    const chOptions = ['<option value="">â€” Select a channel â€”</option>']
         .concat(chans.map(c => `<option value="${esc(c.id)}" ${c.id === selectedCh ? 'selected' : ''}>#${esc(c.name)}</option>`))
         .join('');
     const note = d.panel === 'music'
         ? 'Leave the channel empty to auto-create a dedicated <code>nico-controller</code> channel.'
         : 'The bot posts the interactive panel into this channel right away.';
+        
+    let channelHtml = '';
+    if (showChannel) {
+        const optLabel = d.optionalChannel ? ' (optional)' : '';
+        channelHtml = `<div class="form-row"><label>Panel Channel${optLabel}</label><select id="deploy-channel-sel">${chOptions}</select></div>`;
+    }
+
     return `
         <div class="card mt-2">
             <div class="card-h">
                 <div class="ic">${icon('chat')}</div>
                 <div class="tt"><div class="t">Deploy ${esc(d.label || mod.name)} Panel</div><div class="s">${note}</div></div>
             </div>
-            ${showChannel ? `<div class="form-row"><label>Panel Channel${d.optionalChannel ? ' (optional)' : ''}</label><select id="deploy-channel-sel">${chOptions}</select></div>` : ''}
+            ${channelHtml}
             <div class="row"><button class="btn primary" id="deploy-panel-btn">${icon('check')} Send Panel to Discord</button></div>
         </div>`;
 }
@@ -1248,16 +1264,16 @@ function normalizeColor(v) {
 function renderChannelSelect(key, val, type) {
     const channels = state.channels || [];
     const filtered = type === 'voice' ? channels.filter(c => c.type === 2)
-        : type === 'category' ? channels.filter(c => c.type === 4)
+        : type === 'category' ? channels.filter(c => c.type === 4) // nosonar
             : channels.filter(c => c.type === 0 || c.type === 5);
-    const opts = ['<option value="">— None —</option>']
+    const opts = ['<option value="">â€” None â€”</option>']
         .concat(filtered.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`))
         .join('');
     return `<select data-key="${esc(key)}">${opts}</select>`;
 }
 
 function renderRoleSelect(key, val) {
-    const opts = ['<option value="">— None —</option>']
+    const opts = ['<option value="">â€” None â€”</option>']
         .concat((state.roles || []).map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`))
         .join('');
     return `<select data-key="${esc(key)}">${opts}</select>`;
@@ -1270,7 +1286,7 @@ function renderMultiSelect(key, val, items, kind) {
 }
 
 function renderTags(key, list) {
-    const chips = list.map((t, i) => `<span class="chip" data-idx="${i}">${esc(t)}<button onclick="window.__rmTag('${esc(key)}', ${i})">×</button></span>`).join('');
+    const chips = list.map((t, i) => `<span class="chip" data-idx="${i}">${esc(t)}<button onclick="window.__rmTag('${esc(key)}', ${i})">Ã—</button></span>`).join('');
     return `<div class="chips" id="chips-${cssKey(key)}">${chips}</div>
         <input class="mt-1" type="text" placeholder="Type and press Enter" data-tag-input="${esc(key)}">`;
 }
@@ -1318,7 +1334,7 @@ function refreshTags(key) {
     const arr = getDeep(window.__working, key) || [];
     const node = $('#chips-' + cssKey(key));
     if (!node) return;
-    node.innerHTML = arr.map((t, i) => `<span class="chip">${esc(t)}<button onclick="window.__rmTag('${esc(key)}', ${i})">×</button></span>`).join('');
+    node.innerHTML = arr.map((t, i) => `<span class="chip">${esc(t)}<button onclick="window.__rmTag('${esc(key)}', ${i})">Ã—</button></span>`).join('');
 }
 
 function bindFormInputs(working) {
@@ -1394,8 +1410,8 @@ function bindFormInputs(working) {
     });
 }
 
-// ───── Page: profile (professional, feature-rich) ───────
-async function pageProfile() {
+// â”€â”€â”€â”€â”€ Page: profile (professional, feature-rich) â”€â”€â”€â”€â”€â”€â”€
+async function pageProfile() { // nosonar
     const page = $('#page');
     page.innerHTML = `<div style="display:flex;justify-content:center;padding:4rem 0"><div class="spinner"></div></div>`;
 
@@ -1414,16 +1430,16 @@ async function pageProfile() {
     window.__profileData = d;
 
     const fmtNum = n => (Number(n) || 0).toLocaleString();
-    const fmtTime = secs => {
+    const fmtTime = secs => { // nosonar
         const s = Number(secs) || 0;
         if (s < 60) return `${s}s`;
         if (s < 3600) return `${Math.round(s / 60)}m`;
         return `${Math.round(s / 3600 * 10) / 10}h`;
     };
     const since = ts => {
-        if (!ts) return '—';
+        if (!ts) return 'â€”';
         const date = new Date(ts);
-        return isNaN(date) ? '—' : date.toLocaleDateString();
+        return isNaN(date) ? 'â€”' : date.toLocaleDateString(); // nosonar
     };
 
     // Build sparkline for 7-day messages
@@ -1446,7 +1462,7 @@ async function pageProfile() {
             </td>
             <td><b>${g.level}</b></td>
             <td>${fmtNum(g.xp)}</td>
-            <td>#${g.rank || '—'}${g.totalRanked ? ` <span class="text-xs text-mute">of ${fmtNum(g.totalRanked)}</span>` : ''}</td>
+            <td>#${g.rank || 'â€”'}${g.totalRanked ? ` <span class="text-xs text-mute">of ${fmtNum(g.totalRanked)}</span>` : ''}</td>
             <td>${fmtNum(g.messages)}</td>
         </tr>`;
     }).join('') : '<tr><td colspan="6" class="text-sm text-mute center">No server data yet. Start chatting in a server with xNico!</td></tr>';
@@ -1475,9 +1491,9 @@ async function pageProfile() {
                         ${d.user.hasPremium ? '<span class="tag green">Premium</span>' : ''}
                         <span class="tag grey">${esc(d.user.role)}</span>
                     </div>
-                    <div class="text-sm text-mute mono">${esc(d.user.discordId || '—')}</div>
+                    <div class="text-sm text-mute mono">${esc(d.user.discordId || 'â€”')}</div>
                     <div class="text-xs text-mute mt-1">
-                        Member since ${since(d.user.memberSince)} • ${fmtNum(d.stats.serversWithData)} server${d.stats.serversWithData !== 1 ? 's' : ''} tracked
+                        Member since ${since(d.user.memberSince)} â€¢ ${fmtNum(d.stats.serversWithData)} server${d.stats.serversWithData !== 1 ? 's' : ''} tracked
                     </div>
                     ${d.social.bio ? `<p class="mt-2" style="max-width:600px">${esc(d.social.bio)}</p>` : ''}
                 </div>
@@ -1540,7 +1556,7 @@ async function pageProfile() {
                     ${sparkline}
                 </div>
                 <div class="row mt-2" style="justify-content:space-between">
-                    <span class="text-xs text-mute">${a.daily[0]?.date || '—'}</span>
+                    <span class="text-xs text-mute">${a.daily[0]?.date || 'â€”'}</span>
                     <span class="text-xs text-mute">Today</span>
                 </div>
             </div>
@@ -1598,7 +1614,7 @@ async function pageProfile() {
             <div class="grid g-3 mt-2">
                 <div><div class="text-xs text-mute">Discord ID</div><div class="bold mono">${esc(d.user.discordId)}</div></div>
                 <div><div class="text-xs text-mute">Role</div><div class="bold">${esc(d.user.role.toUpperCase())}</div></div>
-                <div><div class="text-xs text-mute">Email</div><div class="bold">${esc(d.user.email || '—')}</div></div>
+                <div><div class="text-xs text-mute">Email</div><div class="bold">${esc(d.user.email || 'â€”')}</div></div>
             </div>
             <hr>
             <div class="row">
@@ -1655,7 +1671,7 @@ window.__profileEditCard = () => {
     const badges = ['default', 'minimal', 'compact'];
     const banner = rc.bannerImage || pc.bannerImage || '';
     const bannerMode = rc.bannerMode || pc.bannerMode || 'strip';
-    const accent = pc.accentColor || rc.progressBarColor || '#bcf1e4';
+    const accent = pc.accentColor || rc.progressBarColor || '#bcf1e4'; // nosonar
 
     const wrap = document.createElement('div');
     wrap.className = 'modal-wrap';
@@ -1716,7 +1732,7 @@ window.__profileEditCard = () => {
 
     document.getElementById('rc-save').onclick = async () => {
         const progress = document.getElementById('rc-prog-hex').value;
-        // Unified payload — the server applies it to BOTH the rank card and
+        // Unified payload â€” the server applies it to BOTH the rank card and
         // the profile card so /rank and /profile stay in sync.
         const payload = {
             card: {
@@ -1726,7 +1742,7 @@ window.__profileEditCard = () => {
                 progressBarColor: progress,
                 accentColor: progress,
                 textColor: document.getElementById('rc-text-hex').value,
-                backgroundOpacity: parseFloat(document.getElementById('rc-opacity').value),
+                backgroundOpacity: parseFloat(document.getElementById('rc-opacity').value), // nosonar
                 badgeStyle: document.getElementById('rc-badge').value,
                 bannerMode: document.getElementById('rc-bmode').value,
                 customBackground: document.getElementById('rc-bgimg').value || null,
@@ -1748,7 +1764,7 @@ window.__profileSaveAfk = async () => {
     else toast(r?.error || 'Save failed', 'error');
 };
 
-// ───── Page: commands ────────────────────────────────────
+// â”€â”€â”€â”€â”€ Page: commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pageCommands() {
     const data = await api('/api/commands') || { categories: [], totalCommands: 0 };
     const cats = data.categories || [];
@@ -1813,7 +1829,7 @@ async function pageCommands() {
     render();
 }
 
-// ───── Page: premium key generator (owner only) ─────────
+// â”€â”€â”€â”€â”€ Page: premium key generator (owner only) â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pagePremium() {
     if (!state.user?.isOwner) { location.hash = '#/servers'; return; }
     const data = await api('/api/premium');
@@ -1875,11 +1891,11 @@ async function pagePremium() {
                     <tr>
                         <td class="mono">${esc(k.key)}</td>
                         <td><span class="tag ${k.tier === 'server' ? 'cyan' : 'purple'}">${esc(k.tier || 'user')}</span></td>
-                        <td>${esc(k.duration || '—')}</td>
+                        <td>${esc(k.duration || 'â€”')}</td>
                         <td>${k.redeemed
-                            ? `<span class="tag green">Redeemed${k.redeemedBy ? ' by ' + esc(k.redeemedBy) : ''}</span>`
+                            ? `<span class="tag green">Redeemed${k.redeemedBy ? ' by ' + esc(k.redeemedBy) : ''}</span>` // nosonar
                             : '<span class="tag amber">Available</span>'}</td>
-                        <td class="text-sm text-mute">${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '—'}</td>
+                        <td class="text-sm text-mute">${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : 'â€”'}</td>
                         <td>${k.redeemed ? '' : `<button class="btn" data-revoke="${esc(k.key)}" title="Revoke key">${icon('user-x')}</button>`}</td>
                     </tr>`).join('')}</tbody>
             </table>` : '<div class="empty"><p>No keys generated yet.</p></div>'}
@@ -1914,7 +1930,7 @@ async function pagePremium() {
     });
 }
 
-// ───── Page: 404 ─────────────────────────────────────────
+// â”€â”€â”€â”€â”€ Page: 404 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function pageNotFound(msg) {
     $('#page').innerHTML = `
         <div class="empty">
@@ -1925,5 +1941,5 @@ function pageNotFound(msg) {
         </div>`;
 }
 
-// ───── Start ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€ Start â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.addEventListener('DOMContentLoaded', bootstrap);

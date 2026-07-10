@@ -122,21 +122,34 @@ function _updateDraftIndicator(hasDraft) {
 function _renderWelcomerBody(g, w, hasDraft) {
     // ── Helpers ──
     const chSel = (key, val, type) => {
-        const list = state.channels.filter(c =>
-            type === 'voice' ? c.type === 2 :
-            type === 'category' ? c.type === 4 :
-            (c.type === 0 || c.type === 5)
-        );
-        return `<select data-key="${esc(key)}"><option value="">— None —</option>${list.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>`;
+        const list = state.channels.filter(c => {
+            if (type === 'voice') return c.type === 2;
+            if (type === 'category') return c.type === 4;
+            return c.type === 0 || c.type === 5;
+        });
+        const options = list.map(c => {
+            const selAttr = val === c.id ? 'selected' : '';
+            return `<option value="${esc(c.id)}" ${selAttr}>#${esc(c.name)}</option>`;
+        }).join('');
+        return `<select data-key="${esc(key)}"><option value="">— None —</option>${options}</select>`;
     };
     const colorIn = (key, val = '#bcf1e4') => {
      const hex = val.startsWith('#') ? val : '#bcf1e4';
      return `<div class="row"><input type="color" data-key="${esc(key)}" value="${esc(hex)}"><input type="text" data-key="${esc(key)}" value="${esc(val)}" placeholder="#bcf1e4" style="flex:1"></div>`;
     };
     const tog = (key, val, label, desc, extra) => {
-        return `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${desc ? `<div class="desc">${esc(desc)}</div>` : ''}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${val ? 'checked' : ''} ${extra || ''}><span class="slide"></span></label></div>`;
+        const descHtml = desc ? `<div class="desc">${esc(desc)}</div>` : '';
+        const chkAttr = val ? 'checked' : '';
+        const exAttr = extra || '';
+        return `<div class="switch-row"><div><div class="lbl">${esc(label)}</div>${descHtml}</div><label class="switch"><input type="checkbox" data-key="${esc(key)}" ${chkAttr} ${exAttr}><span class="slide"></span></label></div>`;
     };
-    const sel = (key, val, opts) => `<select data-key="${esc(key)}">${opts.map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    const sel = (key, val, opts) => {
+        const optHtml = opts.map(o => {
+            const selAttr = val === o ? 'selected' : '';
+            return `<option value="${esc(o)}" ${selAttr}>${esc(o)}</option>`;
+        }).join('');
+        return `<select data-key="${esc(key)}">${optHtml}</select>`;
+    };
     const vis = (cond) => cond ? '' : 'style="display:none"';
 
     const buttonsEditor = (key, list) => {
@@ -463,8 +476,10 @@ function _renderWelcomerBody(g, w, hasDraft) {
         const em = document.getElementById('welc-prev-embed');
         if (!em) return;
         em.style.borderLeftColor = w.color || '#bcf1e4';
-        const c = (w.content||'Welcome @User to **Server**!').replace(/\{user\}/g,'@User').replace(/\{username\}/g,'User').replace(/\{server\}/g,g.name).replace(/\{membercount\}/g,'42').replace(/\{separator[^}]*\}/g,'───');
-        em.innerHTML = `${w.title?`<div class="t">${renderDiscord(w.title.replace(/\{server\}/g,g.name))}</div>`:''}<div class="d">${renderDiscord(c)}</div>${w.footer?`<div style="margin-top:.4rem;font-size:.75rem;color:#72767d">${renderDiscord(w.footer.replace(/\{membercount\}/g,'42'))}</div>`:''}`;
+        const c = (w.content||'Welcome @User to **Server**!').replaceAll('{user}','@User').replaceAll('{username}','User').replaceAll('{server}',g.name).replaceAll('{membercount}','42').replace(/\{separator[^}]*\}/g,'───');
+        const titleHtml = w.title ? `<div class="t">${renderDiscord(w.title.replaceAll('{server}',g.name))}</div>` : '';
+        const footerHtml = w.footer ? `<div style="margin-top:.4rem;font-size:.75rem;color:#72767d">${renderDiscord(w.footer.replaceAll('{membercount}','42'))}</div>` : '';
+        em.innerHTML = `${titleHtml}<div class="d">${renderDiscord(c)}</div>${footerHtml}`;
     }
     $('#page').addEventListener('input', () => { clearTimeout(pt); pt = setTimeout(() => { updPreview(); _persistWelcomerDraft(); }, 250); });
     $('#page').addEventListener('change', () => { clearTimeout(pt); pt = setTimeout(() => { updPreview(); _persistWelcomerDraft(); }, 100); });
@@ -533,7 +548,7 @@ window.__rmWelcBtn = (key, idx) => {
 // ── Custom action button/menu pickers ──
 window.__addActionBtn = (key, cssKeyStr) => {
     const sel = document.getElementById('acb-select-' + cssKeyStr);
-    if (!sel || !sel.value) return;
+    if (!sel?.value) return;
     const arr = (getDeep(window.__working, key) || []).slice();
     if (!arr.includes(sel.value)) arr.push(sel.value);
     setDeep(window.__working, key, arr);
@@ -548,7 +563,7 @@ window.__rmActionBtn = (key, id) => {
 };
 window.__addActionMenu = (key, cssKeyStr) => {
     const sel = document.getElementById('acm-select-' + cssKeyStr);
-    if (!sel || !sel.value) return;
+    if (!sel?.value) return;
     const arr = (getDeep(window.__working, key) || []).slice();
     if (!arr.includes(sel.value)) arr.push(sel.value);
     setDeep(window.__working, key, arr);

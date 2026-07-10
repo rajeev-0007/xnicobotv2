@@ -42,7 +42,7 @@ async function pageStarboard() {
         const r = await api(`/api/guild/${g.id}/starboard-config`, { method: 'PUT', body: JSON.stringify({
             enabled: $('#sb-enabled').checked,
             channelId: $('#sb-channel').value || null,
-            threshold: parseInt($('#sb-threshold').value) || 3
+            threshold: Number.parseInt($('#sb-threshold').value) || 3
         })});
         btn.disabled = false; btn.innerHTML = icon('check') + ' Save';
         if (r && !r._error) toast('Starboard saved!', 'success');
@@ -117,7 +117,7 @@ async function pageAutoreact() {
     const g = state.currentGuild;
     const cfg = await api(`/api/guild/${g.id}/autoreact-config`);
     const w = cfg && !cfg._error ? cfg : { enabled: false, reactions: [] };
-    window.__arWorking = JSON.parse(JSON.stringify(w));
+    window.__arWorking = structuredClone(w);
 
     _renderAutoreactBody(g);
 }
@@ -199,14 +199,19 @@ async function pageGiveaway() {
     const w = cfg && !cfg._error ? cfg : { defaultDuration: 60, defaultWinners: 1, pingRole: null, dmWinners: true, showParticipants: true, requireRole: null, bypassRole: null };
     const giveaways = Array.isArray(activeGiveaways) ? activeGiveaways : [];
 
-    const roleSel = (id, val) => `<select id="${id}"><option value="">— None —</option>${state.roles.map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
+    const roleSel = (id, val) => {
+        const opts = state.roles.map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+        return `<select id="${id}"><option value="">— None —</option>${opts}</select>`;
+    };
 
     const activeHtml = giveaways.length ? `
         <table class="tbl">
             <thead><tr><th>Prize</th><th>Winners</th><th>Entries</th><th>Ends</th><th>Status</th></tr></thead>
             <tbody>${giveaways.map(ga => {
                 const timeLeft = ga.endTime - Date.now();
-                const status = ga.ended ? '<span class="tag grey">Ended</span>' : (timeLeft > 0 ? `<span class="tag green">${Math.round(timeLeft / 60000)}m left</span>` : '<span class="tag amber">Ending…</span>');
+                let status = '<span class="tag amber">Ending…</span>';
+                if (ga.ended) status = '<span class="tag grey">Ended</span>';
+                else if (timeLeft > 0) status = `<span class="tag green">${Math.round(timeLeft / 60000)}m left</span>`;
                 return `<tr><td><b>${esc(ga.prize)}</b></td><td>${ga.winners}</td><td>${ga.participants}</td><td>${new Date(ga.endTime).toLocaleString()}</td><td>${status}</td></tr>`;
             }).join('')}</tbody>
         </table>
@@ -245,8 +250,8 @@ async function pageGiveaway() {
     $('#ga-save').onclick = async () => {
         const btn = $('#ga-save'); btn.disabled = true; btn.textContent = 'Saving…';
         const r = await api(`/api/guild/${g.id}/giveaway-settings`, { method: 'PUT', body: JSON.stringify({
-            defaultDuration: parseInt($('#ga-duration').value) || 60,
-            defaultWinners: parseInt($('#ga-winners').value) || 1,
+            defaultDuration: Number.parseInt($('#ga-duration').value) || 60,
+            defaultWinners: Number.parseInt($('#ga-winners').value) || 1,
             pingRole: $('#ga-ping').value || null,
             requireRole: $('#ga-require').value || null,
             bypassRole: $('#ga-bypass').value || null,
