@@ -1,11 +1,11 @@
 /* =========================================================
-   xNico Dashboard â€” app.js v4.0
+   xNico Dashboard — app.js v4.0
    - Hash-based router
    - Auth via Discord OAuth + JWT
    - Module pages auto-generated from modules.js schema
    ========================================================= */
 
-console.log('[xNico] Dashboard v4.0 bootingâ€¦');
+console.log('[xNico] Dashboard v4.0 booting…');
 
 const CFG = window.DASHBOARD_CONFIG || {};
 const API_BASE = CFG.API_BASE_URL || '';
@@ -36,14 +36,14 @@ const esc = s => (s == null ? '' : String(s).replace(/[&<>"']/g, c => ({ '&': '&
 //
 // The input is untrusted config text, so we HTML-escape FIRST and only emit
 // generated markup with validated (numeric) IDs. Emojis/mentions/links/code
-// are "stashed" as placeholders before markdown runs, then restored â€” so
+// are "stashed" as placeholders before markdown runs, then restored — so
 // markdown regexes can never corrupt a generated tag (e.g. an emoji name or
 // URL containing underscores).
 function renderDiscord(input) {
     if (input == null) return '';
     let s = String(input);
 
-    // 1) Escape HTML â€” everything after this only ADDS known-safe tags.
+    // 1) Escape HTML — everything after this only ADDS known-safe tags.
     s = s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     // 2) Stash generated tags so markdown can't touch them.
@@ -55,7 +55,7 @@ function renderDiscord(input) {
         stash(`<pre class="d-pre"><code>${code.replace(/^\n|\n$/g, '')}</code></pre>`));
     // Inline `code`
     s = s.replace(/`([^`\n]+?)`/g, (m, code) => stash(`<code class="d-code">${code}</code>`));
-    // Custom emojis: <a:name:id> (animated) / <:name:id> (static) â€” escaped form.
+    // Custom emojis: <a:name:id> (animated) / <:name:id> (static) — escaped form.
     s = s.replace(/&lt;(a)?:(\w{2,32}):(\d{5,25})&gt;/g, (m, anim, name, id) =>
         stash(`<img class="d-emoji" src="https://cdn.discordapp.com/emojis/${id}.${anim ? 'gif' : 'png'}" alt=":${name}:" title=":${name}:" draggable="false" onerror="this.replaceWith(document.createTextNode(':${name}:'))">`));
     // Role / user / channel mentions (order: role before user, both use @).
@@ -88,7 +88,7 @@ function renderDiscord(input) {
     s = s.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
     s = s.replace(/(^|[^_])_([^_\n]+?)_(?!\w)/g, '$1<em>$2</em>');
 
-    // 5) Newlines â†’ <br>.
+    // 5) Newlines -> <br>.
     s = s.replaceAll('\n', '<br>');
 
     // 6) Restore stashed tags. 
@@ -264,7 +264,7 @@ async function api(path, opts = {}) {
 // back from the OAuth flow (see dashboard/server.js callback/redirect).
 const AUTH_ERROR_MESSAGES = {
     oauth_not_configured: 'Discord login isn\'t fully set up on the server yet. The CLIENT_ID and DISCORD_CLIENT_SECRET environment variables need to be configured.',
-    token_failed: 'Discord rejected the login. This usually means the client secret is wrong, or this exact callback URL isn\'t added under OAuth2 â†’ Redirects in the Discord Developer Portal.',
+    token_failed: 'Discord rejected the login. This usually means the client secret is wrong, or this exact callback URL isn\'t added under OAuth2 -> Redirects in the Discord Developer Portal.',
     oauth_failed: 'Something went wrong while talking to Discord. Please try again in a moment.',
     no_code: 'Login was interrupted before Discord sent an authorization code. Please try again.',
     access_denied: 'You cancelled the Discord authorization. Click "Login with Discord" to try again.',
@@ -317,7 +317,7 @@ async function loadAuthStats() {
     }
     const stats = await api('/api/stats');
     if (stats && !stats._error) {
-        $('#stat-guilds').textContent = stats.totalGuilds ?? 'â€”';
+        $('#stat-guilds').textContent = stats.totalGuilds ?? '—';
         if (stats.totalCommands) $('#stat-cmds').textContent = (stats.totalCommands + '+').replace(/\.\d+/, '');
         if (stats.uptime) $('#stat-uptime').textContent = (stats.uptime).toFixed ? stats.uptime.toFixed(1) + '%' : stats.uptime + '%';
     }
@@ -327,8 +327,8 @@ async function loadAuthStats() {
 //
 // Order matters here. The previous version `await`ed loadAuthStats()
 // (two sequential network calls) BEFORE deciding whether the visitor
-// was logged in. That meant a logged-in user â€” and, worse, a user who
-// had JUST authorized and arrived on `/?token=â€¦` â€” stared at the full
+// was logged in. That meant a logged-in user — and, worse, a user who
+// had JUST authorized and arrived on `/?token=…` — stared at the full
 // landing/login page for the whole round-trip before the dashboard
 // appeared. It looked exactly like "login didn't work".
 //
@@ -341,7 +341,7 @@ async function loadAuthStats() {
 //     populate it.
 async function bootstrap() {
     if (state.token) {
-        // Show the connecting loader right away â€” no landing flash.
+        // Show the connecting loader right away — no landing flash.
         $('#auth-screen').classList.add('hidden');
         $('#auth-loading').classList.remove('hidden');
 
@@ -349,13 +349,13 @@ async function bootstrap() {
         if (me && !me._unauth && me.user) {
             state.user = me.user;
             // Public bot info / stats aren't needed to render the
-            // dashboard â€” load them in the background so the logo and
+            // dashboard — load them in the background so the logo and
             // counters fill in without blocking the transition.
             loadAuthStats().catch(() => { });
             return showDashboard();
         }
 
-        // Token is missing/expired/invalid â€” clear it and fall through
+        // Token is missing/expired/invalid — clear it and fall through
         // to the landing page.
         state.token = null;
         localStorage.removeItem('token');
@@ -383,7 +383,7 @@ async function showDashboard() {
         renderSidebar();
         renderUserBadge();
 
-        // Load user guilds (tolerate failure â€” the rest of the UI still works)
+        // Load user guilds (tolerate failure — the rest of the UI still works)
         const guilds = await api('/api/guilds/me');
         state.guilds = Array.isArray(guilds) ? guilds : [];
 
@@ -420,20 +420,21 @@ function renderSidebar() { // nosonar
         { id: '__commands', name: 'Commands', route: '#/commands', icon: 'code' },
     ];
 
-    // Owner-only entries â€” only inserted if the JWT actually carries
+    // Owner-only entries — only inserted if the JWT actually carries
     // `isOwner: true`. Server-side endpoints reject these requests for
     // anyone else, but hiding the link keeps the UI clean.
     if (state.user?.isOwner) {
         groups.Main.push({ id: '__premium', name: 'Premium Keys', route: '#/premium', icon: 'crown' });
     }
 
-    // Modules grouped â€” skip premium-only modules entirely for users
+    // Modules grouped — skip premium-only modules entirely for users
     // who don't have premium (and aren't owner). This prevents the
-    // "click â†’ 403 â†’ bounce" UX. A locked card is still rendered on
+    // "click -> 403 -> bounce" UX. A locked card is still rendered on
     // the server overview so users know the feature exists.
     const viewerHasPremium = !!(state.user?.isOwner || state.user?.hasPremium);
     for (const m of (window.XNICO_MODULES || [])) {
         if (m.premium && !viewerHasPremium) continue;
+        if (m.ownerOnly && !state.user?.isOwner) continue;
         (groups[m.group] ||= []).push(m); // nosonar
     }
 
@@ -569,7 +570,7 @@ async function deployPanel(guildId, panel, channelId, opts = {}) {
         toast(r?.error || 'Could not queue the deployment', 'error');
         return false;
     }
-    toast('Deployingâ€¦ the bot is posting the panel now.', 'info');
+    toast('Deploying… the bot is posting the panel now.', 'info');
     const actionId = r.actionId;
     // Poll ~30s (bot picks it up within ~5-8s via the PG poll).
     for (let i = 0; i < 20; i++) {
@@ -585,7 +586,7 @@ async function deployPanel(guildId, panel, channelId, opts = {}) {
             return false;
         }
     }
-    toast('Still deploying â€” check the channel in a moment.', 'info');
+    toast('Still deploying — check the channel in a moment.', 'info');
     return null;
 }
 window.deployPanel = deployPanel;
@@ -595,10 +596,10 @@ window.deployPanel = deployPanel;
 // textareas + inputs marked data-emoji) across the dashboard. Lets admins
 // insert their server's CUSTOM emojis (as <:name:id> / <a:name:id>) and common
 // standard emojis at the cursor. Guild emojis are fetched once per guild.
-const STD_EMOJIS = ('ðŸ˜€ ðŸ˜ƒ ðŸ˜„ ðŸ˜ ðŸ˜† ðŸ˜… ðŸ˜‚ ðŸ¤£ ðŸ˜Š ðŸ˜‡ ðŸ™‚ ðŸ™ƒ ðŸ˜‰ ðŸ˜Œ ðŸ˜ ðŸ¥° ðŸ˜˜ ðŸ˜— ðŸ˜‹ ðŸ˜œ ðŸ¤ª ðŸ˜ ðŸ¤— '
-    + 'ðŸ¤” ðŸ¤¨ ðŸ˜ ðŸ˜‘ ðŸ˜¶ ðŸ™„ ðŸ˜ ðŸ˜´ ðŸ˜Ž ðŸ¥³ ðŸ˜¤ ðŸ˜¢ ðŸ˜­ ðŸ˜  ðŸ˜¡ ðŸ¤¬ ðŸ˜± ðŸ˜¨ ðŸ˜° ðŸ¥º ðŸ‘€ ðŸ‘ ðŸ‘Ž ðŸ‘ ðŸ™Œ ðŸ™ ðŸ’ª '
-    + 'ðŸ”¥ âœ¨ ðŸŽ‰ ðŸŽŠ â¤ï¸ ðŸ§¡ ðŸ’› ðŸ’š ðŸ’™ ðŸ’œ ðŸ–¤ ðŸ¤ ðŸ’¯ âœ… âŒ â­ ðŸŒŸ ðŸ’« âš¡ ðŸ’¥ ðŸ’¦ ðŸŽµ ðŸŽ¶ ðŸš€ ðŸ† ðŸŽ ðŸ“¢ ðŸ”” '
-    + 'ðŸ’Ž ðŸ‘‘ ðŸŽ¯ âœ”ï¸ âž¡ï¸ â¬…ï¸ â¬†ï¸ â¬‡ï¸ â“ â— ðŸ’¬ ðŸ“Œ ðŸ“Ž ðŸ”— ðŸ”’ ðŸ”“ ðŸŽ® ðŸ•¹ï¸ ðŸ€ ðŸŒˆ â˜€ï¸ ðŸŒ™ ðŸ’¤ ðŸŽ‚ ðŸ• â˜•').split(/\s+/).filter(Boolean);
+const STD_EMOJIS = ('😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😋 😛 🤪 😝 🤗 '
+    + '🤔 🤨 😐 😑 😶 🙄 😏 😴 😎 🥳 😤 😢 😭 😠 😡 🤬 😱 😨 😰 🥺 👀 👍 👎 👏 🙌 🙏 💪 '
+    + '🔥 ✨ 🎉 🎊 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💯 ✅ ❌ ⭐ 🌟 💫 ⚡ 💥 💦 🎵 🎶 🚀 🏆 🎁 📢 🔔 '
+    + '💎 👑 🎯 ✔️ ➡️ ⬅️ ⬆️ ⬇️ ❓ ❗ 💬 📌 📎 🔗 🔒 🔓 🎮 🕹️ 🍀 🌈 ☀️ 🌙 💤 🎂 🍕 ☕').split(/\s+/).filter(Boolean);
 
 let _emojiPanel = null;
 let _emojiTarget = null;
@@ -609,7 +610,7 @@ function ensureEmojiPanel() {
     p.className = 'emoji-pop';
     p.style.display = 'none';
     p.innerHTML = `
-        <input type="text" class="emoji-search" placeholder="Search emojiâ€¦">
+        <input type="text" class="emoji-search" placeholder="Search emoji…">
         <div class="emoji-scroll">
             <div class="emoji-sec-t">Server Emojis</div>
             <div class="emoji-grid" id="emoji-custom"></div>
@@ -700,7 +701,7 @@ function attachEmojiButton(el) {
     btn.type = 'button';
     btn.className = 'emoji-btn';
     btn.title = 'Insert emoji';
-    btn.textContent = 'ðŸ˜Š';
+    btn.textContent = '😊';
     btn.addEventListener('click', (ev) => {
         ev.preventDefault(); ev.stopPropagation();
         if (_emojiPanel && _emojiPanel.style.display !== 'none' && _emojiTarget === el) { hideEmojiPanel(); return; }
@@ -768,7 +769,7 @@ async function handleRoute() { // nosonar
             setCrumb('Commands');
             await pageCommands();
         } else if (parts[0] === 'premium') {
-            // Owner-only â€” anyone else gets a friendly redirect to
+            // Owner-only — anyone else gets a friendly redirect to
             // /servers. Server-side endpoints also reject non-owners.
             if (!state.user?.isOwner) {
                 toast('Owner only', 'error');
@@ -821,7 +822,7 @@ async function handleRoute() { // nosonar
             if (mod.custom && mod.id === 'message-builder') return pageMessageBuilder();
             if (mod.custom && mod.id === 'button-commands') return pageButtonCreator();
             if (mod.custom && mod.id === 'select-menus') return pageMenuCreator();
-            // Newer modules â€” dedicated render functions live in extras.js
+            // Newer modules — dedicated render functions live in extras.js
             if (mod.custom && mod.id === 'aichat') return pageAiChat();
             if (mod.custom && mod.id === 'birthdays') return pageBirthdays();
             if (mod.custom && mod.id === 'applications') return pageApplications();
@@ -833,7 +834,7 @@ async function handleRoute() { // nosonar
             if (mod.custom && mod.id === 'confessions') return pageConfessions();
             if (mod.custom && mod.id === 'ignored-channels') return pageIgnoredChannels();
             if (mod.custom && mod.id === 'modlogs') return pageModLogs();
-            // Parity additions â€” dedicated pages in webhook-botignore.js
+            // Parity additions — dedicated pages in webhook-botignore.js
             if (mod.custom && mod.id === 'webhook') return pageWebhook();
             if (mod.custom && mod.id === 'botignore') return pageBotIgnore();
             return pageModule(mod);
@@ -848,7 +849,7 @@ async function handleRoute() { // nosonar
 
 function setCrumb(primary, secondary) {
     const el = $('#crumb-now');
-    el.textContent = secondary ? `${primary} â†’ ${secondary}` : primary;
+    el.textContent = secondary ? `${primary} → ${secondary}` : primary;
 }
 
 async function ensureGuild(gid) {
@@ -910,7 +911,7 @@ async function pageServers() {
         </div>` : ''}
     `;
 
-    // Manual refresh button â€” bypasses both the user's saved-guild cache
+    // Manual refresh button — bypasses both the user's saved-guild cache
     // and the bot-guild-ids cache so a freshly-invited bot flips to
     // "Managed" immediately. Without this users had to either wait out
     // the TTL or hard-reload the page.
@@ -919,7 +920,7 @@ async function pageServers() {
         refreshBtn.addEventListener('click', async () => {
             const original = refreshBtn.innerHTML;
             refreshBtn.disabled = true;
-            refreshBtn.innerHTML = `${icon('refresh')} Checkingâ€¦`;
+            refreshBtn.innerHTML = `${icon('refresh')} Checking…`;
             try {
                 await api('/api/guilds/refresh', { method: 'POST' }).catch(() => { });
                 const fresh = await api('/api/guilds/me?refresh=1');
@@ -993,13 +994,13 @@ function pageSetup() {
         return false;
     }
 
-    // Manual recheck button â€” forces an immediate cache-bypass refresh.
+    // Manual recheck button — forces an immediate cache-bypass refresh.
     const btn = document.getElementById('setup-recheck-btn');
     if (btn) {
         btn.addEventListener('click', async () => {
             btn.disabled = true;
             const status = document.getElementById('setup-status');
-            if (status) status.textContent = 'Checkingâ€¦';
+            if (status) status.textContent = 'Checking…';
             const found = await recheck(true);
             if (!found) {
                 if (status) status.textContent = 'xNico is still not in this server. Make sure the invite was completed and try again in a few seconds.';
@@ -1017,7 +1018,7 @@ function pageSetup() {
         if (cancelled) return;
         attempts++;
         // Always force-refresh during the first 10 attempts (~30s).
-        // After that the user has likely walked away â€” back off.
+        // After that the user has likely walked away — back off.
         const force = attempts < 10 ? true : (attempts % 3 === 0);
         const delay = attempts < 6 ? 3000 : (attempts < 15 ? 5000 : 15000); // nosonar
         setTimeout(async () => {
@@ -1129,13 +1130,27 @@ async function pageAnalytics() {
     `;
 }
 
-// â”€â”€â”€â”€â”€ Page: Welcomer â€” loaded from welcomer.js â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â”€â”€â”€â”€â”€ Page: Welcomer â€” loaded from welcomer.js â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€â”€â”€ Page: Welcomer — loaded from welcomer.js â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€â”€â”€ Page: Welcomer — loaded from welcomer.js â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // pageWelcomer() is defined in /welcomer.js
 
 // â”€â”€â”€â”€â”€ Page: module config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pageModule(mod) {
     const g = state.currentGuild;
+
+    // Owner gate
+    if (mod.ownerOnly && !state.user?.isOwner) {
+        $('#page').innerHTML = `
+            <div class="page-h">
+                <div><h1>${esc(mod.name)} <span class="tag amber">Owner Only</span></h1><p>${esc(mod.description)}</p></div>
+            </div>
+            <div class="empty">
+                <h3>Access Denied</h3>
+                <p>This module is restricted to the bot owner.</p>
+                <a class="btn primary mt-2" href="#/server/${esc(g.id)}">Go Back</a>
+            </div>`;
+        return;
+    }
 
     // Premium gate
     if (mod.premium) {
@@ -1198,7 +1213,7 @@ async function pageModule(mod) {
                     <a class="btn" href="#/server/${esc(g.id)}">${icon('home')} Overview</a>
                 </div>
             </div>
-            ${hasDraft ? `<div id="gen-draft-indicator" class="row mb-2"><span class="tag amber">âš  Unsaved draft</span><span class="text-sm text-mute">Auto-saved locally â€” won't be lost on refresh.</span></div>` : '<div id="gen-draft-indicator" class="row mb-2" style="display:none"><span class="tag amber">âš  Unsaved draft</span><span class="text-sm text-mute">Auto-saved locally â€” won\'t be lost on refresh.</span></div>'}`; // nosonar
+            ${hasDraft ? `<div id="gen-draft-indicator" class="row mb-2"><span class="tag amber">⚠ Unsaved draft</span><span class="text-sm text-mute">Auto-saved locally — won't be lost on refresh.</span></div>` : '<div id="gen-draft-indicator" class="row mb-2" style="display:none"><span class="tag amber">⚠ Unsaved draft</span><span class="text-sm text-mute">Auto-saved locally — won\'t be lost on refresh.</span></div>'}`; // nosonar
 
         const body = renderFieldGroups(mod.fields, working);
 
@@ -1244,7 +1259,7 @@ async function pageModule(mod) {
         };
         $('#save-btn').onclick = async () => {
             const btn = $('#save-btn');
-            btn.disabled = true; btn.textContent = 'Savingâ€¦';
+            btn.disabled = true; btn.textContent = 'Saving…';
             const r = await api(`/api/guild/${g.id}/${mod.id}`, {
                 method: 'PUT',
                 body: JSON.stringify(working)
@@ -1271,7 +1286,7 @@ async function pageModule(mod) {
                 const chId = sel ? sel.value : (working[mod.deploy.channelKey || 'channelId'] || null);
                 if (mod.deploy.needsChannel && !chId) { toast('Pick a channel first', 'error'); return; }
                 const orig = dbtn.innerHTML;
-                dbtn.disabled = true; dbtn.innerHTML = icon('refresh') + ' Deployingâ€¦';
+                dbtn.disabled = true; dbtn.innerHTML = icon('refresh') + ' Deploying…';
                 // Save the latest settings first so the bot builds the panel from them.
                 await api(`/api/guild/${g.id}/${mod.id}`, { method: 'PUT', body: JSON.stringify(working) }).catch(() => { });
                 try { localStorage.removeItem(draftKey); } catch { }
@@ -1285,7 +1300,7 @@ async function pageModule(mod) {
 }
 
 // Deploy card for schema-driven modules whose config drives a live Discord
-// panel (verification, music, â€¦). Lets the admin post/refresh the panel from
+// panel (verification, music, …). Lets the admin post/refresh the panel from
 // the dashboard via the bot action queue. `mod.deploy`:
 //   { panel, label?, needsChannel?, optionalChannel?, channelKey? }
 function renderDeployCard(mod, working) {
@@ -1294,7 +1309,7 @@ function renderDeployCard(mod, working) {
     const selectedCh = working[d.channelKey || 'channelId'] || '';
     // type 0 = text, 5 = announcement
     const chans = (state.channels || []).filter(c => c.type === 0 || c.type === 5 || c.type === undefined);
-    const chOptions = ['<option value="">â€” Select a channel â€”</option>']
+    const chOptions = ['<option value="">— Select a channel —</option>']
         .concat(chans.map(c => `<option value="${esc(c.id)}" ${c.id === selectedCh ? 'selected' : ''}>#${esc(c.name)}</option>`))
         .join('');
     const note = d.panel === 'music'
@@ -1388,14 +1403,14 @@ function renderChannelSelect(key, val, type) {
     const filtered = type === 'voice' ? channels.filter(c => c.type === 2)
         : type === 'category' ? channels.filter(c => c.type === 4) // nosonar
             : channels.filter(c => c.type === 0 || c.type === 5);
-    const opts = ['<option value="">â€” None â€”</option>']
+    const opts = ['<option value="">— None —</option>']
         .concat(filtered.map(c => `<option value="${esc(c.id)}" ${val === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`))
         .join('');
     return `<select data-key="${esc(key)}">${opts}</select>`;
 }
 
 function renderRoleSelect(key, val) {
-    const opts = ['<option value="">â€” None â€”</option>']
+    const opts = ['<option value="">— None —</option>']
         .concat((state.roles || []).map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`))
         .join('');
     return `<select data-key="${esc(key)}">${opts}</select>`;
@@ -1559,9 +1574,9 @@ async function pageProfile() { // nosonar
         return `${Math.round(s / 3600 * 10) / 10}h`;
     };
     const since = ts => {
-        if (!ts) return 'â€”';
+        if (!ts) return '—';
         const date = new Date(ts);
-        return isNaN(date) ? 'â€”' : date.toLocaleDateString(); // nosonar
+        return isNaN(date) ? '—' : date.toLocaleDateString(); // nosonar
     };
 
     // Build sparkline for 7-day messages
@@ -1584,7 +1599,7 @@ async function pageProfile() { // nosonar
             </td>
             <td><b>${g.level}</b></td>
             <td>${fmtNum(g.xp)}</td>
-            <td>#${g.rank || 'â€”'}${g.totalRanked ? ` <span class="text-xs text-mute">of ${fmtNum(g.totalRanked)}</span>` : ''}</td>
+            <td>#${g.rank || '—'}${g.totalRanked ? ` <span class="text-xs text-mute">of ${fmtNum(g.totalRanked)}</span>` : ''}</td>
             <td>${fmtNum(g.messages)}</td>
         </tr>`;
     }).join('') : '<tr><td colspan="6" class="text-sm text-mute center">No server data yet. Start chatting in a server with xNico!</td></tr>';
@@ -1613,7 +1628,7 @@ async function pageProfile() { // nosonar
                         ${d.user.hasPremium ? '<span class="tag green">Premium</span>' : ''}
                         <span class="tag grey">${esc(d.user.role)}</span>
                     </div>
-                    <div class="text-sm text-mute mono">${esc(d.user.discordId || 'â€”')}</div>
+                    <div class="text-sm text-mute mono">${esc(d.user.discordId || '—')}</div>
                     <div class="text-xs text-mute mt-1">
                         Member since ${since(d.user.memberSince)} â€¢ ${fmtNum(d.stats.serversWithData)} server${d.stats.serversWithData !== 1 ? 's' : ''} tracked
                     </div>
@@ -1678,7 +1693,7 @@ async function pageProfile() { // nosonar
                     ${sparkline}
                 </div>
                 <div class="row mt-2" style="justify-content:space-between">
-                    <span class="text-xs text-mute">${a.daily[0]?.date || 'â€”'}</span>
+                    <span class="text-xs text-mute">${a.daily[0]?.date || '—'}</span>
                     <span class="text-xs text-mute">Today</span>
                 </div>
             </div>
@@ -1736,7 +1751,7 @@ async function pageProfile() { // nosonar
             <div class="grid g-3 mt-2">
                 <div><div class="text-xs text-mute">Discord ID</div><div class="bold mono">${esc(d.user.discordId)}</div></div>
                 <div><div class="text-xs text-mute">Role</div><div class="bold">${esc(d.user.role.toUpperCase())}</div></div>
-                <div><div class="text-xs text-mute">Email</div><div class="bold">${esc(d.user.email || 'â€”')}</div></div>
+                <div><div class="text-xs text-mute">Email</div><div class="bold">${esc(d.user.email || '—')}</div></div>
             </div>
             <hr>
             <div class="row">
@@ -1854,7 +1869,7 @@ window.__profileEditCard = () => {
 
     document.getElementById('rc-save').onclick = async () => {
         const progress = document.getElementById('rc-prog-hex').value;
-        // Unified payload â€” the server applies it to BOTH the rank card and
+        // Unified payload — the server applies it to BOTH the rank card and
         // the profile card so /rank and /profile stay in sync.
         const payload = {
             card: {
@@ -2013,11 +2028,11 @@ async function pagePremium() {
                     <tr>
                         <td class="mono">${esc(k.key)}</td>
                         <td><span class="tag ${k.tier === 'server' ? 'cyan' : 'purple'}">${esc(k.tier || 'user')}</span></td>
-                        <td>${esc(k.duration || 'â€”')}</td>
+                        <td>${esc(k.duration || '—')}</td>
                         <td>${k.redeemed
             ? `<span class="tag green">Redeemed${k.redeemedBy ? ' by ' + esc(k.redeemedBy) : ''}</span>` // nosonar
             : '<span class="tag amber">Available</span>'}</td>
-                        <td class="text-sm text-mute">${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : 'â€”'}</td>
+                        <td class="text-sm text-mute">${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '—'}</td>
                         <td>${k.redeemed ? '' : `<button class="btn" data-revoke="${esc(k.key)}" title="Revoke key">${icon('user-x')}</button>`}</td>
                     </tr>`).join('')}</tbody>
             </table>` : '<div class="empty"><p>No keys generated yet.</p></div>'}

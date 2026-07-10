@@ -1,5 +1,5 @@
 /**
- * xNico Dashboard â€” Express Server v2
+ * xNico Dashboard — Express Server v2
  * Full REST API with Discord OAuth2 login + module configuration
  */
 const express = require('express');
@@ -45,13 +45,13 @@ const PORT = process.env.DASHBOARD_PORT || 3500;
 const JWT_SECRET_FALLBACK = 'xnico-dashboard-secret-key-2024-v2';
 const JWT_SECRET = process.env.JWT_SECRET || JWT_SECRET_FALLBACK;
 if (JWT_SECRET === JWT_SECRET_FALLBACK) {
-    console.warn('\n[Dashboard] âš  WARNING: JWT_SECRET env var not set â€” using insecure fallback. Set JWT_SECRET in production!\n');
+    console.warn('\n[Dashboard] ⚠ WARNING: JWT_SECRET env var not set — using insecure fallback. Set JWT_SECRET in production!\n');
 }
 const DISCORD_CLIENT_ID = process.env.CLIENT_ID || '';
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
 // Explicit override (use this in production if auto-detection ever guesses
 // wrong behind an unusual proxy). When unset we resolve the redirect URI
-// dynamically from each request â€” see resolveRedirectUri() below.
+// dynamically from each request — see resolveRedirectUri() below.
 const DISCORD_REDIRECT_ENV = process.env.DISCORD_REDIRECT || '';
 const DISCORD_REDIRECT_FALLBACK = `http://localhost:${PORT}/api/auth/discord/callback`;
 const BOT_TOKEN = process.env.TOKEN || '';
@@ -68,14 +68,14 @@ const BOT_TOKEN = process.env.TOKEN || '';
  * Resolution order:
  *   1. DISCORD_REDIRECT env var, if explicitly set (production override).
  *   2. The live request's protocol + host (works on any domain, incl.
- *      Vercel previews) â€” requires `trust proxy` so x-forwarded-* is honored.
+ *      Vercel previews) — requires `trust proxy` so x-forwarded-* is honored.
  *   3. localhost fallback for first-run local dev.
  *
  * IMPORTANT: the authorize step and the token-exchange step must send the
  * EXACT same redirect_uri. Because both derive it from the same request
  * host, they stay in lock-step automatically. Whatever value this returns
- * for your domain must also be added to the Discord Developer Portal â†’
- * OAuth2 â†’ Redirects list.
+ * for your domain must also be added to the Discord Developer Portal ->
+ * OAuth2 -> Redirects list.
  */
 function resolveRedirectUri(req) {
     if (DISCORD_REDIRECT_ENV) return DISCORD_REDIRECT_ENV;
@@ -96,7 +96,7 @@ const CORS_ORIGINS = (process.env.DASHBOARD_CORS_ORIGINS || '')
     .split(',').map(s => s.trim()).filter(Boolean);
 
 console.log(`[Dashboard] Auth Config: Redirect=${DISCORD_REDIRECT_ENV || '(auto-detected per request)'}`);
-console.log(`[Dashboard] Discord OAuth: ${DISCORD_CLIENT_ID && DISCORD_CLIENT_SECRET ? 'Configured' : 'INCOMPLETE â€” set CLIENT_ID + DISCORD_CLIENT_SECRET'}`);
+console.log(`[Dashboard] Discord OAuth: ${DISCORD_CLIENT_ID && DISCORD_CLIENT_SECRET ? 'Configured' : 'INCOMPLETE — set CLIENT_ID + DISCORD_CLIENT_SECRET'}`);
 console.log(`[Dashboard] JWT Secret: ${JWT_SECRET.substring(0, 5)}... (LOADED)`);
 
 app.set('trust proxy', true);
@@ -114,7 +114,7 @@ if (helmet) {
 if (CORS_ORIGINS.length) {
     app.use(cors({
         origin: (origin, cb) => {
-            // Same-origin requests have no Origin header â€” always allow.
+            // Same-origin requests have no Origin header — always allow.
             if (!origin) return cb(null, true);
             return cb(null, CORS_ORIGINS.includes(origin));
         },
@@ -162,7 +162,7 @@ const { notifyStoreUpdate } = require('../utils/storeSync');
  *
  * The storeSync listener is the SINGLE source of truth for cache
  * invalidation. Route handlers below MUST NOT also call the per-guild
- * `global.update*Cache` functions inline â€” that would double-apply
+ * `global.update*Cache` functions inline — that would double-apply
  * every write.
  * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  */
@@ -178,7 +178,7 @@ const MODULE_TO_STORE = {
     'vote-config': 'vote-config',
     confessions: 'confessions',
     serverstats: 'serverstats',
-    // Newer systems exposed by recent commits â€” keep these in sync with
+    // Newer systems exposed by recent commits — keep these in sync with
     // the bot's store names so dashboard-driven writes invalidate the
     // right cache via storeSync.
     'screenshot-verify':             'screenshot-verify',
@@ -219,7 +219,7 @@ function notifyModuleUpdate(moduleName, guildId, updated) {
         // Read the just-written snapshot back so the listener receives a
         // canonical view (matches what jsonStore would have emitted on
         // writeImmediate). The listener is the SINGLE source of truth
-        // for cache invalidation â€” do NOT also invoke per-guild
+        // for cache invalidation — do NOT also invoke per-guild
         // global.update*Cache here, that would double-apply every write.
         const all = readBotStore(storeName) || {};
         notifyStoreUpdate(storeName, all);
@@ -263,7 +263,7 @@ app.use(async (req, res, next) => {
 // last cold start, and the bot's 5s PostgreSQL poll (smartRefresh) does NOT
 // run while the function is frozen between requests. Without this, dashboard
 // GET routes that read straight from the cache (trust, invites, serverstats,
-// automod, antinuke, leveling, economy, tickets, â€¦) serve STALE data â€” so
+// automod, antinuke, leveling, economy, tickets, …) serve STALE data — so
 // changes the bot made never appear in the dashboard ("store in bot not
 // showing in dashboard").
 //
@@ -305,7 +305,7 @@ app.use(async (req, res, next) => {
 // Vercel (and any serverless host) freezes the function as soon as the
 // HTTP response is sent. Background promises that haven't resolved
 // yet are silently killed. That's why dashboard PUTs appeared to
-// "succeed" on the dashboard but never reached the bot â€” the PG
+// "succeed" on the dashboard but never reached the bot — the PG
 // upsert was still in flight when the sandbox got frozen.
 //
 // This middleware uses Node's AsyncLocalStorage so the "current
@@ -317,7 +317,7 @@ app.use(async (req, res, next) => {
 // flushing the response so the serverless host doesn't freeze us
 // mid-PG-upsert.
 //
-// Routes don't need to change â€” every call to `writeBotStore`
+// Routes don't need to change — every call to `writeBotStore`
 // already participates. Routes that already `await writeBotStore`
 // directly are unaffected (the promise just resolves twice).
 app.use((req, res, next) => {
@@ -394,7 +394,7 @@ function readBotStore(storeName) {
 // Cache TTL note: 10s is a deliberate trade-off. Higher values (we used
 // 30s previously) reduce Discord-API load but leave the dashboard
 // showing "Invite Bot" for that long after the user actually invited
-// the bot â€” a classic "did it work?" moment that looks broken even
+// the bot — a classic "did it work?" moment that looks broken even
 // when the bot is in the guild. The frontend's recheck poll calls the
 // `/api/guilds/refresh` force endpoint anyway, so the cache here is
 // only a backstop for unforced GETs.
@@ -440,7 +440,7 @@ function readBotGuildIdsFromLocalStore() { // nosonar
         }
     } catch {}
     // Secondary: any guild the bot has recorded a member for is a guild
-    // the bot is (or was) in â€” covers older data written before bot_guilds.
+    // the bot is (or was) in — covers older data written before bot_guilds.
     try {
         const members = readBotStore('guild_members') || [];
         const arr = Array.isArray(members) ? members : Object.values(members || {});
@@ -472,12 +472,12 @@ async function getBotGuildIds({ force = false } = {}) {
         // Resolve bot presence from BOTH sources and union them. A guild
         // counts as "bot present" if it appears in EITHER:
         //   1. the Discord API (authoritative, needs a valid BOT_TOKEN), or
-        //   2. the bot's own data store (guild_members / guilds) â€” which works
+        //   2. the bot's own data store (guild_members / guilds) — which works
         //      whenever the dashboard shares the bot's database, even if
         //      BOT_TOKEN is missing/expired on this deployment.
         //
         // The previous logic used the local store ONLY when the API returned
-        // empty. That meant a missing/expired BOT_TOKEN (API â†’ empty) combined
+        // empty. That meant a missing/expired BOT_TOKEN (API -> empty) combined
         // with any momentary local miss flipped EVERY server to "Invite",
         // which is exactly the "invite required even though the bot is here"
         // bug. Unioning makes detection resilient to either source failing.
@@ -520,7 +520,7 @@ async function getBotGuildIds({ force = false } = {}) {
  * (Vercel, Cloudflare, AWS Lambda) because the function host freezes
  * the sandbox the moment the HTTP response is sent. A non-awaited
  * write that happens to be in-flight when the response goes out can
- * be dropped silently â€” which is exactly why dashboard saves were
+ * be dropped silently — which is exactly why dashboard saves were
  * "not applying" on the bot host. The bot polls PG every 3s and
  * only sees changes that actually committed.
  *
@@ -552,7 +552,7 @@ function writeBotStore(storeName, data) {
 /**
  * Race-safe single-guild update. Re-reads the latest row from PG
  * before applying the mutation so concurrent bot writes aren't
- * clobbered. See utils/jsonStore.js â†’ updateGuildEntry for the full
+ * clobbered. See utils/jsonStore.js -> updateGuildEntry for the full
  * rationale. Returns the updated guild entry.
  */
 async function updateGuildStore(storeName, guildId, mutator) {
@@ -573,7 +573,7 @@ async function updateGuildStore(storeName, guildId, mutator) {
  * Race-safe single-USER update for the array-shaped `users` store.
  * Mirrors updateGuildStore but for users keyed by `user_id`. Prevents
  * the dashboard's whole-array write from clobbering the bot's frequent
- * users writes (economy/XP/stats) â€” the root cause of profile/rank
+ * users writes (economy/XP/stats) — the root cause of profile/rank
  * customizations appearing not to persist. Returns the updated record.
  */
 async function updateUserStore(userId, mutator) {
@@ -629,7 +629,7 @@ async function updateUserStore(userId, mutator) {
 
 // â”€â”€ Auth Middleware â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function authMiddleware(req, res, next) {
-    const t = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+    const t = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     if (!t) {
         console.warn('[Auth] No token found in request.');
         return res.status(401).json({ error: 'Token missing' });
@@ -682,7 +682,7 @@ app.get('/api/auth/discord', (req, res) => {
     res.json({ url: `https://discord.com/api/oauth2/authorize?${params}` });
 });
 
-// Direct redirect endpoint â€” browser navigates here directly
+// Direct redirect endpoint — browser navigates here directly
 app.get('/api/auth/discord/redirect', (req, res) => {
     // Surface a clear, user-facing error instead of bouncing to Discord
     // with an empty client_id (which yields a cryptic Discord error page).
@@ -708,7 +708,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     const { code, error: oauthError } = req.query;
     console.log('[Auth] Step 1: Callback received, code:', code ? 'present' : 'MISSING');
     // Discord can redirect back with ?error=access_denied if the user
-    // clicks "Cancel" on the consent screen â€” surface that cleanly.
+    // clicks "Cancel" on the consent screen — surface that cleanly.
     if (oauthError) {
         console.warn('[Auth] Discord returned error on callback:', oauthError);
         return res.redirect('/?error=' + encodeURIComponent(String(oauthError)));
@@ -825,7 +825,7 @@ app.post('/api/auth/logout', (req, res) => { res.clearCookie('token'); res.json(
 
 // Returns the JWT user PLUS canonical owner / premium flags so the
 // frontend never has to guess. The dashboard hides owner-only UI
-// (premium key generator, premium nav link) based on these flags â€”
+// (premium key generator, premium nav link) based on these flags —
 // it's also enforced server-side, but the client check keeps the
 // chrome clean.
 app.get('/api/auth/me', authMiddleware, (req, res) => {
@@ -865,7 +865,7 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
 app.get('/api/guilds/me', authMiddleware, async (req, res) => {
     if (!req.user.discordId) return res.json([]);
 
-    // Get saved guilds (admin/manage only â€” written at login)
+    // Get saved guilds (admin/manage only — written at login)
     let guilds = readJSON(`guilds_${req.user.discordId}.json`, []);
     // Try refresh from Discord API
     if (req.user.accessToken) {
@@ -890,7 +890,7 @@ app.get('/api/guilds/me', authMiddleware, async (req, res) => {
     return res.json(result);
 });
 
-// Manual refresh â€” bypasses cache, used by the "Invite Bot" page after
+// Manual refresh — bypasses cache, used by the "Invite Bot" page after
 // the user invites the bot so the UI flips to "Manage" immediately.
 app.post('/api/guilds/refresh', authMiddleware, async (req, res) => {
     try {
@@ -907,7 +907,7 @@ app.post('/api/guilds/refresh', authMiddleware, async (req, res) => {
  * Translate the dashboard's "logging" payload (UI field names like
  * `modLog`, `messageLog`) to the bot's "logs" store schema (short keys
  * like `moderation`, `message`). This is what makes the Audit Logging
- * module actually take effect â€” without translation the bot keeps
+ * module actually take effect — without translation the bot keeps
  * reading from `logs` while the dashboard writes to a parallel store
  * the bot never reads.
  *
@@ -1009,14 +1009,15 @@ function getAutomodDefaults() {
 }
 
 // --- Broadcaster interceptor ---
-async function sendBroadcasterMessage(guildId, moduleName) {
+async function sendBroadcasterMessage(guildId, moduleName, activated) {
     if (!BOT_TOKEN) return;
     const bcData = readBotStore('broadcaster') || {};
     const cfg = bcData[guildId];
     if (!cfg || !cfg.enabled || !cfg.channelId) return;
 
     const prettyName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
-    const content = `📢 The **${prettyName}** feature was just activated via the dashboard!`;
+    const actionText = activated ? 'activated' : 'deactivated';
+    const content = `📢 The **${prettyName}** feature was just ${actionText} via the dashboard!`;
 
     try {
         await fetch(`https://discord.com/api/channels/${cfg.channelId}/messages`, {
@@ -1033,7 +1034,7 @@ async function sendBroadcasterMessage(guildId, moduleName) {
 }
 
 app.use((req, res, next) => {
-    if (req.method !== 'PUT' || !req.body || req.body.enabled !== true) return next();
+    if (req.method !== 'PUT' || !req.body || typeof req.body.enabled !== 'boolean') return next();
     
     const match = req.originalUrl.match(/^\/api\/guild\/(\d+)\/([^\/?]+)/);
     if (!match) return next();
@@ -1046,11 +1047,14 @@ app.use((req, res, next) => {
     const storeName = MODULE_TO_STORE[rawModule] || rawModule;
     const oldData = readBotStore(storeName)?.[guildId] || {};
 
-    if (!oldData.enabled) {
+    const newState = req.body.enabled;
+    const oldState = !!oldData.enabled;
+
+    if (newState !== oldState) {
         const originalJson = res.json;
         res.json = function(body) {
             if (body && !body.error && !body._error) {
-                sendBroadcasterMessage(guildId, rawModule);
+                sendBroadcasterMessage(guildId, rawModule, newState);
             }
             return originalJson.call(this, body);
         };
@@ -1111,7 +1115,7 @@ const MODULE_DEFAULTS = {
     giveaway: () => ({ enabled: true }),
     'bot-customize': () => ({ nickname: null, avatarUrl: null, bannerUrl: null, aboutText: null, prefix: null, embedColor: 'default', footerText: null, footerIcon: null, language: 'en', dmOnJoin: false, dmMessage: null, commandCooldown: 3, deleteCommands: false, ephemeralResponses: false }),
     'botignore-config': () => ({ enabled: false, ignoredChannels: [], ignoredRoles: [], ignoredUsers: [], ignoreAllBots: false, ignorePrefix: false }),
-    'social-notify': () => ({ youtube: { enabled: false, channels: [], notifyChannel: null, pingRole: null, message: '{channel} uploaded a new video!\n\n**{title}**\n{url}', liveMessage: 'ðŸ”´ **{channel}** is now LIVE!\n{url}', liveEnabled: true } }),
+    'social-notify': () => ({ youtube: { enabled: false, channels: [], notifyChannel: null, pingRole: null, message: '{channel} uploaded a new video!\n\n**{title}**\n{url}', liveMessage: '🔴 **{channel}** is now LIVE!\n{url}', liveEnabled: true } }),
     'vote-config': () => ({ enabled: false, channelId: null, pingRoleId: null }),
     'economy-settings': () => ({ currency: '<:Money:1521228266957045900>', currencyName: 'coins', dailyReward: 1000, weeklyReward: 5000, workMinReward: 100, workMaxReward: 300, robChance: 50, startingBalance: 0, robEnabled: true, gamblingEnabled: true, shopEnabled: true }),
     'confessions': () => ({ channelId: null, count: 0, log: {} }),
@@ -1167,7 +1171,7 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
         if (u) discordId = u.discordId;
     }
 
-    // Check user premium (server premium discontinued â€” user premium only)
+    // Check user premium (server premium discontinued — user premium only)
     let userPremium = false;
     let premiumExpiry = null;
     let premiumType = null;
@@ -1181,7 +1185,7 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
             premiumType = 'user';
         }
     } catch (error) { // nosonar
-        // premiumManager may not be available in dashboard-only mode â€”
+        // premiumManager may not be available in dashboard-only mode —
         // fall back to reading the user premium store directly.
         try {
             const premiumData = readBotStore('premium') || [];
@@ -1208,7 +1212,7 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
     });
 });
 
-// â”€â”€ Guild channels (via bot token) â€” MUST be before the generic :module route â”€â”€
+// â”€â”€ Guild channels (via bot token) — MUST be before the generic :module route â”€â”€
 app.get('/api/guild/:guildId/channels', authMiddleware, async (req, res) => {
     if (!BOT_TOKEN) return res.json([]);
     try {
@@ -1227,7 +1231,7 @@ app.get('/api/guild/:guildId/roles', authMiddleware, async (req, res) => {
     res.json([]);
 });
 
-// Guild custom emojis â€” powers the dashboard emoji picker so admins can drop
+// Guild custom emojis — powers the dashboard emoji picker so admins can drop
 // their server's custom emojis into welcomer/embed/message fields. Fetched via
 // the bot token (the dashboard has no Discord client). Compact shape only.
 app.get('/api/guild/:guildId/emojis', authMiddleware, async (req, res) => {
@@ -1305,7 +1309,7 @@ app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => { /
             flatLogs.push({
                 time: new Date(log.timestamp || Date.now()).toLocaleString(),
                 module: 'Moderation',
-                action: `${log.action}${log.reason ? ' â€” ' + log.reason : ''}`,
+                action: `${log.action}${log.reason ? ' — ' + log.reason : ''}`,
                 user: `<@${userId}>`,
                 timestamp: Number(log.timestamp || 0)
             });
@@ -1536,7 +1540,7 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, (req, res) =
     if (!data[gid]) data[gid] = {};
     const cfg = data[gid];
 
-    // Same field set the slash panel writes â€” keeps the dashboard in
+    // Same field set the slash panel writes — keeps the dashboard in
     // lock-step with /bot-customize so admins can edit either surface
     // and see the change applied everywhere.
     if (typeof body.nickname === 'string' || body.nickname === null) cfg.nickname = body.nickname;
@@ -1596,9 +1600,9 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, (req, res) =
     // Live update per-server avatar via Discord API. The slash panel
     // does this synchronously, so doing it here keeps the dashboard at
     // parity. Body shapes:
-    //   - { avatarUrl: 'https://â€¦' }   â†’ fetch + base64 + PATCH
-    //   - { avatarUrl: 'data:image/â€¦' } â†’ PATCH directly
-    //   - { avatarUrl: null }          â†’ reset to global avatar
+    //   - { avatarUrl: 'https://...' }   -> fetch + base64 + PATCH
+    //   - { avatarUrl: 'data:image/...' } -> PATCH directly
+    //   - { avatarUrl: null }          -> reset to global avatar
     if (Object.hasOwn(body, 'avatarUrl') && BOT_TOKEN) {
         (async () => {
             try {
@@ -1628,7 +1632,7 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, (req, res) =
 
     // Live update per-server banner via Discord API. Same endpoint as
     // avatar, just targeting the `banner` field. Discord may reject
-    // (some guild contexts don't allow it for bots) â€” when that happens
+    // (some guild contexts don't allow it for bots) — when that happens
     // the local store value still drives /botinfo and /botprofile.
     if (Object.hasOwn(body, 'bannerUrl') && BOT_TOKEN) {
         (async () => {
@@ -1660,7 +1664,7 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, (req, res) =
     // Per-guild bio push. Discord exposes a `bio` field on
     // PATCH /guilds/{guild_id}/members/@me, the same endpoint used for
     // the per-guild avatar/banner just above. Targeting it here keeps
-    // the bio scoped to this guild only â€” earlier we hit /users/@me
+    // the bio scoped to this guild only — earlier we hit /users/@me
     // which mutated the bot's global account bio for every server.
     if (Object.hasOwn(body, 'aboutText') && BOT_TOKEN) {
         (async () => {
@@ -1672,7 +1676,7 @@ app.put('/api/guild/:guildId/bot-customize-config', authMiddleware, (req, res) =
                     body: JSON.stringify({ bio: trimmed.length ? trimmed : null }),
                 });
             } catch (error) { // nosonar
-                // Silent â€” dashboard doesn't need to surface this since
+                // Silent — dashboard doesn't need to surface this since
                 // /botinfo and /botprofile render the local value anyway.
             }
         })();
@@ -1909,7 +1913,7 @@ app.get('/api/guild/:guildId/backups', authMiddleware, (req, res) => {
     const data = readBotStore('server_backups') || [];
     const guildBackups = (Array.isArray(data) ? data : [])
         .filter(b => b.guild_id === req.params.guildId || b.guildId === req.params.guildId)
-        .map(b => ({ id: b.id || b.backup_id, name: b.name || b.guild_name, createdAt: b.created_at || b.createdAt, size: b.size || 'â€”' }))
+        .map(b => ({ id: b.id || b.backup_id, name: b.name || b.guild_name, createdAt: b.created_at || b.createdAt, size: b.size || '—' }))
         .slice(0, 20);
     res.json(guildBackups);
 });
@@ -1926,7 +1930,7 @@ app.get('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => {
     const data = readBotStore('join2create') || {};
     const raw = data[req.params.guildId] || {};
 
-    // Lazy-migrate legacy v1 â†’ v2 for the read view so dashboards
+    // Lazy-migrate legacy v1 -> v2 for the read view so dashboards
     // never see the old shape. The bot-side mgr.getGuildConfig does
     // the same migration on read; we just mirror it here.
     let cfg;
@@ -1990,7 +1994,7 @@ app.put('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => { // n
         cfg.interfaces[body.interfaceId] = iface;
     }
 
-    // Legacy compatibility â€” older dashboards send a flat triggerChannelId
+    // Legacy compatibility — older dashboards send a flat triggerChannelId
     // and `enabled` toggle. Translate them onto the first interface (or
     // create one if none exists yet) so existing UI widgets keep working.
     if (typeof body.enabled === 'boolean' || body.triggerChannelId !== undefined) {
@@ -2067,7 +2071,7 @@ app.get('/api/guild/:guildId/sticky-config', authMiddleware, (req, res) => {
     const cfg  = data[req.params.guildId] || {};
     const map  = (cfg && typeof cfg === 'object' && cfg.messages && typeof cfg.messages === 'object')
         ? cfg.messages
-        : cfg; // legacy shape â€” keys at the top level
+        : cfg; // legacy shape — keys at the top level
 
     const messages = Object.entries(map || {})
         .filter(([k]) => k !== 'enabled' && k !== 'messages') // skip legacy stray keys
@@ -2274,7 +2278,7 @@ app.put('/api/guild/:guildId/screenshot-verify-config', authMiddleware, (req, re
     const cfg = all[gid];
 
     // Whitelist of mutable top-level keys (we never let dashboard edit
-    // `tasks` here â€” that goes through the in-bot panel because each
+    // `tasks` here — that goes through the in-bot panel because each
     // task may carry actions that spawn role grants / DMs).
     if (typeof body.enabled === 'boolean') cfg.enabled = body.enabled;
     if (['auto', 'review', 'hybrid'].includes(body.mode)) cfg.mode = body.mode;
@@ -2372,7 +2376,7 @@ app.put('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
             .map(c => ({
                 id: String(c.id).toLowerCase().replace(/\s+/g, '-').slice(0, 32),
                 label: String(c.label).slice(0, 80),
-                emoji: String(c.emoji || 'ðŸŽ«').slice(0, 32),
+                emoji: String(c.emoji || '🎫').slice(0, 32),
                 description: String(c.description || '').slice(0, 100)
             }));
     }
@@ -2425,7 +2429,7 @@ app.put('/api/guild/:guildId/starboard-config', authMiddleware, (req, res) => {
 // IMPORTANT: the bot's counting handler reads/writes via
 // utils/database.db.{get,set}('counting_<guildId>') (a custom_data PG row),
 // NOT via jsonStore. The previous dashboard used jsonStore('counting')
-// which was a parallel store the bot never read â€” every dashboard write
+// which was a parallel store the bot never read — every dashboard write
 // was orphaned. Both endpoints now route through the same db helper.
 app.get('/api/guild/:guildId/counting-config', authMiddleware, async (req, res) => {
     try {
@@ -2548,7 +2552,7 @@ app.get('/api/guild/:guildId/economy-settings', authMiddleware, (req, res) => {
     const allSettings = readBotStore('economy-settings') || {};
     const guildSettings = allSettings[req.params.guildId] || {};
     res.json({
-        currency: guildSettings.currency || 'ðŸ’°',
+        currency: guildSettings.currency || '💰',
         currencyName: guildSettings.currencyName || 'coins',
         dailyReward: guildSettings.dailyReward || 100,
         weeklyReward: guildSettings.weeklyReward || 500,
@@ -2569,7 +2573,7 @@ app.put('/api/guild/:guildId/economy-settings', authMiddleware, (req, res) => {
     if (!allSettings[gid]) allSettings[gid] = {};
     const s = allSettings[gid];
 
-    if (typeof body.currency === 'string') s.currency = body.currency.trim().slice(0, 32) || 'ðŸ’°';
+    if (typeof body.currency === 'string') s.currency = body.currency.trim().slice(0, 32) || '💰';
     if (typeof body.currencyName === 'string') s.currencyName = body.currencyName.trim().slice(0, 32).toLowerCase() || 'coins';
     if (Number.isFinite(Number(body.dailyReward))) s.dailyReward = Math.max(0, Math.min(1000000, Number(body.dailyReward)));
     if (Number.isFinite(Number(body.weeklyReward))) s.weeklyReward = Math.max(0, Math.min(10000000, Number(body.weeklyReward)));
@@ -2908,7 +2912,7 @@ app.post('/api/guild/:guildId/send-message', authMiddleware, async (req, res) =>
             if (!r.ok) return res.status(r.status).json({ error: body?.message || 'Discord API error', details: body });
             return res.json({ success: true, messageId: body.id, channelId: body.channel_id });
         } else {
-            // Components V2 path â€” simpler: just text display + fields + buttons. No media gallery (requires raw CDN URLs which work fine).
+            // Components V2 path — simpler: just text display + fields + buttons. No media gallery (requires raw CDN URLs which work fine).
             const color = Number.parseInt((data.color || '#bcf1e4').replace('#', ''), 16);
             const body = { type: 17 }; // Container
             if (!data.colorless && !Number.isNaN(color)) body.accent_color = color;
@@ -3292,7 +3296,7 @@ app.put('/api/guild/:guildId/applications-config', authMiddleware, (req, res) =>
     res.json({ success: true });
 });
 
-// List application responses (read-only â€” accept/deny still happens
+// List application responses (read-only — accept/deny still happens
 // in-bot because it triggers role grants + DMs we don't want to mirror).
 app.get('/api/guild/:guildId/applications-responses', authMiddleware, (req, res) => {
     const data = readBotStore('application-responses') || {};
@@ -3401,7 +3405,7 @@ app.put('/api/guild/:guildId/ignored-channels-config', authMiddleware, (req, res
     res.json({ success: true });
 });
 
-// â”€â”€ Confessions (read enriched stats â€” write delegated to confession panel) â”€â”€
+// â”€â”€ Confessions (read enriched stats — write delegated to confession panel) â”€â”€
 app.get('/api/guild/:guildId/confessions-config', authMiddleware, (req, res) => {
     const data = readBotStore('confessions') || {};
     const cfg  = data[req.params.guildId] || {};
@@ -3466,7 +3470,9 @@ app.put('/api/guild/:guildId/warn-config', authMiddleware, (req, res) => {
     res.json({ success: true, thresholds: data[gid]?.thresholds || [] });
 });
 
-// â”€â”€ Panel deployment (dashboard â†’ bot action queue) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+
+// ─── Panel deployment (dashboard -> bot action queue) ────────────────────────
 //
 // The dashboard can only WRITE config to the shared store; it cannot call the
 // Discord API. To actually POST a verification/ticket/music panel into a
@@ -3503,7 +3509,7 @@ app.post('/api/guild/:guildId/panel/:panel/deploy', authMiddleware, async (req, 
     };
 
     try {
-        // Race-safe enqueue keyed by actionId â€” awaited so PG commits before
+        // Race-safe enqueue keyed by actionId — awaited so PG commits before
         // Vercel can freeze the function.
         await jsonStore.updateGuildEntry(DASH_ACTIONS_STORE, actionId, () => action);
         res.json({ ok: true, actionId, status: 'pending' });
@@ -3706,24 +3712,26 @@ let _commandsCache = null;
 let _commandsCacheAt = 0;
 
 const CATEGORY_META = {
-    admin:      { icon: 'ðŸ›¡ï¸',  desc: 'Moderation, AutoMod, Anti-Nuke/Raid, verification, logging' },
-    utility:    { icon: 'ðŸ”§',  desc: 'Welcomer, tickets, giveaways, starboard, polls' },
-    owner:      { icon: 'ðŸ‘‘',  desc: 'Bot management, eval, deploy, broadcasting' },
-    fun:        { icon: 'ðŸŽ®',  desc: 'Games, trivia, Akinator, memes' },
-    music:      { icon: 'ðŸŽµ',  desc: 'Lavalink player with filters, queue, favorites' },
-    basic:      { icon: 'ðŸ“‹',  desc: 'Server info, user info, roles, permissions' },
-    economy:    { icon: 'ðŸ’°',  desc: 'Currency, shop, gambling, fishing, pets' },
-    voice:      { icon: 'ðŸ”Š',  desc: 'Join-to-create, voice roles' },
-    image:      { icon: 'ðŸ–¼ï¸',  desc: 'Blur, greyscale, rotate, deepfry, sepia' },
-    leveling:   { icon: 'ðŸ“ˆ',  desc: 'XP, rank cards, level roles' },
-    backup:     { icon: 'ðŸ’¾',  desc: 'Config & server structure backups' },
-    action:     { icon: 'ðŸŽ­',  desc: 'Roleplay action commands' },
-    social:     { icon: 'ðŸ’¬',  desc: 'Profiles, badges, marriage' },
-    webhook:    { icon: 'ðŸ”—',  desc: 'Create, send, manage webhooks' },
-    stats:      { icon: 'ðŸ“Š',  desc: 'Server stats channels' },
-    games:      { icon: 'ðŸŽ²',  desc: 'Mini-games and competitions' },
-    automation: { icon: 'âš™ï¸',  desc: 'Tickets, suggestions, feedback automation' }
+    admin:      { icon: '🛡️',  desc: 'Moderation, AutoMod, Anti-Nuke/Raid, verification, logging' },
+    utility:    { icon: '🔧',  desc: 'Welcomer, tickets, giveaways, starboard, polls' },
+    owner:      { icon: '👑',  desc: 'Bot management, eval, deploy, broadcasting' },
+    fun:        { icon: '🎮',  desc: 'Games, trivia, Akinator, memes' },
+    music:      { icon: '🎵',  desc: 'Lavalink player with filters, queue, favorites' },
+    basic:      { icon: '📋',  desc: 'Server info, user info, roles, permissions' },
+    economy:    { icon: '💰',  desc: 'Currency, shop, gambling, fishing, pets' },
+    voice:      { icon: '🔊',  desc: 'Join-to-create, voice roles' },
+    image:      { icon: '🖼️',  desc: 'Blur, greyscale, rotate, deepfry, sepia' },
+    leveling:   { icon: '📈',  desc: 'XP, rank cards, level roles' },
+    backup:     { icon: '💾',  desc: 'Config & server structure backups' },
+    action:     { icon: '🎬',  desc: 'Roleplay action commands' },
+    social:     { icon: '💬',  desc: 'Profiles, badges, marriage' },
+    webhook:    { icon: '🔗',  desc: 'Create, send, manage webhooks' },
+    stats:      { icon: '📊',  desc: 'Server stats channels' },
+    games:      { icon: '🎲',  desc: 'Mini-games and competitions' },
+    automation: { icon: '⚙️',  desc: 'Tickets, suggestions, feedback automation' }
 };
+
+
 
 function buildCommandsIndex() { // nosonar
     const root = path.join(__dirname, '..', 'commands');
@@ -3736,7 +3744,7 @@ function buildCommandsIndex() { // nosonar
             // `category` field WITHOUT executing the slash builders. The
             // command files import discord.js at top level which is fine
             // here, but `require` would also run any module-init code.
-            // We use a lightweight regex match â€” good enough because the
+            // We use a lightweight regex match — good enough because the
             // codebase formats these consistently as `premiumOnly: true`
             // and `category: 'name'`.
             const src = fs.readFileSync(file, 'utf8');
@@ -3791,7 +3799,7 @@ function buildCommandsIndex() { // nosonar
                 key: cat,
                 count: b.commands.length,
                 premiumCount: b.premiumCount,
-                icon: meta.icon || 'ðŸ“‚',
+                icon: meta.icon || '📂',
                 desc: meta.desc || '',
                 commands: b.commands.sort((a, b2) => a.name.localeCompare(b2.name))
             };
@@ -3855,7 +3863,7 @@ app.get('/api/commands', authMiddleware, (req, res) => {
 // â”€â”€ Canonical bot-owner check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Mirrors the bot's utils/helpers.isOwner() so the dashboard and the bot
-// agree on exactly who is an owner. Ownership is a DISCORD identity â€” it is
+// agree on exactly who is an owner. Ownership is a DISCORD identity — it is
 // NEVER granted by the local username/password "owner" role. The seeded
 // admin account (admin/admin123) must NOT be able to reach owner-only tooling
 // like the premium key generator; otherwise anyone who finds the dashboard
@@ -3912,7 +3920,7 @@ app.get('/api/premium', authMiddleware, ownerOnly, (req, res) => {
     res.json({ keys: [...map.values()].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) });
 });
 app.post('/api/premium/generate', authMiddleware, ownerOnly, (req, res) => {
-    const tier = 'user'; // Server premium discontinued â€” only user keys are generated.
+    const tier = 'user'; // Server premium discontinued — only user keys are generated.
     const duration = String(req.body.duration || '30d');
     const key = 'XNICO-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase(); // nosonar
     const entry = {
@@ -4150,7 +4158,7 @@ app.put('/api/users/me/profile', authMiddleware, async (req, res) => {
             p.rankCard    = p.rankCard    || {};
             p.profileCard = p.profileCard || {};
 
-            // `card` is the unified payload from the dashboard editor â€” it
+            // `card` is the unified payload from the dashboard editor — it
             // updates BOTH cards so /rank and /socialprofile stay in sync.
             // accentColor defaults to the progress-bar colour when omitted.
             if (body.card) {
@@ -4161,7 +4169,7 @@ app.put('/api/users/me/profile', authMiddleware, async (req, res) => {
             if (body.rankCard)    applyCard(p.rankCard, body.rankCard, false);
             if (body.profileCard) applyCard(p.profileCard, body.profileCard, true);
 
-            // Legacy flat mirror â€” older readers fall back to profile.<field>.
+            // Legacy flat mirror — older readers fall back to profile.<field>.
             if (p.rankCard.cardStyle)        p.cardStyle        = p.rankCard.cardStyle;
             if (p.rankCard.backgroundColor)  p.backgroundColor  = p.rankCard.backgroundColor;
             if (p.rankCard.progressBarColor) p.progressBarColor = p.rankCard.progressBarColor;
@@ -4262,9 +4270,9 @@ app.get('/api/discord-config', (req, res) => {
 // This endpoint reports which backend the dashboard is using so operators can
 // confirm the two halves are actually connected. If this says `local` while
 // the bot runs elsewhere (e.g. dashboard on Vercel, bot on a VPS), saves will
-// never reach the bot â€” set a shared DATABASE_URL on both.
+// never reach the bot — set a shared DATABASE_URL on both.
 app.get('/api/health', async (req, res) => { // nosonar
-    // Make sure the store has actually finished connecting before we report â€”
+    // Make sure the store has actually finished connecting before we report —
     // otherwise a serverless cold start reports a misleading "initializing"/0.
     try {
         if (!jsonStore.initialized && typeof jsonStore.init === 'function') {
@@ -4280,7 +4288,7 @@ app.get('/api/health', async (req, res) => { // nosonar
         storeCount = jsonStore.cache?.size || 0;
     } catch { /* error reading store info, no problem */ }
 
-    // Direct DB fingerprint â€” the definitive answer to "is the shared DB empty?".
+    // Direct DB fingerprint — the definitive answer to "is the shared DB empty?".
     // Independent of the in-memory cache, so it can't be faked by a cold start.
     let dbRows = null;
     let sampleStores = null;
@@ -4311,11 +4319,11 @@ app.get('/api/health', async (req, res) => { // nosonar
     const empty = dbRows === 0;
     let hint;
     if (store === 'local') {
-        hint = 'Dashboard is on LOCAL files â€” set DATABASE_URL (same as the bot) so changes sync.';
+        hint = 'Dashboard is on LOCAL files — set DATABASE_URL (same as the bot) so changes sync.';
     } else if (dbError) {
         hint = `Could not query json_store: ${dbError}. Check the DATABASE_URL / Neon connection.`;
     } else if (empty) {
-        hint = 'Connected to Postgres but the json_store table is EMPTY. The BOT is not writing here â€” set the SAME DATABASE_URL on the bot host (and restart it) so it persists to this Neon DB.';
+        hint = 'Connected to Postgres but the json_store table is EMPTY. The BOT is not writing here — set the SAME DATABASE_URL on the bot host (and restart it) so it persists to this Neon DB.';
     } else {
         hint = `Postgres connected with ${dbRows} store rows. Dashboard and bot are sharing this DB.`;
     }
@@ -4327,7 +4335,7 @@ app.get('/api/health', async (req, res) => { // nosonar
         dbRows,                      // # of rows actually in json_store (source of truth)
         sampleStores,                // first store names present in the DB
         databaseConfigured: !!process.env.DATABASE_URL,
-        dbHost,                      // hostname only (no creds) â€” must match the bot's DB host
+        dbHost,                      // hostname only (no creds) — must match the bot's DB host
         dbError,
         sharedStoreRequired: store === 'local',
         oauthConfigured: !!(DISCORD_CLIENT_ID && DISCORD_CLIENT_SECRET),
