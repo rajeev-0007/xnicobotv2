@@ -70,8 +70,8 @@ function renderDiscord(input) {
     });
     // Masked links [text](https://url)
     s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, text, url) => // nosonar
-        stash(`<a class="d-link" href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`)); 
- 
+        stash(`<a class="d-link" href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`));
+
     // 3) Line-level: headers (### / ## / #), subtext (-#), blockquotes (>).
     s = s.replace(/^###\s+(.+)$/gm, (m, t) => `<span class="d-h d-h3">${t}</span>`); // nosonar
     s = s.replace(/^##\s+(.+)$/gm, (m, t) => `<span class="d-h d-h2">${t}</span>`); // nosonar
@@ -229,7 +229,7 @@ async function bootstrap() {
             // Public bot info / stats aren't needed to render the
             // dashboard â€” load them in the background so the logo and
             // counters fill in without blocking the transition.
-            loadAuthStats().catch(() => {});
+            loadAuthStats().catch(() => { });
             return showDashboard();
         }
 
@@ -283,7 +283,7 @@ async function showDashboard() {
         console.error('[xNico] Dashboard failed to render:', e);
         $('#auth-loading').classList.add('hidden');
         $('#dashboard').classList.remove('hidden');
-        toast('Something went wrong loading the dashboard. Please refresh.', 'error');
+        toast('Something went wrong loading the dashboard. ' + (e.message || String(e)), 'error');
     }
 }
 
@@ -388,14 +388,14 @@ function selectGuild(id) {
 
 // â”€â”€â”€â”€â”€ theme / sidebar / menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function toggleTheme() {
-    const cur = document.documentElement.dataset('data-theme') || 'dark';
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
     const next = cur === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset('data-theme', next);
+    document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
     updateThemeIcon();
 }
 function updateThemeIcon() {
-    const cur = document.documentElement.dataset('data-theme') || 'dark';
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
     $('#theme-icon-dark').classList.toggle('hidden', cur === 'light');
     $('#theme-icon-light').classList.toggle('hidden', cur !== 'light');
 }
@@ -544,7 +544,7 @@ function insertAtCursor(el, text) {
     const end = el.selectionEnd ?? el.value.length;
     el.value = el.value.slice(0, start) + text + el.value.slice(end);
     const pos = start + text.length;
-    try { el.selectionStart = el.selectionEnd = pos; } catch {}
+    try { el.selectionStart = el.selectionEnd = pos; } catch { }
     el.focus();
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -631,7 +631,7 @@ async function handleRoute() { // nosonar
     page.innerHTML = `<div style="display:flex;justify-content:center;padding:4rem 0"><div class="spinner"></div></div>`;
     markActiveNav();
     window.__renderModule = null;
-    try { initEmojiObserver(); } catch {}
+    try { initEmojiObserver(); } catch { }
 
     try {
         if (parts[0] === '' || parts[0] === 'servers') {
@@ -740,7 +740,7 @@ async function ensureGuild(gid) {
     if (gid && state.guildEmojisGuildId !== gid) {
         state.guildEmojisGuildId = gid;
         state.guildEmojis = [];
-        api(`/api/guild/${gid}/emojis`).then(e => { if (Array.isArray(e)) state.guildEmojis = e; }).catch(() => {});
+        api(`/api/guild/${gid}/emojis`).then(e => { if (Array.isArray(e)) state.guildEmojis = e; }).catch(() => { });
     }
 }
 
@@ -799,14 +799,14 @@ async function pageServers() {
             refreshBtn.disabled = true;
             refreshBtn.innerHTML = `${icon('refresh')} Checkingâ€¦`;
             try {
-                await api('/api/guilds/refresh', { method: 'POST' }).catch(() => {});
+                await api('/api/guilds/refresh', { method: 'POST' }).catch(() => { });
                 const fresh = await api('/api/guilds/me?refresh=1');
                 if (Array.isArray(fresh)) {
                     state.guilds = fresh;
                     pageServers();
                     return;
                 }
-            } catch {}
+            } catch { }
             refreshBtn.disabled = false;
             refreshBtn.innerHTML = original;
         });
@@ -856,7 +856,7 @@ function pageSetup() {
     async function recheck(force = false) {
         try {
             if (force) {
-                await api('/api/guilds/refresh', { method: 'POST' }).catch(() => {});
+                await api('/api/guilds/refresh', { method: 'POST' }).catch(() => { });
             }
             const fresh = await api('/api/guilds/me' + (force ? '?refresh=1' : ''));
             if (Array.isArray(fresh)) {
@@ -867,7 +867,7 @@ function pageSetup() {
                     return true;
                 }
             }
-        } catch {}
+        } catch { }
         return false;
     }
 
@@ -959,11 +959,11 @@ async function pageServerOverview() {
 function renderModCard(m, enabled) {
     const g = state.currentGuild;
     const locked = m.premium && !state.premium?.hasPremium;
-    
+
     let sub = 'Click to configure';
     if (locked) sub = 'Premium required';
     else if (enabled) sub = 'Enabled';
-    
+
     let statusHtml = '<span class="pro">PRO</span>';
     if (!m.premium) {
         statusHtml = `<span class="status ${enabled ? 'on' : ''}"></span>`;
@@ -1151,8 +1151,8 @@ async function pageModule(mod) {
                 const orig = dbtn.innerHTML;
                 dbtn.disabled = true; dbtn.innerHTML = icon('refresh') + ' Deployingâ€¦';
                 // Save the latest settings first so the bot builds the panel from them.
-                await api(`/api/guild/${g.id}/${mod.id}`, { method: 'PUT', body: JSON.stringify(working) }).catch(() => {});
-                try { localStorage.removeItem(draftKey); } catch {}
+                await api(`/api/guild/${g.id}/${mod.id}`, { method: 'PUT', body: JSON.stringify(working) }).catch(() => { });
+                try { localStorage.removeItem(draftKey); } catch { }
                 await deployPanel(g.id, mod.deploy.panel, chId, mod.deploy.panel === 'music' ? { channelId: chId || null } : {});
                 dbtn.disabled = false; dbtn.innerHTML = orig;
             };
@@ -1178,7 +1178,7 @@ function renderDeployCard(mod, working) {
     const note = d.panel === 'music'
         ? 'Leave the channel empty to auto-create a dedicated <code>nico-controller</code> channel.'
         : 'The bot posts the interactive panel into this channel right away.';
-        
+
     let channelHtml = '';
     if (showChannel) {
         const optLabel = d.optionalChannel ? ' (optional)' : '';
@@ -1893,8 +1893,8 @@ async function pagePremium() {
                         <td><span class="tag ${k.tier === 'server' ? 'cyan' : 'purple'}">${esc(k.tier || 'user')}</span></td>
                         <td>${esc(k.duration || 'â€”')}</td>
                         <td>${k.redeemed
-                            ? `<span class="tag green">Redeemed${k.redeemedBy ? ' by ' + esc(k.redeemedBy) : ''}</span>` // nosonar
-                            : '<span class="tag amber">Available</span>'}</td>
+            ? `<span class="tag green">Redeemed${k.redeemedBy ? ' by ' + esc(k.redeemedBy) : ''}</span>` // nosonar
+            : '<span class="tag amber">Available</span>'}</td>
                         <td class="text-sm text-mute">${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : 'â€”'}</td>
                         <td>${k.redeemed ? '' : `<button class="btn" data-revoke="${esc(k.key)}" title="Revoke key">${icon('user-x')}</button>`}</td>
                     </tr>`).join('')}</tbody>
@@ -1913,7 +1913,7 @@ async function pagePremium() {
         $('#pk-out').innerHTML = `
             <div class="tag green" style="font-size:1rem;padding:.5rem 1rem;font-family:monospace;letter-spacing:.05em">${esc(r.key)}</div>
             <p class="text-sm text-mute mt-1">Copied to clipboard. Send via DM and tell the user to redeem with <code>/redeemkey</code>.</p>`;
-        try { await navigator.clipboard.writeText(r.key); } catch {}
+        try { await navigator.clipboard.writeText(r.key); } catch { }
         toast('Key generated and copied', 'success');
         // Refresh after a short pause
         setTimeout(pagePremium, 800);
