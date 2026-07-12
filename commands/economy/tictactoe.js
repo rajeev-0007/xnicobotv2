@@ -4,7 +4,8 @@
  * Tic-Tac-Toe — bet vs the bot OR vs another user.
  *
  * Solo: bet up-front, win pays 2×, draw refunds, loss keeps the bet.
- *       Bot is "60% optimal / 40% random" so the player can win.
+ *       Bot is "88% perfect minimax / 12% smart heuristic" — very hard,
+ *       but a flawless player can still occasionally sneak a win.
  *
  * PvP : challenge container with Accept/Decline. Both players' coins
  *       are escrowed at accept-time; winner takes the pot (2× bet),
@@ -75,10 +76,40 @@ function minimax(board, isMax) {
     return best;
 }
 
+/**
+ * Smart heuristic move — used as the "imperfect" fallback so even the bot's
+ * non-minimax moves never hand the player a free win. It still takes an
+ * immediate win, blocks the player's immediate win, and otherwise prefers
+ * center → corners → edges. This makes the bot genuinely hard to beat while
+ * leaving a razor-thin window (only reachable via perfect play) for the
+ * player to win.
+ */
+function smartMove(board) {
+    // 1. Take an immediate winning move
+    for (let i = 0; i < 9; i++) {
+        if (board[i]) continue;
+        board[i] = 'O';
+        if (winner(board) === 'O') { board[i] = null; return i; }
+        board[i] = null;
+    }
+    // 2. Block the player's immediate winning move
+    for (let i = 0; i < 9; i++) {
+        if (board[i]) continue;
+        board[i] = 'X';
+        if (winner(board) === 'X') { board[i] = null; return i; }
+        board[i] = null;
+    }
+    // 3. Positional priority: center, then corners, then edges
+    const priority = [4, 0, 2, 6, 8, 1, 3, 5, 7];
+    for (const i of priority) if (!board[i]) return i;
+    return -1;
+}
+
 function botMove(board) {
-    if (Math.random() < 0.6) return bestMove(board);
-    const empty = board.map((v, i) => v ? -1 : i).filter(i => i !== -1);
-    return empty[Math.floor(Math.random() * empty.length)];
+    // 88% perfect minimax, 12% smart heuristic. The heuristic still blocks
+    // and takes wins, so the bot is much harder than the old 60/40 split.
+    if (Math.random() < 0.88) return bestMove(board);
+    return smartMove(board);
 }
 
 function settleSolo(userId, bet, payout) {
