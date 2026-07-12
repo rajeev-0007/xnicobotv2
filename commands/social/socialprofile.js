@@ -7,6 +7,7 @@ const economyManager = require('../../utils/economyManager');
 const { buildLoadingResponse, buildErrorResponse, EMOJIS } = require('../../utils/responseBuilder');
 const jsonStore = require('../../utils/jsonStore');
 const { resolveUser } = require('../../utils/resolveUser');
+const { resolveProfileAssets } = require('../../utils/discordAssets');
 
 function getLeveling() {
     if (!jsonStore.has('leveling')) return {};
@@ -43,16 +44,10 @@ async function generateProfileCard(user, guild, client) {
     const userProfile = await getUserData(user.id).catch(() => ({ profile: {}, social: {} }));
     const member = await guild.members.fetch(user.id).catch(() => null);
 
-    // Force-fetch the full user so we get their REAL Discord banner + avatar
-    // decoration — partial users from interaction options don't include them.
-    let fullUser = user;
-    try { fullUser = await client.users.fetch(user.id, { force: true }); } catch {}
-    const discordBanner = (typeof fullUser.bannerURL === 'function')
-        ? fullUser.bannerURL({ size: 1024, extension: 'png' })
-        : null;
-    const avatarDecoration = (typeof fullUser.avatarDecorationURL === 'function')
-        ? fullUser.avatarDecorationURL()
-        : null;
+    // Resolve the user's REAL Discord banner + avatar decoration (force-fetch
+    // included) — partial users from interaction options don't include them.
+    const { fullUser, banner: discordBanner, decoration: avatarDecoration } =
+        await resolveProfileAssets(client, user);
     const flags = fullUser.flags ? fullUser.flags.toArray() : [];
 
     let commandsUsed = 0;

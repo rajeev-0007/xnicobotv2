@@ -4,6 +4,7 @@ const LevelCard = require('../../utils/levelCard');
 const { getUserData, getGuildMember } = require('../../utils/database');
 const jsonStore = require('../../utils/jsonStore');
 const { resolveUser } = require('../../utils/resolveUser');
+const { resolveProfileAssets } = require('../../utils/discordAssets');
 
 function getLeveling() {
     if (!jsonStore.has('leveling')) return {};
@@ -37,16 +38,10 @@ async function generateRankCard(target, guild) {
     const member = await guild.members.fetch(target.id).catch(() => null);
     const userProfile = await getUserData(target.id).catch(() => ({ profile: {}, social: {} }));
 
-    // Force-fetch the full user so we get their REAL Discord banner + avatar
-    // decoration — partial users from interaction options don't include them.
-    let fullUser = target;
-    try { fullUser = await guild.client.users.fetch(target.id, { force: true }); } catch {}
-    const discordBanner = (typeof fullUser.bannerURL === 'function')
-        ? fullUser.bannerURL({ size: 1024, extension: 'png' })
-        : null;
-    const avatarDecoration = (typeof fullUser.avatarDecorationURL === 'function')
-        ? fullUser.avatarDecorationURL()
-        : null;
+    // Resolve the user's REAL Discord banner + avatar decoration (force-fetch
+    // included) — partial users from interaction options don't include them.
+    const { fullUser, banner: discordBanner, decoration: avatarDecoration } =
+        await resolveProfileAssets(guild.client, target);
     
     let messageCount = userData.messages || 0;
     let voiceTime = 0;

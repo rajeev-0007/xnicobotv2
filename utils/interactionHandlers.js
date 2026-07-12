@@ -4236,12 +4236,9 @@ async function handleProfileButtons(interaction) {
             }
             // Default the banner to the user's real Discord banner + fetch
             // their avatar decoration so the preview matches /socialprofile.
-            let fullUser = interaction.user;
-            try { fullUser = await interaction.client.users.fetch(interaction.user.id, { force: true }); } catch {}
-            const discordBanner = (typeof fullUser.bannerURL === 'function')
-                ? fullUser.bannerURL({ size: 1024, extension: 'png' }) : null;
-            const avatarDecoration = (typeof fullUser.avatarDecorationURL === 'function')
-                ? fullUser.avatarDecorationURL() : null;
+            const { resolveProfileAssets } = require('./discordAssets');
+            const { fullUser, banner: discordBanner, decoration: avatarDecoration } =
+                await resolveProfileAssets(interaction.client, interaction.user);
             const effectiveBanner = profileSettings.bannerImage || discordBanner;
             if (effectiveBanner) {
                 profileCard.setBannerImage(effectiveBanner);
@@ -4713,12 +4710,9 @@ async function handleProfileButtons(interaction) {
             }
             // Default the banner to the user's real Discord banner + fetch
             // their avatar decoration so the preview matches /rank.
-            let fullUser = interaction.user;
-            try { fullUser = await interaction.client.users.fetch(interaction.user.id, { force: true }); } catch {}
-            const discordBanner = (typeof fullUser.bannerURL === 'function')
-                ? fullUser.bannerURL({ size: 1024, extension: 'png' }) : null;
-            const avatarDecoration = (typeof fullUser.avatarDecorationURL === 'function')
-                ? fullUser.avatarDecorationURL() : null;
+            const { resolveProfileAssets } = require('./discordAssets');
+            const { fullUser, banner: discordBanner, decoration: avatarDecoration } =
+                await resolveProfileAssets(interaction.client, interaction.user);
             const effectiveBanner = rankSettings.bannerImage || discordBanner;
             if (effectiveBanner) {
                 levelCard.setBannerImage(effectiveBanner);
