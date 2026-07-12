@@ -1,7 +1,7 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
-const { createContainer, addTextDisplay, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('../../utils/componentHelpers');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const { renderShowcase } = require('../../utils/animeCardCanvas');
 
@@ -67,8 +67,9 @@ async function handleShowcase(reply, user, characterName) {
         `> 🌍 **Global Owners:** ${globalOwners}`,
     ].join('\n'));
 
-    const mediaGallery = new MediaGalleryBuilder();
-    mediaGallery.addItem(new MediaGalleryItemBuilder().setMedia('attachment://showcase.png'));
+    const mediaGallery = new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL('attachment://showcase.png')
+    );
     container.addMediaGalleryComponents(mediaGallery);
 
     return reply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
@@ -87,11 +88,13 @@ module.exports = {
 
     async executePrefix(message, args) {
         const characterName = args.join(' ');
+        await message.channel.sendTyping().catch(() => {});
         return handleShowcase(message.reply.bind(message), message.author, characterName);
     },
 
     async execute(interaction) {
         const characterName = interaction.options.getString('character');
-        return handleShowcase(interaction.reply.bind(interaction), interaction.user, characterName);
+        await interaction.deferReply();
+        return handleShowcase((payload) => interaction.editReply(payload), interaction.user, characterName);
     },
 };
