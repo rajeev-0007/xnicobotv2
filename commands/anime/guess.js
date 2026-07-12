@@ -4,6 +4,7 @@ const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilde
 const { createCanvas } = require('@napi-rs/canvas');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 const imageCache = require('../../utils/imageCache');
 const { registerAllFonts } = require('../../utils/fontRegistry');
@@ -57,7 +58,7 @@ async function playGuess(context, user, channel, isInteraction, reply) {
     addTextDisplay(c, [
         `## <:Search:1521228231263387738> Guess the Anime Character!`,
         `> Type the character's **name** in chat within **${TIME / 1000}s**.`,
-        `-# Hint: from *${character.anime}* • Reward: 💰 ${REWARD} coins`,
+        `-# Hint: from *${character.anime}* • Reward: ${AE.money} ${REWARD} coins`,
     ].join('\n'));
     c.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
@@ -98,7 +99,7 @@ async function playGuess(context, user, channel, isInteraction, reply) {
             userData.coins += REWARD;
             economyManager.saveEconomy(economy);
             const win = createContainer(0x57F287);
-            addTextDisplay(win, [`## <:Checkedbox:1521227734943269077> Correct!`, `> It was **${character.name}** — *${character.anime}*`, `> 💰 +${REWARD} coins`, `-# Use \`aroll\` to collect characters!`].join('\n'));
+            addTextDisplay(win, [`## <:Checkedbox:1521227734943269077> Correct!`, `> It was **${character.name}** — *${character.anime}*`, `> ${AE.money} +${REWARD} coins`, `-# Use \`aroll\` to collect characters!`].join('\n'));
             win.addMediaGalleryComponents(
                 new MediaGalleryBuilder().addItems(
                     new MediaGalleryItemBuilder().setURL('attachment://reveal.png')

@@ -131,9 +131,10 @@ function parseTime(input) {
 }
 
 /**
- * Voice-channel-status (/channels/:id/voice-status) cannot render custom
- * guild emoji. Map our internal platform key to a Unicode glyph that
- * actually shows up in the VC sidebar.
+ * Voice-channel-status (/channels/:id/voice-status) CANNOT render custom
+ * guild emoji or markdown — only plain Unicode shows up in the VC sidebar.
+ * Map the source to a brand-coloured Unicode glyph so the status reads
+ * cleanly and reflects the platform ("as per source").
  */
 function voiceStatusGlyph(sourceName) {
     const s = (sourceName || '').toLowerCase();

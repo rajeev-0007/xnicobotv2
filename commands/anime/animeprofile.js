@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay, addSeparator, SeparatorSpacingSize } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const { resolveUser } = require('../../utils/resolveUser');
 
 async function handleProfile(reply, targetUser, guildId) {
@@ -40,18 +41,18 @@ async function handleProfile(reply, targetUser, guildId) {
 
     const container = createContainer(0x9B59B6);
     addTextDisplay(container, [
-        `## 🎴 ${targetUser.username}'s Anime Profile`,
+        `## ${AE.card} ${targetUser.username}'s Anime Profile`,
         '',
-        `### 📊 Collection Progress`,
+        `### ${AE.progress} Collection Progress`,
         `> \`[${progressBar}]\` **${stats.percentage}%**`,
         `> **${stats.unique}/${stats.maxUnique}** unique characters collected`,
         '',
-        `### 📈 Stats`,
-        `> 🃏 **Total Cards:** ${stats.total.toLocaleString()}`,
-        `> 💰 **Collection Value:** ${totalValue.toLocaleString()} coins`,
-        `> 🎲 **Total Rolls:** ${playerData.totalRolls.toLocaleString()}`,
-        `> 💸 **Total Spent:** ${playerData.totalSpent.toLocaleString()} coins`,
-        `> 🔄 **Trades Made:** ${playerData.trades}`,
+        `### ${AE.stats} Stats`,
+        `> ${AE.cards} **Total Cards:** ${stats.total.toLocaleString()}`,
+        `> ${AE.money} **Collection Value:** ${totalValue.toLocaleString()} coins`,
+        `> ${AE.roll} **Total Rolls:** ${playerData.totalRolls.toLocaleString()}`,
+        `> ${AE.spent} **Total Spent:** ${playerData.totalSpent.toLocaleString()} coins`,
+        `> ${AE.trade} **Trades Made:** ${playerData.trades}`,
     ].join('\n'));
 
     addSeparator(container, SeparatorSpacingSize.Small);
@@ -64,7 +65,7 @@ async function handleProfile(reply, targetUser, guildId) {
     addSeparator(container, SeparatorSpacingSize.Small);
 
     addTextDisplay(container, [
-        `### 💜 Favorites`,
+        `### ${AE.favorite} Favorites`,
         favLines.join('\n'),
         '',
         `-# Use \`aroll\` to collect • \`afavorites add\` to showcase`,

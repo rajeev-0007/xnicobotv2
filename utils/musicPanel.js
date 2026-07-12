@@ -19,6 +19,33 @@ const log = require('./logger-styled');
 const updateLocks = new Map();
 const voiceStatusDebounce = new Map();
 
+/**
+ * SINGLE SOURCE OF TRUTH for 24/7 mode.
+ *
+ * Previously every disconnect guard did
+ *   `premiumManager.isServerPremium(guildId) && config247[...].enabled`
+ * but server premium was DISCONTINUED — `isServerPremium()` now always
+ * returns false, so that expression was always false and the bot
+ * disconnected on skip/stop/queue-end/alone EVEN WHEN 24/7 WAS ON.
+ *
+ * 24/7 is gated at ENABLE time (the `247` command is premiumOnly). Once
+ * enabled it must be honoured strictly at runtime — read the config and
+ * nothing else. This is the ONLY place 24/7 state should be resolved.
+ *
+ * @param {string} guildId
+ * @returns {boolean}
+ */
+function is247Enabled(guildId) {
+    if (!guildId) return false;
+    try {
+        if (!jsonStore.has('musicpanel-247')) return false;
+        const cfg = jsonStore.read('musicpanel-247');
+        return !!cfg?.[guildId]?.enabled;
+    } catch {
+        return false;
+    }
+}
+
 const MUSIC_THEME = {
     primary: 0x5865F2,
     success: 0x57F287,
@@ -135,9 +162,12 @@ function buildNowPlayingContainer(player, autoplayStatus, options = {}) {
     const container = new ContainerBuilder();
     container.setAccentColor(platform.color);
 
-    // Artwork
-    const artworkUrl = track.info.artworkUrl || track.info.thumbnail;
-    if (artworkUrl && artworkUrl.startsWith('http')) {
+    // Artwork — prefer a pre-rendered canvas card (passed as an
+    // attachment:// URL by the nowplaying/musiccard commands); otherwise
+    // fall back to the remote track artwork. The auto-updating 5s panel
+    // calls without options, so it stays on the lightweight remote image.
+    const artworkUrl = options.cardImageUrl || track.info.artworkUrl || track.info.thumbnail;
+    if (artworkUrl && (artworkUrl.startsWith('http') || artworkUrl.startsWith('attachment://'))) {
         try {
             container.addMediaGalleryComponents(
                 new MediaGalleryBuilder().addItems(item => item.setURL(artworkUrl))
@@ -538,7 +568,9 @@ function buildVoiceStatus(player, track = null) {
  * @returns {string} Formatted waiting status
  */
 function buildWaitingStatus() {
-    return `🎶 /play <song>`;
+    // Voice-channel-status renders plain Unicode only — no custom guild
+    // emoji or markdown (they would show up as raw text in the sidebar).
+    return '🎶 /play <song>';
 }
 
 /**
@@ -568,29 +600,38 @@ async function updateVoiceChannelStatus(client, playerOrIds, type = 'auto', trac
             status = playerOrIds.queue ? buildVoiceStatus(playerOrIds, track) : null;
         }
 
-        // Debounce: avoid rapid voice status API calls (rate-limit safe)
+        // Debounce: avoid rapid voice status API calls (rate-limit safe).
+        // When a newer call supersedes a pending one we MUST resolve the
+        // superseded promise too — otherwise the earlier `await` (e.g. in
+        // the trackStart handler) would hang forever, silently stalling the
+        // code that runs after it.
         const debounceKey = guildId;
-        if (voiceStatusDebounce.has(debounceKey)) {
-            clearTimeout(voiceStatusDebounce.get(debounceKey));
+        const prev = voiceStatusDebounce.get(debounceKey);
+        if (prev) {
+            clearTimeout(prev.timer);
+            prev.resolve(); // release the superseded awaiter
         }
 
-        const timer = setTimeout(async () => {
-            voiceStatusDebounce.delete(debounceKey);
-            try {
-                // Any falsy status (null OR empty string) clears the VC status —
-                // Discord only accepts a non-empty string or null, not ''.
-                await client.rest.put(`/channels/${vc.id}/voice-status`, {
-                    body: { status: status ? status.substring(0, 500) : null }
-                });
-            } catch (err) {
-                if (err.status === 429) {
-                    log.warning(`Voice status rate-limited for guild ${guildId}`);
-                } else if (err.status !== 403 && err.status !== 404) {
-                    log.error(`Voice status update failed: ${err.message}`);
+        await new Promise((resolve) => {
+            const timer = setTimeout(async () => {
+                voiceStatusDebounce.delete(debounceKey);
+                try {
+                    // Any falsy status (null OR empty string) clears the VC status —
+                    // Discord only accepts a non-empty string or null, not ''.
+                    await client.rest.put(`/channels/${vc.id}/voice-status`, {
+                        body: { status: status ? status.substring(0, 500) : null }
+                    });
+                } catch (err) {
+                    if (err.status === 429) {
+                        log.warning(`Voice status rate-limited for guild ${guildId}`);
+                    } else if (err.status !== 403 && err.status !== 404) {
+                        log.error(`Voice status update failed: ${err.message}`);
+                    }
                 }
-            }
-        }, 300);
-        voiceStatusDebounce.set(debounceKey, timer);
+                resolve();
+            }, 300);
+            voiceStatusDebounce.set(debounceKey, { timer, resolve });
+        });
     } catch (e) {
         log.error(`Voice status error: ${e.message}`);
     }
@@ -688,6 +729,7 @@ module.exports = {
     buildVoiceStatus,
     buildWaitingStatus,
     updateVoiceChannelStatus,
+    is247Enabled,
     truncateText,
     MUSIC_THEME,
     EMOJIS

@@ -51,13 +51,14 @@ const tiers = [
       detail: 'Universities cite you in passing. The IQ scale itself is asking for tips.' },
 ];
 
-async function buildAndSend(targetUser, displayName) {
+async function buildAndSend(targetUser) {
     const iq = userIQ(targetUser.id);
     const tier = pickTier(iq, tiers);
 
     const buffer = await renderPercentCard({
         title: 'IQ Test',
-        subjectName: displayName || targetUser.username,
+        // Always use the Discord username (not the server nickname/display name).
+        subjectName: targetUser.username,
         avatarURL: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
         percent: iq,             // shown as the big number
         barMax: 200,             // scale ring + bar against an IQ-of-200 cap
@@ -93,10 +94,8 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply().catch(() => {});
         const target = interaction.options.getUser('user') || interaction.user;
-        const member = interaction.guild?.members.cache.get(target.id);
-        const displayName = member?.displayName || target.username;
         try {
-            const { container, attachment } = await buildAndSend(target, displayName);
+            const { container, attachment } = await buildAndSend(target);
             await interaction.editReply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
         } catch (err) {
             console.error('[iq] render error:', err);
@@ -106,10 +105,8 @@ module.exports = {
 
     async executePrefix(message) {
         const target = message.mentions.users.first() || message.author;
-        const member = message.guild?.members.cache.get(target.id);
-        const displayName = member?.displayName || target.username;
         try {
-            const { container, attachment } = await buildAndSend(target, displayName);
+            const { container, attachment } = await buildAndSend(target);
             await message.reply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
         } catch (err) {
             console.error('[iq] render error:', err);

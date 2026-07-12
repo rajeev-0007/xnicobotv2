@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const { resolveUser } = require('../../utils/resolveUser');
 
 const CARDS_PER_PAGE = 10;
@@ -50,10 +51,10 @@ function buildPage(targetUser, playerData, entries, page, filterRarity) {
 
     const container = createContainer(0x9B59B6);
     addTextDisplay(container, [
-        `## 🎴 ${targetUser.username}'s Collection`,
+        `## ${AE.card} ${targetUser.username}'s Collection`,
         '',
-        `> 📊 **${stats.unique}/${stats.maxUnique}** unique (${stats.percentage}% complete)`,
-        `> 🃏 **${stats.total}** total cards collected`,
+        `> ${AE.stats} **${stats.unique}/${stats.maxUnique}** unique (${stats.percentage}% complete)`,
+        `> ${AE.cards} **${stats.total}** total cards collected`,
         '',
         lines.join('\n'),
         '',
@@ -82,7 +83,7 @@ async function handleCollection(sendReply, targetUser, viewerId, page = 0, filte
     if (playerData.collection.length === 0) {
         const container = createContainer(0xCAD7E6);
         addTextDisplay(container, [
-            `## 🎴 Anime Collection`,
+            `## ${AE.card} Anime Collection`,
             '',
             isSelf ? `> You haven't collected any characters yet!` : `> ${targetUser.username} hasn't collected any characters yet!`,
             '',
@@ -119,7 +120,7 @@ async function handleCollection(sendReply, targetUser, viewerId, page = 0, filte
             // Rebuild without buttons on expire
             const c = createContainer(0x9B59B6);
             const stats = animeManager.getCollectionStats(playerData);
-            addTextDisplay(c, [`## 🎴 ${targetUser.username}'s Collection`, '', `> 📊 **${stats.unique}/${stats.maxUnique}** unique • 🃏 **${stats.total}** cards`, '', `-# Session expired — run \`acollection\` again`].join('\n'));
+            addTextDisplay(c, [`## ${AE.card} ${targetUser.username}'s Collection`, '', `> ${AE.stats} **${stats.unique}/${stats.maxUnique}** unique • ${AE.cards} **${stats.total}** cards`, '', `-# Session expired — run \`acollection\` again`].join('\n'));
             await message.edit({ components: [c], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
         } catch {}
     });

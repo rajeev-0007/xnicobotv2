@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const animeCard = require('../../utils/animeCardCanvas');
 
 async function handleCharInfo(reply, user, guildId, characterName) {
@@ -37,14 +38,14 @@ async function handleCharInfo(reply, user, guildId, characterName) {
         `## ${rarity.emoji} ${char.name}`,
         `> **Anime:** ${char.anime}`,
         `> **Rarity:** ${rarity.emoji} ${rarity.name}`,
-        `> **Value:** 💰 ${rarity.value.toLocaleString()} • **Sell:** 💰 ${sellValue.toLocaleString()}`,
+        `> **Value:** ${AE.money} ${rarity.value.toLocaleString()} • **Sell:** ${AE.money} ${sellValue.toLocaleString()}`,
         `> **Drop Rate:** ${rarity.weight}%`,
         char.favourites ? `> **AniList Favourites:** ${char.favourites.toLocaleString()}` : '',
         '',
-        `> 🃏 **You Own:** ${owned > 0 ? `${owned} cop${owned > 1 ? 'ies' : 'y'}` : 'Not owned'}`,
-        `> 🌍 **Global Owners:** ${globalOwners}`,
-        playerData.wishlist.includes(char.id) ? `> ⭐ On your wishlist` : '',
-        playerData.favorites.includes(char.id) ? `> 💜 In your favorites` : '',
+        `> ${AE.cards} **You Own:** ${owned > 0 ? `${owned} cop${owned > 1 ? 'ies' : 'y'}` : 'Not owned'}`,
+        `> ${AE.server} **Global Owners:** ${globalOwners}`,
+        playerData.wishlist.includes(char.id) ? `> ${AE.wishlist} On your wishlist` : '',
+        playerData.favorites.includes(char.id) ? `> ${AE.favorite} In your favorites` : '',
     ].filter(Boolean).join('\n'));
     c.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(

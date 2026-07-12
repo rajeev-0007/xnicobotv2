@@ -3,13 +3,14 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 
 async function handleSell(reply, user, guildId, characterName, sellAll = false) {
     if (!characterName && !sellAll) {
         const container = createContainer(0xED4245);
         addTextDisplay(container, [
-            `## ❌ Usage`,
+            `## ${AE.cancel} Usage`,
             '',
             `> \`asell <character name>\` — Sell a specific character`,
             `> \`asell duplicates\` — Sell all duplicate cards`,
@@ -29,7 +30,7 @@ async function handleSell(reply, user, guildId, characterName, sellAll = false) 
         const duplicates = animeManager.getDuplicates(playerData);
         if (duplicates.length === 0) {
             const container = createContainer(0xFEE75C);
-            addTextDisplay(container, `## ⚠️ No Duplicates\nYou don't have any duplicate cards to sell.`);
+            addTextDisplay(container, `## ${AE.warn} No Duplicates\nYou don't have any duplicate cards to sell.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
@@ -53,10 +54,10 @@ async function handleSell(reply, user, guildId, characterName, sellAll = false) 
 
         const container = createContainer(0x57F287);
         addTextDisplay(container, [
-            `## 💰 Duplicates Sold!`,
+            `## ${AE.money} Duplicates Sold!`,
             '',
-            `> 🃏 Sold **${totalSold}** duplicate cards`,
-            `> 💰 Earned **${totalEarned.toLocaleString()}** coins`,
+            `> ${AE.cards} Sold **${totalSold}** duplicate cards`,
+            `> ${AE.money} Earned **${totalEarned.toLocaleString()}** coins`,
             '',
             `-# Your collection now has only unique cards (1 of each)`,
         ].join('\n'));
@@ -67,13 +68,13 @@ async function handleSell(reply, user, guildId, characterName, sellAll = false) 
     const char = animeManager.findCharacter(characterName);
     if (!char) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Found\nCharacter "${characterName}" not found. Use \`acharlist\` to see all characters.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${characterName}" not found. Use \`acharlist\` to see all characters.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (!animeManager.hasCharacter(playerData, char.id)) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Owned\nYou don't have **${char.name}** in your collection.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Owned\nYou don't have **${char.name}** in your collection.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -87,10 +88,10 @@ async function handleSell(reply, user, guildId, characterName, sellAll = false) 
 
     const container = createContainer(0x57F287);
     addTextDisplay(container, [
-        `## 💰 Card Sold!`,
+        `## ${AE.money} Card Sold!`,
         '',
         `> ${rarity.emoji} **${char.name}** (*${char.anime}*)`,
-        `> 💰 Received **${sellValue.toLocaleString()}** coins`,
+        `> ${AE.money} Received **${sellValue.toLocaleString()}** coins`,
         '',
         `-# Remaining copies: ${animeManager.getCharacterCount(playerData, char.id)}`,
     ].join('\n'));

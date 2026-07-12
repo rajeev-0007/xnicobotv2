@@ -3,13 +3,14 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const { renderCompare } = require('../../utils/animeCardCanvas');
 
 async function handleCompare(reply, character1Name, character2Name) {
     if (!character1Name || !character2Name) {
         const container = createContainer(0xED4245);
         addTextDisplay(container, [
-            `## ❌ Usage`,
+            `## ${AE.cancel} Usage`,
             '',
             `> \`acompare <char1> <char2>\` — Compare two characters side-by-side`,
             '',
@@ -23,12 +24,12 @@ async function handleCompare(reply, character1Name, character2Name) {
 
     if (!char1) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Found\nCharacter "${character1Name}" not found.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${character1Name}" not found.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
     if (!char2) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Found\nCharacter "${character2Name}" not found.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${character2Name}" not found.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -40,15 +41,15 @@ async function handleCompare(reply, character1Name, character2Name) {
 
     const container = createContainer(0x3498DB);
     addTextDisplay(container, [
-        `## ⚔️ Character Comparison`,
+        `## ${AE.stats} Character Comparison`,
         '',
         `**${char1.name}** (${animeManager.RARITIES[char1.rarity].name})`,
-        `> 💰 Value: **${val1.toLocaleString()}** coins`,
-        `> 📺 Anime: *${char1.anime}*`,
+        `> ${AE.money} Value: **${val1.toLocaleString()}** coins`,
+        `> ${AE.book} Anime: *${char1.anime}*`,
         '',
         `**${char2.name}** (${animeManager.RARITIES[char2.rarity].name})`,
-        `> 💰 Value: **${val2.toLocaleString()}** coins`,
-        `> 📺 Anime: *${char2.anime}*`,
+        `> ${AE.money} Value: **${val2.toLocaleString()}** coins`,
+        `> ${AE.book} Anime: *${char2.anime}*`,
     ].join('\n'));
 
     const mediaGallery = new MediaGalleryBuilder().addItems(

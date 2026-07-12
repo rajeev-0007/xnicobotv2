@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 const { renderFusion } = require('../../utils/animeCardCanvas');
 
@@ -10,7 +11,7 @@ async function handleFuse(reply, user, character1Name, character2Name) {
     if (!character1Name || !character2Name) {
         const container = createContainer(0xED4245);
         addTextDisplay(container, [
-            `## ❌ Usage`,
+            `## ${AE.cancel} Usage`,
             '',
             `> \`afuse <char1> <char2>\` — Fuse two characters to get a random one`,
             '',
@@ -29,30 +30,30 @@ async function handleFuse(reply, user, character1Name, character2Name) {
 
     if (!char1) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Found\nCharacter "${character1Name}" not found.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${character1Name}" not found.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
     if (!char2) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Found\nCharacter "${character2Name}" not found.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${character2Name}" not found.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (!animeManager.hasCharacter(playerData, char1.id)) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Owned\nYou don't own **${char1.name}**.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Owned\nYou don't own **${char1.name}**.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
     if (!animeManager.hasCharacter(playerData, char2.id)) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Owned\nYou don't own **${char2.name}**.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Owned\nYou don't own **${char2.name}**.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     // if char1 and char2 are the same, they must have at least 2 copies
     if (char1.id === char2.id && animeManager.getCharacterCount(playerData, char1.id) < 2) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Enough Copies\nYou need 2 copies of **${char1.name}** to fuse them together.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Enough Copies\nYou need 2 copies of **${char1.name}** to fuse them together.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -60,7 +61,7 @@ async function handleFuse(reply, user, character1Name, character2Name) {
 
     if (userData.coins < fusionCost) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Insufficient Funds\nFusion costs **${fusionCost.toLocaleString()}** coins. You only have **${userData.coins.toLocaleString()}**.`);
+        addTextDisplay(container, `## ${AE.cancel} Insufficient Funds\nFusion costs **${fusionCost.toLocaleString()}** coins. You only have **${userData.coins.toLocaleString()}**.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -71,7 +72,7 @@ async function handleFuse(reply, user, character1Name, character2Name) {
     const fusionResult = animeManager.fuseCards(playerData, char1.id, char2.id);
     if (!fusionResult) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Fusion Failed\nAn error occurred during fusion.`);
+        addTextDisplay(container, `## ${AE.cancel} Fusion Failed\nAn error occurred during fusion.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
     
@@ -96,11 +97,11 @@ async function handleFuse(reply, user, character1Name, character2Name) {
 
     const container = createContainer(color);
     addTextDisplay(container, [
-        `## 🔮 Fusion Complete: ${status}`,
+        `## ${AE.sparkle} Fusion Complete: ${status}`,
         '',
         `> You fused **${char1.name}** and **${char2.name}**!`,
         `> Result: **${fusionResult.result.name}** (${animeManager.RARITIES[fusionResult.result.rarity].name})`,
-        `> 💰 Cost: **${fusionCost.toLocaleString()}** coins`,
+        `> ${AE.money} Cost: **${fusionCost.toLocaleString()}** coins`,
     ].join('\n'));
 
     const mediaGallery = new MediaGalleryBuilder().addItems(
@@ -112,7 +113,7 @@ async function handleFuse(reply, user, character1Name, character2Name) {
     if (newAchievements.length > 0) {
         const achContainer = createContainer(0x57F287);
         const achLines = newAchievements.map(a => `${a.emoji} **${a.name}** (+${a.reward} coins)`);
-        addTextDisplay(achContainer, `### 🏆 Achievements Unlocked!\n${achLines.join('\n')}`);
+        addTextDisplay(achContainer, `### ${AE.trophy} Achievements Unlocked!\n${achLines.join('\n')}`);
         components.push(achContainer);
     }
 

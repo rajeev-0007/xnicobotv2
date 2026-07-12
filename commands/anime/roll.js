@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const animeCard = require('../../utils/animeCardCanvas');
 const economyManager = require('../../utils/economyManager');
 
@@ -36,7 +37,7 @@ async function handleRoll(reply, user, guildId, multi = false) {
                 '',
                 `You need **${cost.toLocaleString()}** coins to roll${multi ? ' (×10)' : ''}.`,
                 `> Balance: **${(userData.coins || 0).toLocaleString()}** coins`,
-                freeRolls > 0 ? `\n-# 🎟️ You have ${freeRolls} free roll(s) — use \`adaily\`` : `\n-# Free rolls used — \`adaily\` to vote for +${animeManager.VOTE_BONUS_ROLLS} more, or earn coins with \`daily\` / \`work\``,
+                freeRolls > 0 ? `\n-# ${AE.present} You have ${freeRolls} free roll(s) — use \`adaily\`` : `\n-# Free rolls used — \`adaily\` to vote for +${animeManager.VOTE_BONUS_ROLLS} more, or earn coins with \`daily\` / \`work\``,
             ].join('\n'));
             return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
         }
@@ -62,7 +63,7 @@ async function handleRoll(reply, user, guildId, multi = false) {
         const c = createContainer(0x9B59B6);
         addTextDisplay(c, [
             `## <:Present:1521228115655917659> Multi Roll ×${animeManager.MULTI_ROLL_COUNT}`,
-            `> ✨ **${newCount} New** • 🔄 **${dupCount} Dupes**`,
+            `> ${AE.sparkle} **${newCount} New** • ${AE.refresh} **${dupCount} Dupes**`,
             `-# ${isFreeRoll ? 'Free roll' : `${animeManager.MULTI_ROLL_COST} coins`} • Collection: ${playerData.collection.length} cards`,
         ].join('\n'));
         c.addMediaGalleryComponents(
@@ -85,10 +86,10 @@ async function handleRoll(reply, user, guildId, multi = false) {
     const c = createContainer(rarity.color);
     const lines = [
         `## ${rarity.emoji} You rolled **${character.name}**!`,
-        `> ${rarity.emoji} **${rarity.name}** • 💰 ${rarity.value.toLocaleString()} value`,
+        `> ${rarity.emoji} **${rarity.name}** • ${AE.money} ${rarity.value.toLocaleString()} value`,
         `-# ${isFreeRoll ? 'Free roll' : `${animeManager.ROLL_COST} coins`} • Collection: ${playerData.collection.length} cards`,
     ];
-    if (wishlistHit) lines.push(`\n🌟 **WISHLIST HIT!**`);
+    if (wishlistHit) lines.push(`\n${AE.star} **WISHLIST HIT!**`);
     addTextDisplay(c, lines.join('\n'));
     c.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(

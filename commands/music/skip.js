@@ -1,27 +1,17 @@
 'use strict';
 
 const { SlashCommandBuilder } = require('discord.js');
-const { EMOJIS, getPlatformInfo, truncateText } = require('../../utils/musicPanel');
+const { EMOJIS, getPlatformInfo, truncateText, is247Enabled } = require('../../utils/musicPanel');
 const { formatTime } = require('../../utils/musicHelpers');
-const jsonStore = require('../../utils/jsonStore');
-const premiumManager = require('../../utils/premiumManager');
 const {
     preflightPlayer, musicSuccess, musicError, replyMusic,
 } = require('../../utils/musicResponse');
 
 const MAX_SKIP = 25;
 
-function read247(guildId) {
-    try {
-        // 24/7 is premium-only — non-premium servers fall through to the
-        // normal "destroy player when queue empty" branch even if the
-        // saved config still says enabled.
-        if (!premiumManager.isServerPremium(guildId)) return false;
-        if (!jsonStore.has('musicpanel-247')) return false;
-        const cfg = jsonStore.read('musicpanel-247');
-        return !!cfg?.[guildId]?.enabled;
-    } catch { return false; }
-}
+// 24/7 state resolves through the single source of truth in musicPanel.
+// When enabled the bot must STAY in voice instead of being destroyed.
+const read247 = (guildId) => is247Enabled(guildId);
 
 async function performSkip(player, count, guildId) {
     if (count > 1 && player.queue.tracks.length > 0) {

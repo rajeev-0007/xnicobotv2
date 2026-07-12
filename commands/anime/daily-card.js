@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const animeCard = require('../../utils/animeCardCanvas');
 
 /** Build the "vote to earn more rolls" panel shown once daily rolls run out. */
@@ -83,13 +84,13 @@ async function handleDailyCard(reply, user, guildId) {
 
     const c = createContainer(rarity.color);
     const lines = [
-        `## 🎟️ ${source === 'bonus' ? 'Vote Bonus Roll' : 'Daily Free Roll'} — **${character.name}**`,
-        `> ${rarity.emoji} **${rarity.name}** • 💰 ${rarity.value.toLocaleString()} value`,
+        `## ${AE.present} ${source === 'bonus' ? 'Vote Bonus Roll' : 'Daily Free Roll'} — **${character.name}**`,
+        `> ${rarity.emoji} **${rarity.name}** • ${AE.money} ${rarity.value.toLocaleString()} value`,
     ];
-    if (bonusClaimed) lines.push(`> 🎉 **+${animeManager.VOTE_BONUS_ROLLS} vote bonus rolls claimed!**`);
-    const bonusStr = bonusLeft > 0 ? ` • 🎁 ${bonusLeft} bonus` : '';
+    if (bonusClaimed) lines.push(`> ${AE.sparkle} **+${animeManager.VOTE_BONUS_ROLLS} vote bonus rolls claimed!**`);
+    const bonusStr = bonusLeft > 0 ? ` • ${AE.gift} ${bonusLeft} bonus` : '';
     lines.push(`-# Rolls left today: ${dailyLeft}/${animeManager.DAILY_FREE_ROLLS}${bonusStr}`);
-    if (playerData.wishlist.includes(character.id)) lines.push(`\n🌟 **WISHLIST HIT!**`);
+    if (playerData.wishlist.includes(character.id)) lines.push(`\n${AE.star} **WISHLIST HIT!**`);
     addTextDisplay(c, lines.join('\n'));
     c.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(

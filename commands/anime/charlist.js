@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 
 const CHARS_PER_PAGE = 15;
 const RARITY_ORDER = ['mythic', 'legendary', 'epic', 'rare', 'uncommon', 'common'];
@@ -37,7 +38,7 @@ function buildPage(chars, page, filterRarity, filterAnime) {
 
     const container = createContainer(0xCAD7E6);
     addTextDisplay(container, [
-        `## 📖 Character Database`,
+        `## ${AE.book} Character Database`,
         '',
         `> **${animeManager.CHARACTERS.length}** characters from **${uniqueAnime}** anime`,
         '',

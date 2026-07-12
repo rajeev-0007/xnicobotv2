@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE, rankBadge } = require('../../utils/animeEmojis');
 
 async function handleLeaderboard(reply, guildId, type = 'collection') {
     const animeData = animeManager.loadAnimeData();
@@ -11,7 +12,7 @@ async function handleLeaderboard(reply, guildId, type = 'collection') {
     if (players.length === 0) {
         const container = createContainer(0xCAD7E6);
         addTextDisplay(container, [
-            `## 🏆 Anime Leaderboard`,
+            `## ${AE.trophy} Anime Leaderboard`,
             '',
             `> No one has collected any cards yet!`,
             '',
@@ -26,7 +27,7 @@ async function handleLeaderboard(reply, guildId, type = 'collection') {
 
     switch (type) {
         case 'unique':
-            title = '🏆 Unique Cards Leaderboard';
+            title = `${AE.trophy} Unique Cards Leaderboard`;
             valueLabel = 'unique';
             sorted = players.map(([userId, pd]) => ({
                 userId,
@@ -35,7 +36,7 @@ async function handleLeaderboard(reply, guildId, type = 'collection') {
             break;
 
         case 'value':
-            title = '💰 Collection Value Leaderboard';
+            title = `${AE.money} Collection Value Leaderboard`;
             valueLabel = 'coins value';
             sorted = players.map(([userId, pd]) => ({
                 userId,
@@ -44,7 +45,7 @@ async function handleLeaderboard(reply, guildId, type = 'collection') {
             break;
 
         case 'rolls':
-            title = '🎲 Total Rolls Leaderboard';
+            title = `${AE.roll} Total Rolls Leaderboard`;
             valueLabel = 'rolls';
             sorted = players.map(([userId, pd]) => ({
                 userId,
@@ -53,7 +54,7 @@ async function handleLeaderboard(reply, guildId, type = 'collection') {
             break;
 
         default: // collection
-            title = '🏆 Collection Size Leaderboard';
+            title = `${AE.trophy} Collection Size Leaderboard`;
             valueLabel = 'cards';
             sorted = players.map(([userId, pd]) => ({
                 userId,
@@ -63,12 +64,11 @@ async function handleLeaderboard(reply, guildId, type = 'collection') {
     }
 
     const top10 = sorted.slice(0, 10);
-    const medals = ['🥇', '🥈', '🥉'];
 
     const lines = top10.map((entry, i) => {
-        const medal = medals[i] || `**${i + 1}.**`;
+        const medal = rankBadge(i + 1);
         const valueStr = type === 'value'
-            ? `💰 ${entry.value.toLocaleString()}`
+            ? `${AE.money} ${entry.value.toLocaleString()}`
             : `${entry.value.toLocaleString()} ${valueLabel}`;
         return `${medal} <@${entry.userId}> — ${valueStr}`;
     });

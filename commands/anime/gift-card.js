@@ -3,12 +3,13 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 
 async function handleGift(reply, author, targetUser, characterName, guildId) {
     if (!targetUser || !characterName) {
         const container = createContainer(0xED4245);
         addTextDisplay(container, [
-            `## ❌ Usage`,
+            `## ${AE.cancel} Usage`,
             '',
             `> \`agift @user <character name>\``,
             '',
@@ -19,20 +20,20 @@ async function handleGift(reply, author, targetUser, characterName, guildId) {
 
     if (targetUser.id === author.id) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Error\nYou can't gift cards to yourself!`);
+        addTextDisplay(container, `## ${AE.cancel} Error\nYou can't gift cards to yourself!`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (targetUser.bot) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Error\nYou can't gift cards to bots!`);
+        addTextDisplay(container, `## ${AE.cancel} Error\nYou can't gift cards to bots!`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     const char = animeManager.findCharacter(characterName);
     if (!char) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Found\nCharacter "${characterName}" not found.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${characterName}" not found.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -42,7 +43,7 @@ async function handleGift(reply, author, targetUser, characterName, guildId) {
 
     if (!animeManager.hasCharacter(authorData, char.id)) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Owned\nYou don't have **${char.name}** in your collection.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Owned\nYou don't have **${char.name}** in your collection.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -54,15 +55,15 @@ async function handleGift(reply, author, targetUser, characterName, guildId) {
     const rarity = animeManager.RARITIES[char.rarity];
     const container = createContainer(0x57F287);
     addTextDisplay(container, [
-        `## 🎁 Card Gifted!`,
+        `## ${AE.gift} Card Gifted!`,
         '',
         `**${author.username}** gifted ${rarity.emoji} **${char.name}** to **${targetUser.username}**!`,
         '',
         `> **Card:** ${char.name} (*${char.anime}*)`,
         `> **Rarity:** ${rarity.emoji} ${rarity.name}`,
-        `> **Value:** 💰 ${rarity.value.toLocaleString()} coins`,
+        `> **Value:** ${AE.money} ${rarity.value.toLocaleString()} coins`,
         '',
-        `-# How generous! 🎉`,
+        `-# How generous!`,
     ].join('\n'));
 
     return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -84,7 +85,7 @@ module.exports = {
         const target = message.mentions.users.first();
         if (!target) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Error\nPlease mention a user to gift to.`);
+            addTextDisplay(container, `## ${AE.cancel} Error\nPlease mention a user to gift to.`);
             return message.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
         const characterName = args.filter(a => !a.match(/^<@!?\d+>$/)).join(' ');

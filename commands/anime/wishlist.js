@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 
 const MAX_WISHLIST = 10;
 
@@ -13,26 +14,26 @@ async function handleWishlist(reply, user, guildId, action = 'view', characterNa
     if (action === 'add') {
         if (!characterName) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Error\nPlease specify a character name to add.`);
+            addTextDisplay(container, `## ${AE.cancel} Error\nPlease specify a character name to add.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         const char = animeManager.findCharacter(characterName);
         if (!char) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Not Found\nCharacter "${characterName}" not found. Use \`acharlist\` to see all characters.`);
+            addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${characterName}" not found. Use \`acharlist\` to see all characters.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (playerData.wishlist.includes(char.id)) {
             const container = createContainer(0xFEE75C);
-            addTextDisplay(container, `## ⚠️ Already Added\n**${char.name}** is already on your wishlist.`);
+            addTextDisplay(container, `## ${AE.warn} Already Added\n**${char.name}** is already on your wishlist.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (playerData.wishlist.length >= MAX_WISHLIST) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Wishlist Full\nYou can only have **${MAX_WISHLIST}** characters on your wishlist. Remove one first.`);
+            addTextDisplay(container, `## ${AE.cancel} Wishlist Full\nYou can only have **${MAX_WISHLIST}** characters on your wishlist. Remove one first.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
@@ -42,7 +43,7 @@ async function handleWishlist(reply, user, guildId, action = 'view', characterNa
         const rarity = animeManager.RARITIES[char.rarity];
         const container = createContainer(0x57F287);
         addTextDisplay(container, [
-            `## ✅ Wishlist Updated`,
+            `## ${AE.check} Wishlist Updated`,
             '',
             `Added ${rarity.emoji} **${char.name}** (*${char.anime}*) to your wishlist.`,
             '',
@@ -54,21 +55,21 @@ async function handleWishlist(reply, user, guildId, action = 'view', characterNa
     if (action === 'remove') {
         if (!characterName) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Error\nPlease specify a character name to remove.`);
+            addTextDisplay(container, `## ${AE.cancel} Error\nPlease specify a character name to remove.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         const char = animeManager.findCharacter(characterName);
         if (!char) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Not Found\nCharacter "${characterName}" not found.`);
+            addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${characterName}" not found.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         const idx = playerData.wishlist.indexOf(char.id);
         if (idx === -1) {
             const container = createContainer(0xFEE75C);
-            addTextDisplay(container, `## ⚠️ Not on Wishlist\n**${char.name}** is not on your wishlist.`);
+            addTextDisplay(container, `## ${AE.warn} Not on Wishlist\n**${char.name}** is not on your wishlist.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
@@ -76,7 +77,7 @@ async function handleWishlist(reply, user, guildId, action = 'view', characterNa
         animeManager.saveAnimeData();
 
         const container = createContainer(0x57F287);
-        addTextDisplay(container, `## ✅ Removed\n**${char.name}** removed from your wishlist.`);
+        addTextDisplay(container, `## ${AE.check} Removed\n**${char.name}** removed from your wishlist.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -84,7 +85,7 @@ async function handleWishlist(reply, user, guildId, action = 'view', characterNa
     if (playerData.wishlist.length === 0) {
         const container = createContainer(0xCAD7E6);
         addTextDisplay(container, [
-            `## ⭐ Your Wishlist`,
+            `## ${AE.wishlist} Your Wishlist`,
             '',
             `> Your wishlist is empty!`,
             '',
@@ -97,17 +98,17 @@ async function handleWishlist(reply, user, guildId, action = 'view', characterNa
         const char = animeManager.CHARACTERS.find(c => c.id === charId);
         if (!char) return null;
         const rarity = animeManager.RARITIES[char.rarity];
-        const owned = animeManager.hasCharacter(playerData, charId) ? ' ✅' : '';
+        const owned = animeManager.hasCharacter(playerData, charId) ? ` ${AE.check}` : '';
         return `${rarity.emoji} **${char.name}** — *${char.anime}*${owned}`;
     }).filter(Boolean);
 
     const container = createContainer(0xF1C40F);
     addTextDisplay(container, [
-        `## ⭐ Your Wishlist`,
+        `## ${AE.wishlist} Your Wishlist`,
         '',
         lines.join('\n'),
         '',
-        `-# ${playerData.wishlist.length}/${MAX_WISHLIST} slots used • ✅ = already owned`,
+        `-# ${playerData.wishlist.length}/${MAX_WISHLIST} slots used • ${AE.check} = already owned`,
     ].join('\n'));
     return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
 }

@@ -413,47 +413,77 @@ async function getUserData(userId) {
     }
 }
 
+/**
+ * Apply a set of (possibly dot-notation) updates to a single user record,
+ * honouring the ALLOWED_USER_COLUMNS whitelist and deep-merging nested keys
+ * (e.g. 'profile.profileCard.customBackground'). Mutates `rec` in place.
+ */
+function _applyUserUpdates(rec, updates) {
+    for (const [key, value] of Object.entries(updates)) {
+        const topLevelKey = key.split('.')[0];
+        if (!ALLOWED_USER_COLUMNS.has(topLevelKey)) {
+            log.warning(`Attempt to update non-whitelisted user column: ${key}`);
+            continue;
+        }
+
+        if (key.includes('.')) {
+            const parts = key.split('.');
+            const snakeTopKey = camelToSnake(parts[0]);
+            if (!rec[snakeTopKey] || typeof rec[snakeTopKey] !== 'object') rec[snakeTopKey] = {};
+            let current = rec[snakeTopKey];
+            for (let i = 1; i < parts.length - 1; i++) {
+                if (!current[parts[i]] || typeof current[parts[i]] !== 'object') current[parts[i]] = {};
+                current = current[parts[i]];
+            }
+            current[parts[parts.length - 1]] = value;
+        } else {
+            const snakeKey = camelToSnake(key);
+            rec[snakeKey] = value;
+        }
+    }
+    return rec;
+}
+
 async function updateUserData(userId, updates) {
     try {
+        // ── Race-safe write (the real fix for "customizations vanish after a
+        // restart") ──
+        // The old path cloned the ENTIRE cached `users` array, mutated one
+        // record, then wrote the whole array back. If the in-memory cache was
+        // even slightly stale (the dashboard, another shard, or the bot's own
+        // frequent user writes had advanced the PG row in between), that whole
+        // -array write silently clobbered the just-saved customization — which
+        // then "disappeared" on the next restart/read.
+        //
+        // updateUserEntry re-fetches the freshest `users` row (from PostgreSQL
+        // in multi-process setups), mutates ONLY this user, and persists
+        // IMMEDIATELY. The dashboard already used it; the bot side never did —
+        // that gap was the bug. Falls back to cached array in single-process
+        // local mode where there's no cross-writer race.
+        if (typeof jsonStore.updateUserEntry === 'function') {
+            const rec = await jsonStore.updateUserEntry(userId, (user) => {
+                _applyUserUpdates(user, updates);
+                user.updated_at = new Date().toISOString();
+            });
+            return rowToCamelCase(rec, 'user');
+        }
+
+        // ── Legacy fallback (older jsonStore without updateUserEntry) ──
         let users = loadStore('users', []);
         if (!Array.isArray(users)) {
             users = normalizeUsersStore(users);
         }
         const userIndex = users.findIndex(u => u.user_id === userId);
-        
+
         if (userIndex === -1) {
             await getUserData(userId);
             return await updateUserData(userId, updates);
         }
-        
-        for (const [key, value] of Object.entries(updates)) {
-            const topLevelKey = key.split('.')[0];
-            if (!ALLOWED_USER_COLUMNS.has(topLevelKey)) {
-                log.warning(`Attempt to update non-whitelisted user column: ${key}`);
-                continue;
-            }
-            
-            if (key.includes('.')) {
-                const parts = key.split('.');
-                const snakeTopKey = camelToSnake(parts[0]);
-                if (!users[userIndex][snakeTopKey]) {
-                    users[userIndex][snakeTopKey] = {};
-                }
-                let current = users[userIndex][snakeTopKey];
-                for (let i = 1; i < parts.length - 1; i++) {
-                    if (!current[parts[i]]) current[parts[i]] = {};
-                    current = current[parts[i]];
-                }
-                current[parts[parts.length - 1]] = value;
-            } else {
-                const snakeKey = camelToSnake(key);
-                users[userIndex][snakeKey] = value;
-            }
-        }
-        
+
+        _applyUserUpdates(users[userIndex], updates);
         users[userIndex].updated_at = new Date().toISOString();
         saveStore('users', users, true); // immediate — don't lose customizations on restart
-        
+
         return rowToCamelCase(users[userIndex], 'user');
     } catch (error) {
         log.error(`Error updating user data for ${userId}:`, error);

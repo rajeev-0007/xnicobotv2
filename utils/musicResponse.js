@@ -148,6 +148,7 @@ async function _resolveSent(target, sent) {
  * @param {object}             [opts]
  * @param {boolean}            [opts.ephemeral=false]   Slash-only (ignored for prefix)
  * @param {Array}              [opts.extra]             Extra top-level CV2 components
+ * @param {Array}              [opts.files]             Attachments (e.g. canvas cards)
  * @returns {Promise<Message|null>} The sent Message (or null on failure)
  */
 async function replyMusic(target, container, opts = {}) {
@@ -156,6 +157,7 @@ async function replyMusic(target, container, opts = {}) {
     const flags = wantEphemeral ? CV2_EPH : CV2;
     const components = opts.extra ? [container, ...opts.extra] : [container];
     const payload = { components, flags };
+    if (opts.files && opts.files.length) payload.files = opts.files;
     const recoveryFlags = wantEphemeral ? CV2_EPH : CV2;
 
     if (slash) {

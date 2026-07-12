@@ -3,13 +3,14 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const { renderShowcase } = require('../../utils/animeCardCanvas');
 
 async function handleShowcase(reply, user, characterName) {
     if (!characterName) {
         const container = createContainer(0xED4245);
         addTextDisplay(container, [
-            `## ❌ Usage`,
+            `## ${AE.cancel} Usage`,
             '',
             `> \`ashowcase <character>\` — Show off a character you own in premium format!`,
         ].join('\n'));
@@ -22,13 +23,13 @@ async function handleShowcase(reply, user, characterName) {
     const char = animeManager.findCharacter(characterName);
     if (!char) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Found\nCharacter "${characterName}" not found.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${characterName}" not found.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (!animeManager.hasCharacter(playerData, char.id)) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Owned\nYou can only showcase characters you own!`);
+        addTextDisplay(container, `## ${AE.cancel} Not Owned\nYou can only showcase characters you own!`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -55,16 +56,16 @@ async function handleShowcase(reply, user, characterName) {
 
     const container = createContainer(0xF1C40F);
     addTextDisplay(container, [
-        `## ✨ Character Showcase ✨`,
+        `## ${AE.sparkle} Character Showcase`,
         '',
-        `> 👤 **Showcased by:** <@${user.id}>`,
-        `> 🃏 **Character:** ${char.name} (${animeManager.RARITIES[activeRarity].name})`,
-        `> 📚 **Anime:** ${char.anime}`,
+        `> ${AE.user} **Showcased by:** <@${user.id}>`,
+        `> ${AE.cards} **Character:** ${char.name} (${animeManager.RARITIES[activeRarity].name})`,
+        `> ${AE.book} **Anime:** ${char.anime}`,
         '',
         `**Collection Stats:**`,
-        `> ⏳ **Obtained:** ${obtainedTime}`,
-        `> 📑 **Copies Owned:** ${count}`,
-        `> 🌍 **Global Owners:** ${globalOwners}`,
+        `> ${AE.sandwatch} **Obtained:** ${obtainedTime}`,
+        `> ${AE.collection} **Copies Owned:** ${count}`,
+        `> ${AE.server} **Global Owners:** ${globalOwners}`,
     ].join('\n'));
 
     const mediaGallery = new MediaGalleryBuilder().addItems(

@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 const { renderMysteryBox } = require('../../utils/animeCardCanvas');
 
@@ -11,7 +12,7 @@ async function handleMysteryBox(reply, user, tier = 'bronze') {
     if (!box) {
         const container = createContainer(0xED4245);
         addTextDisplay(container, [
-            `## ❌ Invalid Box Tier`,
+            `## ${AE.cancel} Invalid Box Tier`,
             '',
             `> Available tiers: **bronze**, **silver**, **gold**`,
         ].join('\n'));
@@ -25,7 +26,7 @@ async function handleMysteryBox(reply, user, tier = 'bronze') {
 
     if (userData.coins < box.cost) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Insufficient Funds\nA **${box.name}** costs **${box.cost.toLocaleString()}** coins. You only have **${userData.coins.toLocaleString()}**.`);
+        addTextDisplay(container, `## ${AE.cancel} Insufficient Funds\nA **${box.name}** costs **${box.cost.toLocaleString()}** coins. You only have **${userData.coins.toLocaleString()}**.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -71,7 +72,7 @@ async function handleMysteryBox(reply, user, tier = 'bronze') {
     if (newAchievements.length > 0) {
         const achContainer = createContainer(0x57F287);
         const achLines = newAchievements.map(a => `${a.emoji} **${a.name}** (+${a.reward} coins)`);
-        addTextDisplay(achContainer, `### 🏆 Achievements Unlocked!\n${achLines.join('\n')}`);
+        addTextDisplay(achContainer, `### ${AE.trophy} Achievements Unlocked!\n${achLines.join('\n')}`);
         components.push(achContainer);
     }
 

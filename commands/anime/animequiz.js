@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 
 const QUIZ_REWARD = 50;
@@ -70,13 +71,13 @@ async function handleQuiz(reply, context, user, guildId, isInteraction) {
 
     const container = createContainer(0x3498DB);
     addTextDisplay(container, [
-        `## 🧠 Anime Quiz`,
+        `## ${AE.book} Anime Quiz`,
         '',
         `**${quiz.question}**`,
         '',
         optionLines.join('\n'),
         '',
-        `-# Type your answer (1-${quiz.options.length}) within 15 seconds! Reward: 💰 ${QUIZ_REWARD} coins`,
+        `-# Type your answer (1-${quiz.options.length}) within 15 seconds! Reward: ${AE.money} ${QUIZ_REWARD} coins`,
     ].join('\n'));
 
     await reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -101,10 +102,10 @@ async function handleQuiz(reply, context, user, guildId, isInteraction) {
 
             const successContainer = createContainer(0x57F287);
             addTextDisplay(successContainer, [
-                `## ✅ Correct!`,
+                `## ${AE.check} Correct!`,
                 '',
                 `The answer is **${quiz.answer}**!`,
-                `> 💰 +${QUIZ_REWARD} coins rewarded`,
+                `> ${AE.money} +${QUIZ_REWARD} coins rewarded`,
                 '',
                 `-# Use your coins to roll for characters with \`aroll\``,
             ].join('\n'));
@@ -112,7 +113,7 @@ async function handleQuiz(reply, context, user, guildId, isInteraction) {
         } else {
             const failContainer = createContainer(0xED4245);
             addTextDisplay(failContainer, [
-                `## ❌ Wrong!`,
+                `## ${AE.cancel} Wrong!`,
                 '',
                 `You said **${selected}**, but the answer was **${quiz.answer}**.`,
                 '',
@@ -123,7 +124,7 @@ async function handleQuiz(reply, context, user, guildId, isInteraction) {
     } catch {
         const timeoutContainer = createContainer(0xFEE75C);
         addTextDisplay(timeoutContainer, [
-            `## ⏳ Time's Up!`,
+            `## ${AE.sandwatch} Time's Up!`,
             '',
             `The correct answer was **${quiz.answer}**.`,
             '',
