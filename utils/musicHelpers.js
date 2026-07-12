@@ -138,12 +138,12 @@ function parseTime(input) {
  */
 function voiceStatusGlyph(sourceName) {
     const s = (sourceName || '').toLowerCase();
-    if (s.includes('youtube'))    return '🔴'; // YouTube red
-    if (s.includes('spotify'))    return '🟢'; // Spotify green
-    if (s.includes('soundcloud')) return '🟠'; // SoundCloud orange
-    if (s.includes('apple'))      return '🍎'; // Apple Music
-    if (s.includes('deezer'))     return '🟣'; // Deezer purple
-    return '🎵';
+    if (s.includes('youtube'))    return '▶️';
+    if (s.includes('spotify'))    return '🟢';
+    if (s.includes('soundcloud')) return '🟠';
+    if (s.includes('apple'))      return '🍎';
+    if (s.includes('deezer'))     return '🎵';
+    return '🎶';
 }
 
 /**

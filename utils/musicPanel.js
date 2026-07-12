@@ -325,6 +325,24 @@ function buildIdlePanel(guildId = null) {
     return container;
 }
 
+// Recovery hint shown on command-response cards (added-to-queue, playlist
+// added, queue view) so users always know to run `fix` when music breaks.
+// NOTE: intentionally NOT added to the persistent now-playing panel to keep
+// that auto-updating UI clean.
+const FIX_FOOTER_TEXT = '-# <:Refresh:1521227946441052420> Music not playing right? Run `fix` to reconnect the nodes, then play again.';
+
+function addFixFooter(container) {
+    try {
+        container.addSeparatorComponents(
+            new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)
+        );
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(FIX_FOOTER_TEXT)
+        );
+    } catch (e) { /* never let footer decoration break a card */ }
+    return container;
+}
+
 function buildQueueContainer(player, page = 0) {
     const tracksPerPage = 10;
     const queue = player.queue.tracks;
@@ -399,6 +417,7 @@ function buildQueueContainer(player, page = 0) {
         container.addActionRowComponents(row);
     }
 
+    addFixFooter(container);
     return container;
 }
 
@@ -422,6 +441,7 @@ function buildTrackAddedContainer(track, position, queueLength) {
     content += `-# Queue now has ${queueLength} tracks`;
 
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
+    addFixFooter(container);
     return container;
 }
 
@@ -443,6 +463,7 @@ function buildPlaylistAddedContainer(playlistName, trackCount, totalDuration, th
     content += `-# Tracks added to the queue`;
 
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
+    addFixFooter(container);
     return container;
 }
 
@@ -528,7 +549,9 @@ function buildMusicLoading(message = 'Processing...') {
  */
 function buildVoiceStatus(player, track = null) {
     const currentTrack = track || player?.queue?.current;
-    if (!currentTrack?.info) return '';
+    // Return null (not '') so callers clear the VC status instead of trying
+    // to PUT an empty string, which Discord rejects/ignores.
+    if (!currentTrack?.info) return null;
 
     const { voiceStatusGlyph } = require('./musicHelpers');
     const glyph = voiceStatusGlyph(currentTrack.info.sourceName);
@@ -547,7 +570,7 @@ function buildVoiceStatus(player, track = null) {
 function buildWaitingStatus() {
     // Voice-channel-status renders plain Unicode only — no custom guild
     // emoji or markdown (they would show up as raw text in the sidebar).
-    return '🎵 Waiting — use /play <song>';
+    return '🎶 /play <song>';
 }
 
 /**
@@ -593,8 +616,10 @@ async function updateVoiceChannelStatus(client, playerOrIds, type = 'auto', trac
             const timer = setTimeout(async () => {
                 voiceStatusDebounce.delete(debounceKey);
                 try {
+                    // Any falsy status (null OR empty string) clears the VC status —
+                    // Discord only accepts a non-empty string or null, not ''.
                     await client.rest.put(`/channels/${vc.id}/voice-status`, {
-                        body: { status: status === null ? null : status.substring(0, 500) }
+                        body: { status: status ? status.substring(0, 500) : null }
                     });
                 } catch (err) {
                     if (err.status === 429) {

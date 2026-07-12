@@ -1,7 +1,7 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
-const { createContainer, addTextDisplay, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('../../utils/componentHelpers');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
@@ -84,8 +84,9 @@ async function handleUpgrade(reply, user, characterName) {
         `> ${AE.money} Cost: **${upgradeCheck.cost.toLocaleString()}** coins`,
     ].join('\n'));
 
-    const mediaGallery = new MediaGalleryBuilder();
-    mediaGallery.addItem(new MediaGalleryItemBuilder().setMedia('attachment://upgrade.png'));
+    const mediaGallery = new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL('attachment://upgrade.png')
+    );
     container.addMediaGalleryComponents(mediaGallery);
 
     let components = [container];
@@ -120,6 +121,7 @@ module.exports = {
 
     async execute(interaction) {
         const characterName = interaction.options.getString('character');
-        return handleUpgrade(interaction.reply.bind(interaction), interaction.user, characterName);
+        await interaction.deferReply();
+        return handleUpgrade((payload) => interaction.editReply(payload), interaction.user, characterName);
     },
 };

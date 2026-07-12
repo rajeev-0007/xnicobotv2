@@ -7,6 +7,7 @@ const economyManager = require('../../utils/economyManager');
 const { buildLoadingResponse, buildErrorResponse, EMOJIS } = require('../../utils/responseBuilder');
 const jsonStore = require('../../utils/jsonStore');
 const { resolveUser } = require('../../utils/resolveUser');
+const { resolveProfileAssets } = require('../../utils/discordAssets');
 
 function getLeveling() {
     if (!jsonStore.has('leveling')) return {};
@@ -42,7 +43,12 @@ async function generateProfileCard(user, guild, client) {
 
     const userProfile = await getUserData(user.id).catch(() => ({ profile: {}, social: {} }));
     const member = await guild.members.fetch(user.id).catch(() => null);
-    const flags = user.flags ? user.flags.toArray() : [];
+
+    // Resolve the user's REAL Discord banner + avatar decoration (force-fetch
+    // included) — partial users from interaction options don't include them.
+    const { fullUser, banner: discordBanner, decoration: avatarDecoration } =
+        await resolveProfileAssets(client, user);
+    const flags = fullUser.flags ? fullUser.flags.toArray() : [];
 
     let commandsUsed = 0;
     let messageCount = 0;
@@ -77,8 +83,13 @@ async function generateProfileCard(user, guild, client) {
     const selectedCardStyle = profileSettings.cardStyle || 'minimal';
     profileCard.setCardStyle(selectedCardStyle);
     if (profileSettings.customBackground) profileCard.setBackgroundImage(profileSettings.customBackground);
-    if (profileSettings.bannerImage) profileCard.setBannerImage(profileSettings.bannerImage);
-    if (profileSettings.bannerMode) profileCard.setBannerMode(profileSettings.bannerMode);
+    // Default the banner to the user's real Discord banner; a custom banner
+    // set via profile-customize overrides it.
+    const effectiveBanner = profileSettings.bannerImage || discordBanner;
+    if (effectiveBanner) {
+        profileCard.setBannerImage(effectiveBanner);
+        profileCard.setBannerMode(profileSettings.bannerMode || 'strip');
+    }
     if (profileSettings.backgroundColor) profileCard.setBackground(profileSettings.backgroundColor);
     if (profileSettings.accentColor || profileSettings.progressBarColor) {
         profileCard.setAccentColor(profileSettings.accentColor || profileSettings.progressBarColor);
@@ -134,8 +145,9 @@ async function generateProfileCard(user, guild, client) {
         customBadges = customBadges.filter(b => b.badgeId !== 'premium');
     }
 
-    const cardBuffer = await profileCard.generate(user, {
+    const cardBuffer = await profileCard.generate(fullUser, {
         bio: userProfile.social?.bio || null,
+        avatarDecoration,
         reputation: reputation[user.id] || 0,
         relationship: relationshipStatus,
         level: currentLevel,
@@ -151,7 +163,7 @@ async function generateProfileCard(user, guild, client) {
         balance,
         favoriteSongs,
         likedSongs,
-        createdAt: user.createdTimestamp,
+        createdAt: fullUser.createdTimestamp,
         joinedAt: member?.joinedTimestamp || null,
         cardStyle: selectedCardStyle,
         badgeStyle: profileSettings.badgeStyle || 'default'

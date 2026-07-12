@@ -46,12 +46,18 @@ const ICON = {
 
 /* ───────────────────────────────────────────────────────────────────── */
 
-function _attachBrand(container) {
+// Shown at the bottom of EVERY music card so users always know the self-heal
+// path when playback misbehaves (node offline, track stuck, nothing plays…).
+const MUSIC_FIX_HINT = '<:Refresh:1521227946441052420> Music not playing right? Run `fix` to reconnect the nodes, then play again.';
+
+function _attachFooter(container, { brand = true } = {}) {
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)
     );
+    const lines = [`-# ${MUSIC_FIX_HINT}`];
+    if (brand) lines.push(BRANDING);
     container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(BRANDING)
+        new TextDisplayBuilder().setContent(lines.join('\n'))
     );
     return container;
 }
@@ -75,7 +81,9 @@ function buildMusicContainer({ title, emoji, body, footer, color = COLOR.BRAND, 
 
     const c = new ContainerBuilder().setAccentColor(color);
     c.addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
-    return brand ? _attachBrand(c) : c;
+    // Always show the `fix` recovery hint; append the brand line for
+    // non-error cards (errors stay compact but still get the fix hint).
+    return _attachFooter(c, { brand });
 }
 
 const musicSuccess = (title, body, footer) =>

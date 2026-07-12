@@ -1,7 +1,7 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
-const { createContainer, addTextDisplay, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('../../utils/componentHelpers');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const { renderCompare } = require('../../utils/animeCardCanvas');
@@ -52,8 +52,9 @@ async function handleCompare(reply, character1Name, character2Name) {
         `> ${AE.book} Anime: *${char2.anime}*`,
     ].join('\n'));
 
-    const mediaGallery = new MediaGalleryBuilder();
-    mediaGallery.addItem(new MediaGalleryItemBuilder().setMedia('attachment://compare.png'));
+    const mediaGallery = new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL('attachment://compare.png')
+    );
     container.addMediaGalleryComponents(mediaGallery);
 
     return reply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
@@ -76,12 +77,14 @@ module.exports = {
         if (input.length < 2) {
             return handleCompare(message.reply.bind(message), null, null);
         }
+        await message.channel.sendTyping().catch(() => {});
         return handleCompare(message.reply.bind(message), input[0].trim(), input[1].trim());
     },
 
     async execute(interaction) {
         const char1 = interaction.options.getString('character1');
         const char2 = interaction.options.getString('character2');
-        return handleCompare(interaction.reply.bind(interaction), char1, char2);
+        await interaction.deferReply();
+        return handleCompare((payload) => interaction.editReply(payload), char1, char2);
     },
 };

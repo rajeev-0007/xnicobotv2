@@ -37,7 +37,7 @@ async function handleRoll(reply, user, guildId, multi = false) {
                 '',
                 `You need **${cost.toLocaleString()}** coins to roll${multi ? ' (×10)' : ''}.`,
                 `> Balance: **${(userData.coins || 0).toLocaleString()}** coins`,
-                freeRolls > 0 ? `\n-# ${AE.present} You have ${freeRolls} free roll(s) today — use \`adaily\`` : `\n-# Earn coins with \`daily\` / \`work\``,
+                freeRolls > 0 ? `\n-# ${AE.present} You have ${freeRolls} free roll(s) — use \`adaily\`` : `\n-# Free rolls used — \`adaily\` to vote for +${animeManager.VOTE_BONUS_ROLLS} more, or earn coins with \`daily\` / \`work\``,
             ].join('\n'));
             return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
         }

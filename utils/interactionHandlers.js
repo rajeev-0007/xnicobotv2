@@ -4234,11 +4234,15 @@ async function handleProfileButtons(interaction) {
             if (profileSettings.customBackground) {
                 profileCard.setBackgroundImage(profileSettings.customBackground);
             }
-            if (profileSettings.bannerImage) {
-                profileCard.setBannerImage(profileSettings.bannerImage);
-            }
-            if (profileSettings.bannerMode) {
-                profileCard.setBannerMode(profileSettings.bannerMode);
+            // Default the banner to the user's real Discord banner + fetch
+            // their avatar decoration so the preview matches /socialprofile.
+            const { resolveProfileAssets } = require('./discordAssets');
+            const { fullUser, banner: discordBanner, decoration: avatarDecoration } =
+                await resolveProfileAssets(interaction.client, interaction.user);
+            const effectiveBanner = profileSettings.bannerImage || discordBanner;
+            if (effectiveBanner) {
+                profileCard.setBannerImage(effectiveBanner);
+                profileCard.setBannerMode(profileSettings.bannerMode || 'strip');
             }
             if (profileSettings.backgroundColor) {
                 profileCard.setBackground(profileSettings.backgroundColor);
@@ -4256,7 +4260,7 @@ async function handleProfileButtons(interaction) {
                 profileCard.setFontFamily(profileSettings.fontFamily);
             }
 
-            const cardBuffer = await profileCard.generate(interaction.user, {
+            const cardBuffer = await profileCard.generate(fullUser, {
                 level: userData.profile?.level || 10,
                 totalXp: userData.profile?.totalXp || 10000,
                 reputation: userData.social?.reputation || 5,
@@ -4265,6 +4269,7 @@ async function handleProfileButtons(interaction) {
                 commandsUsed: userData.stats?.commandsUsed || 100,
                 messageCount: userData.stats?.messageCount || 500,
                 voiceTime: userData.stats?.voiceTime || 3600,
+                avatarDecoration,
                 customBadges: []
             });
 
@@ -4703,11 +4708,15 @@ async function handleProfileButtons(interaction) {
             if (rankSettings.customBackground) {
                 levelCard.setBackgroundImage(rankSettings.customBackground);
             }
-            if (rankSettings.bannerImage) {
-                levelCard.setBannerImage(rankSettings.bannerImage);
-            }
-            if (rankSettings.bannerMode) {
-                levelCard.setBannerMode(rankSettings.bannerMode);
+            // Default the banner to the user's real Discord banner + fetch
+            // their avatar decoration so the preview matches /rank.
+            const { resolveProfileAssets } = require('./discordAssets');
+            const { fullUser, banner: discordBanner, decoration: avatarDecoration } =
+                await resolveProfileAssets(interaction.client, interaction.user);
+            const effectiveBanner = rankSettings.bannerImage || discordBanner;
+            if (effectiveBanner) {
+                levelCard.setBannerImage(effectiveBanner);
+                levelCard.setBannerMode(rankSettings.bannerMode || 'strip');
             }
             if (rankSettings.backgroundColor) {
                 levelCard.setBackground(rankSettings.backgroundColor);
@@ -4729,12 +4738,13 @@ async function handleProfileButtons(interaction) {
                 levelCard.setFontFamily(rankSettings.fontFamily);
             }
 
-            const cardBuffer = await levelCard.generate(interaction.user, {
+            const cardBuffer = await levelCard.generate(fullUser, {
                 level: 10,
                 rank: 1,
                 xpProgress: 750,
                 xpNeeded: 1000,
-                totalXp: 10000
+                totalXp: 10000,
+                avatarDecoration
             });
 
             const attachment = new AttachmentBuilder(cardBuffer, { name: 'preview-rank-card.png' });

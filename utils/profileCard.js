@@ -197,23 +197,30 @@ class ProfileCard {
                 ctx.fill();
             }
         } catch {}
-        ctx.strokeStyle = accent;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(cx, cy, avatarSize / 2 + 2.5, 0, Math.PI * 2);
-        ctx.stroke();
+        // The user's real Discord avatar decoration frames the avatar when
+        // present; otherwise we draw a plain accent ring + status dot. The
+        // decoration IS the identity frame, so we skip the fake status dot
+        // when one is shown to keep the card clean and professional.
+        const decoDrawn = await this._drawDecoration(ctx, data.avatarDecoration, cx, cy, avatarSize);
+        if (!decoDrawn) {
+            ctx.strokeStyle = accent;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(cx, cy, avatarSize / 2 + 2.5, 0, Math.PI * 2);
+            ctx.stroke();
 
-        // Status dot
-        const sX = cx + avatarSize / 2 * Math.cos(Math.PI / 4);
-        const sY = cy + avatarSize / 2 * Math.sin(Math.PI / 4);
-        ctx.beginPath();
-        ctx.arc(sX, sY, 13, 0, Math.PI * 2);
-        ctx.fillStyle = this.backgroundColor;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(sX, sY, 8, 0, Math.PI * 2);
-        ctx.fillStyle = '#3ba55d';
-        ctx.fill();
+            // Status dot
+            const sX = cx + avatarSize / 2 * Math.cos(Math.PI / 4);
+            const sY = cy + avatarSize / 2 * Math.sin(Math.PI / 4);
+            ctx.beginPath();
+            ctx.arc(sX, sY, 13, 0, Math.PI * 2);
+            ctx.fillStyle = this.backgroundColor;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(sX, sY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#3ba55d';
+            ctx.fill();
+        }
 
         /* ── 3. RANK + LEVEL (plain right-aligned text, top-right) ── */
         const clusterY = 30;
@@ -405,6 +412,27 @@ class ProfileCard {
         await drawNicoBranding(ctx, W, H, accent);
 
         return canvas.toBuffer('image/png');
+    }
+
+    /**
+     * Draw the user's Discord avatar decoration centered over the avatar.
+     * Discord decoration presets are authored at a 1.2× ratio (the avatar
+     * occupies the inner ~83% of the frame), so we draw the PNG at
+     * avatarSize × 1.2 centered on the avatar without clipping so the frame
+     * overflows the avatar edge exactly like the real Discord client.
+     * Returns true when a decoration was actually rendered.
+     */
+    async _drawDecoration(ctx, decorationUrl, cx, cy, avatarSize) {
+        if (!decorationUrl) return false;
+        try {
+            const deco = await imageCache.loadWithCache(decorationUrl, 5000);
+            if (!deco) return false;
+            const dSize = avatarSize * 1.2;
+            ctx.drawImage(deco, cx - dSize / 2, cy - dSize / 2, dSize, dSize);
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     _lighten(hex, amt) {

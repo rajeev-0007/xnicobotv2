@@ -25,7 +25,10 @@ async function run(target, lavalinkManager, position) {
     }
 
     const removed = player.queue.tracks[pos - 1];
-    player.queue.remove(pos - 1);
+    // lavalink-client's Queue has no `remove()` method — use splice() (the
+    // same API every other queue-mutating command uses) to drop one track.
+    if (typeof player.queue.splice === 'function') player.queue.splice(pos - 1, 1);
+    else                                            player.queue.tracks.splice(pos - 1, 1);
 
     return replyMusic(target, musicSuccess(
         'Track Removed',

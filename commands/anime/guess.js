@@ -72,11 +72,24 @@ async function playGuess(context, user, channel, isInteraction, reply) {
     const filter = m => m.author.id === user.id;
 
     try {
-        const collected = await channel.awaitMessages({ filter, max: 5, time: TIME, errors: [] });
+        const collected = await channel.awaitMessages({ filter, max: 5, time: TIME });
+        
+        if (collected.size === 0) {
+            const revealBuf = await renderGuessImage(character, true);
+            const timeout = createContainer(0xFEE75C);
+            addTextDisplay(timeout, [`## <:Alarm:1521227869047750689> Time's Up!`, `> It was **${character.name}** — *${character.anime}*`].join('\n'));
+            timeout.addMediaGalleryComponents(
+                new MediaGalleryBuilder().addItems(
+                    new MediaGalleryItemBuilder().setURL('attachment://reveal.png')
+                )
+            );
+            return channel.send({ components: [timeout], files: [new AttachmentBuilder(revealBuf, { name: 'reveal.png' })], flags: MessageFlags.IsComponentsV2 });
+        }
+
         let won = false;
         for (const m of collected.values()) {
             const g = normalize(m.content);
-            if (g && (g === target || (firstName.length >= 4 && g === firstName) || target.includes(g) && g.length >= 5)) { won = true; break; }
+            if (g && (g === target || (firstName.length >= 4 && g === firstName) || (target.includes(g) && g.length >= 5))) { won = true; break; }
         }
 
         const revealBuf = await renderGuessImage(character, true);

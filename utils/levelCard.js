@@ -212,7 +212,7 @@ class LevelCard {
                 5000
             );
         } catch {}
-        await this._drawAvatar(ctx, avatar, avatarX, avatarY, avatarSize);
+        await this._drawAvatar(ctx, avatar, avatarX, avatarY, avatarSize, data.avatarDecoration);
 
         /* ── 3. Right cluster: RANK + LEVEL as clean text ── */
         // ProBot renders these as plain right-aligned text, big numbers
@@ -338,7 +338,7 @@ class LevelCard {
 
     // Clean avatar: solid background ring + thin accent ring. No
     // multi-layer halo (that's what made it look "AI").
-    async _drawAvatar(ctx, avatar, x, y, size) {
+    async _drawAvatar(ctx, avatar, x, y, size, decorationUrl = null) {
         const cx = x + size / 2;
         const cy = y + size / 2;
         const r = size / 2;
@@ -363,12 +363,27 @@ class LevelCard {
             ctx.fill();
         }
 
-        // Single accent ring
-        ctx.strokeStyle = this.accentColor;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + 2.5, 0, Math.PI * 2);
-        ctx.stroke();
+        // The user's real Discord avatar decoration frames the avatar when
+        // present (authored at a 1.2× ratio, drawn without clipping so it
+        // overflows the avatar edge). Falls back to a single accent ring.
+        let decoDrawn = false;
+        if (decorationUrl) {
+            try {
+                const deco = await imageCache.loadWithCache(decorationUrl, 5000);
+                if (deco) {
+                    const dSize = size * 1.2;
+                    ctx.drawImage(deco, cx - dSize / 2, cy - dSize / 2, dSize, dSize);
+                    decoDrawn = true;
+                }
+            } catch {}
+        }
+        if (!decoDrawn) {
+            ctx.strokeStyle = this.accentColor;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r + 2.5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
     }
 
     _formatVoice(seconds) {
