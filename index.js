@@ -12986,14 +12986,11 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                             log.info(`Bot alone timer started for guild ${voiceGuild.id} (2 minutes)`);
                         }
                     } else if (humanMembers > 0) {
-                        // Someone is back in the channel - clear alone timer and resume if paused by alone detection
-                        if (inactivityTimers.has(voiceGuild.id) && !player.queue.current) {
-                            // Only clear alone-specific timer if queue is empty (inactivity timer)
-                        } else if (inactivityTimers.has(voiceGuild.id)) {
-                            // If there's a timer and someone joined back, clear it
+                        // Someone is in the channel - always clear the alone timer
+                        if (inactivityTimers.has(voiceGuild.id)) {
                             clearTimeout(inactivityTimers.get(voiceGuild.id));
                             inactivityTimers.delete(voiceGuild.id);
-                            log.info(`Alone timer cleared for guild ${voiceGuild.id} - user rejoined`);
+                            log.info(`Alone timer cleared for guild ${voiceGuild.id} - user present in channel`);
                         }
                     }
                 }
@@ -13004,7 +13001,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         if (newState.channelId && newState.member?.id !== client.user.id) {
             const voiceGuild2 = newState.guild;
             const player2 = client.lavalinkManager?.getPlayer(voiceGuild2.id);
-            if (player2 && player2.voiceChannelId === newState.channelId) {
+            if (player2 && !player2.destroyed && player2.voiceChannelId === newState.channelId) {
                 const voiceChannel2 = voiceGuild2.channels.cache.get(newState.channelId);
                 if (voiceChannel2) {
                     const humanMembers2 = voiceChannel2.members.filter(m => !m.user.bot).size;
@@ -13017,7 +13014,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                         }
 
                         // Resume if player was paused (auto-pause from being alone)
-                        if (player2.paused && player2.queue.current) {
+                        if (!player2.destroyed && player2.paused && player2.queue.current) {
                             await player2.resume();
                             log.info(`Auto-resumed player in guild ${voiceGuild2.id} - user joined back`);
                             // Update voice status
