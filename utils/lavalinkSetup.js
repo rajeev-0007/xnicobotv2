@@ -43,8 +43,12 @@ function createLavalinkManager(client) {
         const config = JSON.parse(fs.readFileSync(lavalinkConfigPath, 'utf8'));
         if (config.nodes && Array.isArray(config.nodes) && config.nodes.length > 0) {
             lavalinkNodes = config.nodes.map(node => ({
-                retryAmount: 10,
-                retryDelay: 5000,
+                // Retry effectively forever so a node NEVER permanently gives
+                // up on its own — the library's single-timer reconnect keeps
+                // reviving it (no stacking), so music self-heals without the
+                // user ever seeing an error or interruption.
+                retryAmount: 100000,
+                retryDelay: 10000,
                 ...node
             }));
             log.info(`Loaded ${config.nodes.length} Lavalink node(s) from config`);
@@ -69,8 +73,8 @@ function createLavalinkManager(client) {
             port: parseInt(process.env.LAVALINK_PORT || '2333', 10),
             authorization: process.env.LAVALINK_PASSWORD,
             secure: /^true$/i.test(process.env.LAVALINK_SECURE || 'false'),
-            retryAmount: 15,
-            retryDelay: 5000,
+            retryAmount: 100000,
+            retryDelay: 10000,
         };
         // De-dupe if the same host:port already exists in the config list.
         lavalinkNodes = lavalinkNodes.filter(n => !(n.host === envNode.host && n.port === envNode.port));
@@ -998,10 +1002,59 @@ async function initLavalink(client, lavalinkManager) {
     }
 }
 
+/**
+ * Force an immediate reconnect of every Lavalink node that isn't currently
+ * connected. Used by the `fix` command so users can self-heal music when a
+ * node has dropped offline (instead of waiting for the passive retry loop).
+ *
+ * For each offline node we close any lingering half-open socket, then call
+ * the node's (patched) connect(). After a short settle window we re-count
+ * the online nodes and return a summary the command can render.
+ *
+ * @param {import('lavalink-client').LavalinkManager} lavalinkManager
+ * @param {object}  [opts]
+ * @param {number}  [opts.waitMs=4500]  How long to wait for sockets to open.
+ * @returns {Promise<{total:number, onlineBefore:number, online:number, reconnected:number, attempted:number, nodes:{id:string, connected:boolean}[]}>}
+ */
+async function reconnectAllNodes(lavalinkManager, { waitMs = 4500 } = {}) {
+    const empty = { total: 0, onlineBefore: 0, online: 0, reconnected: 0, attempted: 0, nodes: [] };
+    if (!lavalinkManager?.nodeManager?.nodes) return empty;
+
+    const nodes = [...lavalinkManager.nodeManager.nodes.values()];
+    const onlineBefore = nodes.filter(n => n.connected).length;
+    let attempted = 0;
+
+    for (const node of nodes) {
+        if (node.connected) continue;
+        attempted++;
+        try {
+            // Close any stale/half-open socket so connect() starts clean.
+            try { node.socket?.close?.(1000, 'manual-fix-reconnect'); } catch { /* ignore */ }
+            await node.connect();
+        } catch (err) {
+            log.warning(`[fix] reconnect attempt failed for node ${node.id}: ${(err?.message || err || '').toString().substring(0, 100)}`);
+        }
+    }
+
+    // Give the sockets time to open + fetch /v4/info before re-counting.
+    if (attempted > 0) await new Promise(r => setTimeout(r, waitMs));
+
+    const online = nodes.filter(n => n.connected).length;
+    return {
+        total: nodes.length,
+        onlineBefore,
+        online,
+        reconnected: Math.max(0, online - onlineBefore),
+        attempted,
+        nodes: nodes.map(n => ({ id: n.id, connected: !!n.connected })),
+    };
+}
+
 module.exports = {
     createLavalinkManager,
     setupLavalinkEvents,
     initLavalink,
+    reconnectAllNodes,
     // Expose shared state so index.js and commands can still access them
     autoplayStatus,
     lastPlayedTracks,
