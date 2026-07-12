@@ -136,7 +136,9 @@ const ROLL_COST = 100;
 const MULTI_ROLL_COUNT = 10;
 const MULTI_ROLL_COST = 900; // 10% discount
 const ROLL_COOLDOWN = 30000; // 30 seconds
-const DAILY_FREE_ROLLS = 3;
+const DAILY_FREE_ROLLS = 10;      // free rolls per day
+const VOTE_BONUS_ROLLS = 2;       // extra rolls granted per vote once daily rolls are used
+const VOTE_WINDOW_MS = 12 * 60 * 60 * 1000; // a vote counts for 12h
 
 /* ═══════════════════════════════════════════════════════
    DATA ACCESS
@@ -173,6 +175,8 @@ function getPlayerData(data, userId) {
             totalRolls: 0,
             freeRollsToday: 0,
             lastFreeRollReset: 0,
+            bonusRolls: 0,         // vote-granted bonus rolls (persist until used)
+            lastVoteRollClaim: 0,  // timestamp of the vote already claimed for bonus rolls
             lastRoll: 0,
             totalSpent: 0,
             trades: 0,
@@ -288,20 +292,69 @@ function canAffordRoll(coins, multi = false) {
     return coins >= (multi ? MULTI_ROLL_COST : ROLL_COST);
 }
 
-function checkFreeRolls(playerData) {
-    const now = Date.now();
+/** Reset the daily counter if we've rolled past midnight. */
+function resetDailyIfNeeded(playerData) {
     const today = new Date().setHours(0, 0, 0, 0);
-
-    if (playerData.lastFreeRollReset < today) {
+    if ((playerData.lastFreeRollReset || 0) < today) {
         playerData.freeRollsToday = 0;
-        playerData.lastFreeRollReset = now;
+        playerData.lastFreeRollReset = Date.now();
     }
-
-    return DAILY_FREE_ROLLS - playerData.freeRollsToday;
 }
 
+/**
+ * Total free rolls currently available = remaining daily rolls + vote-bonus
+ * rolls. Vote-bonus rolls persist across days until spent.
+ */
+function checkFreeRolls(playerData) {
+    resetDailyIfNeeded(playerData);
+    const dailyLeft = Math.max(0, DAILY_FREE_ROLLS - (playerData.freeRollsToday || 0));
+    const bonus = playerData.bonusRolls || 0;
+    return dailyLeft + bonus;
+}
+
+/** Only the remaining *daily* rolls (excludes vote-bonus rolls). */
+function checkDailyRolls(playerData) {
+    resetDailyIfNeeded(playerData);
+    return Math.max(0, DAILY_FREE_ROLLS - (playerData.freeRollsToday || 0));
+}
+
+/**
+ * Consume one free roll. Daily rolls are spent first; once those run out we
+ * draw from vote-bonus rolls. Returns 'daily' | 'bonus' | 'none'.
+ */
 function useFreeRoll(playerData) {
-    playerData.freeRollsToday++;
+    resetDailyIfNeeded(playerData);
+    if ((playerData.freeRollsToday || 0) < DAILY_FREE_ROLLS) {
+        playerData.freeRollsToday = (playerData.freeRollsToday || 0) + 1;
+        return 'daily';
+    }
+    if ((playerData.bonusRolls || 0) > 0) {
+        playerData.bonusRolls -= 1;
+        return 'bonus';
+    }
+    return 'none';
+}
+
+/**
+ * Grant vote-bonus rolls if the user has a fresh (unclaimed) vote within the
+ * last 12h. Each individual vote can only be claimed once. Returns
+ * { claimed, granted, reason }.
+ *   reason: 'no-vote' | 'expired' | 'already-claimed'
+ */
+function claimVoteRolls(playerData, userId) {
+    let userVotes = {};
+    try { userVotes = jsonStore.read('user-votes') || {}; } catch { userVotes = {}; }
+    const voteData = userVotes[userId];
+
+    if (!voteData || !voteData.lastVote) return { claimed: false, reason: 'no-vote' };
+    if (Date.now() - voteData.lastVote >= VOTE_WINDOW_MS) return { claimed: false, reason: 'expired' };
+    if ((playerData.lastVoteRollClaim || 0) >= voteData.lastVote) {
+        return { claimed: false, reason: 'already-claimed' };
+    }
+
+    playerData.bonusRolls = (playerData.bonusRolls || 0) + VOTE_BONUS_ROLLS;
+    playerData.lastVoteRollClaim = voteData.lastVote;
+    return { claimed: true, granted: VOTE_BONUS_ROLLS };
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -584,6 +637,7 @@ module.exports = {
     MULTI_ROLL_COST,
     ROLL_COOLDOWN,
     DAILY_FREE_ROLLS,
+    VOTE_BONUS_ROLLS,
     loadAnimeData,
     saveAnimeData,
     getPlayerData,
@@ -596,7 +650,9 @@ module.exports = {
     getDuplicates,
     canAffordRoll,
     checkFreeRolls,
+    checkDailyRolls,
     useFreeRoll,
+    claimVoteRolls,
     removeFromCollection,
     hasCharacter,
     getCharacterCount,
