@@ -89,13 +89,14 @@ const EMOJIS = {
 
 /**
  * Ordered rank-badge emojis for leaderboard positions (1-based).
- * Falls back to a bold number for positions beyond the badge set.
+ * Delegates to the canonical rank badge source (utils/rankEmojis.js) so
+ * every leaderboard in the bot shares one badge set (ranks 1–10).
  * @param {number} position 1-based rank
  * @returns {string}
  */
+const { getRankEmoji } = require('./rankEmojis');
 function rankBadge(position) {
-    const badges = [EMOJIS.rank1, EMOJIS.rank2, EMOJIS.rank3, EMOJIS.rank4, EMOJIS.rank5, EMOJIS.rank6, EMOJIS.rank7];
-    return badges[position - 1] || `**${position}.**`;
+    return getRankEmoji(position);
 }
 
 module.exports = { EMOJIS, rankBadge };

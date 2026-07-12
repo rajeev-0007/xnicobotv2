@@ -57,23 +57,27 @@ async function handleDailyCard(reply, user, guildId) {
 
     let bonusClaimed = false;
 
-    // Out of free rolls (daily + any bonus)? Try to claim a fresh vote's bonus.
+    // Eagerly bank any fresh, unclaimed vote bonus. Bonus rolls persist until
+    // spent, so claiming immediately means a vote never expires unused just
+    // because the player still had daily rolls left (the old gate only tried
+    // to claim once dailies were exhausted, which could miss the 12h window).
+    const claim = animeManager.claimVoteRolls(playerData, user.id);
+    if (claim.claimed) {
+        bonusClaimed = true;
+        animeManager.saveAnimeData();
+    }
+
+    // Still no free rolls (no dailies AND no bonus to claim)? Prompt to vote.
     if (animeManager.checkFreeRolls(playerData) <= 0) {
-        const claim = animeManager.claimVoteRolls(playerData, user.id);
-        if (claim.claimed) {
-            bonusClaimed = true;
-            animeManager.saveAnimeData();
-        } else {
-            // 'no-vote' / 'expired' / 'already-claimed' → prompt to vote
-            return reply({ components: [buildVoteGate(claim.reason)], flags: MessageFlags.IsComponentsV2 });
-        }
+        return reply({ components: [buildVoteGate(claim.reason || 'no-vote')], flags: MessageFlags.IsComponentsV2 });
     }
 
     const source = animeManager.useFreeRoll(playerData); // 'daily' | 'bonus'
     playerData.lastRoll = Date.now();
     playerData.totalRolls++;
 
-    const character = animeManager.rollCharacter();
+    const voteBoost = animeManager.hasActiveVote(user.id);
+    const character = animeManager.rollCharacter(voteBoost);
     const isDuplicate = animeManager.addToCollection(playerData, character);
     animeManager.saveAnimeData();
 
@@ -88,6 +92,7 @@ async function handleDailyCard(reply, user, guildId) {
         `> ${rarity.emoji} **${rarity.name}** • ${AE.money} ${rarity.value.toLocaleString()} value`,
     ];
     if (bonusClaimed) lines.push(`> ${AE.sparkle} **+${animeManager.VOTE_BONUS_ROLLS} vote bonus rolls claimed!**`);
+    if (voteBoost) lines.push(`> ${AE.fire} **Vote boost active** — better Epic/Legendary/Mythic odds!`);
     const bonusStr = bonusLeft > 0 ? ` • ${AE.gift} ${bonusLeft} bonus` : '';
     lines.push(`-# Rolls left today: ${dailyLeft}/${animeManager.DAILY_FREE_ROLLS}${bonusStr}`);
     if (playerData.wishlist.includes(character.id)) lines.push(`\n${AE.star} **WISHLIST HIT!**`);

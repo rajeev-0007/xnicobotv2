@@ -10,11 +10,6 @@
     "file": "Alarm.png"
   },
   {
-    "name": "applemusic",
-    "animated": false,
-    "file": "applemusic.png"
-  },
-  {
     "name": "Attach",
     "animated": false,
     "file": "Attach.png"
@@ -23,11 +18,6 @@
     "name": "Award",
     "animated": false,
     "file": "Award.png"
-  },
-  {
-    "name": "banhammer",
-    "animated": false,
-    "file": "banhammer.png"
   },
   {
     "name": "Bank",
@@ -55,24 +45,9 @@
     "file": "Bookopen.png"
   },
   {
-    "name": "bots",
-    "animated": false,
-    "file": "bots.png"
-  },
-  {
     "name": "Box",
     "animated": false,
     "file": "Box.png"
-  },
-  {
-    "name": "bug1_rookie",
-    "animated": false,
-    "file": "bug1_rookie.png"
-  },
-  {
-    "name": "bug2_golden",
-    "animated": false,
-    "file": "bug2_golden.png"
   },
   {
     "name": "Bullhorn",
@@ -145,19 +120,9 @@
     "file": "Desktop.png"
   },
   {
-    "name": "developer",
-    "animated": false,
-    "file": "developer.png"
-  },
-  {
     "name": "Dislike",
     "animated": false,
     "file": "Dislike.png"
-  },
-  {
-    "name": "dnd",
-    "animated": false,
-    "file": "dnd.png"
   },
   {
     "name": "Document",
@@ -245,11 +210,6 @@
     "file": "Gamepad.png"
   },
   {
-    "name": "gmod",
-    "animated": false,
-    "file": "gmod.png"
-  },
-  {
     "name": "Hashtag",
     "animated": false,
     "file": "Hashtag.png"
@@ -265,14 +225,14 @@
     "file": "Heart.png"
   },
   {
-    "name": "Heartbeat",
-    "animated": false,
-    "file": "Heartbeat.png"
-  },
-  {
     "name": "HeartCross",
     "animated": true,
     "file": "HeartCross.gif"
+  },
+  {
+    "name": "Heartbeat",
+    "animated": false,
+    "file": "Heartbeat.png"
   },
   {
     "name": "History",
@@ -283,11 +243,6 @@
     "name": "Home",
     "animated": false,
     "file": "Home.png"
-  },
-  {
-    "name": "idle",
-    "animated": false,
-    "file": "idle.png"
   },
   {
     "name": "Image",
@@ -375,24 +330,9 @@
     "file": "New.png"
   },
   {
-    "name": "nitroboost",
-    "animated": false,
-    "file": "nitroboost.png"
-  },
-  {
     "name": "Notificationon",
     "animated": false,
     "file": "Notificationon.png"
-  },
-  {
-    "name": "offline",
-    "animated": false,
-    "file": "offline.png"
-  },
-  {
-    "name": "online",
-    "animated": false,
-    "file": "online.png"
   },
   {
     "name": "Palette",
@@ -438,11 +378,6 @@
     "name": "Refresh",
     "animated": false,
     "file": "Refresh.png"
-  },
-  {
-    "name": "rocket",
-    "animated": false,
-    "file": "rocket.png"
   },
   {
     "name": "Sandwatch",
@@ -505,26 +440,6 @@
     "file": "Skipprev.png"
   },
   {
-    "name": "soundCloud",
-    "animated": false,
-    "file": "soundCloud.png"
-  },
-  {
-    "name": "spotify",
-    "animated": false,
-    "file": "spotify.png"
-  },
-  {
-    "name": "staff",
-    "animated": false,
-    "file": "staff.png"
-  },
-  {
-    "name": "stage",
-    "animated": false,
-    "file": "stage.png"
-  },
-  {
     "name": "Star",
     "animated": false,
     "file": "Star.png"
@@ -545,34 +460,14 @@
     "file": "Toggleon.png"
   },
   {
-    "name": "topgg",
-    "animated": false,
-    "file": "topgg.png"
-  },
-  {
-    "name": "transfer",
-    "animated": false,
-    "file": "transfer.png"
-  },
-  {
     "name": "Trash",
     "animated": false,
     "file": "Trash.png"
   },
   {
-    "name": "trust",
-    "animated": false,
-    "file": "trust.png"
-  },
-  {
     "name": "Unlock",
     "animated": false,
     "file": "Unlock.png"
-  },
-  {
-    "name": "untrust",
-    "animated": false,
-    "file": "untrust.png"
   },
   {
     "name": "Upload",
@@ -610,13 +505,198 @@
     "file": "Volumeup.png"
   },
   {
-    "name": "xnico",
-    "animated": false,
-    "file": "xnico.png"
-  },
-  {
     "name": "YoutubeLive",
     "animated": false,
     "file": "YoutubeLive.png"
+  },
+  {
+    "name": "applemusic",
+    "animated": false,
+    "file": "applemusic.png"
+  },
+  {
+    "name": "banhammer",
+    "animated": false,
+    "file": "banhammer.png"
+  },
+  {
+    "name": "bots",
+    "animated": false,
+    "file": "bots.png"
+  },
+  {
+    "name": "bug1_rookie",
+    "animated": false,
+    "file": "bug1_rookie.png"
+  },
+  {
+    "name": "bug2_golden",
+    "animated": false,
+    "file": "bug2_golden.png"
+  },
+  {
+    "name": "developer",
+    "animated": false,
+    "file": "developer.png"
+  },
+  {
+    "name": "dnd",
+    "animated": false,
+    "file": "dnd.png"
+  },
+  {
+    "name": "gmod",
+    "animated": false,
+    "file": "gmod.png"
+  },
+  {
+    "name": "idle",
+    "animated": false,
+    "file": "idle.png"
+  },
+  {
+    "name": "nitroboost",
+    "animated": false,
+    "file": "nitroboost.png"
+  },
+  {
+    "name": "offline",
+    "animated": false,
+    "file": "offline.png"
+  },
+  {
+    "name": "online",
+    "animated": false,
+    "file": "online.png"
+  },
+  {
+    "name": "rank1",
+    "animated": false,
+    "file": "rank1.png"
+  },
+  {
+    "name": "rank10",
+    "animated": false,
+    "file": "rank10.png"
+  },
+  {
+    "name": "rank2",
+    "animated": false,
+    "file": "rank2.png"
+  },
+  {
+    "name": "rank3",
+    "animated": false,
+    "file": "rank3.png"
+  },
+  {
+    "name": "rank4",
+    "animated": false,
+    "file": "rank4.png"
+  },
+  {
+    "name": "rank5",
+    "animated": false,
+    "file": "rank5.png"
+  },
+  {
+    "name": "rank6",
+    "animated": false,
+    "file": "rank6.png"
+  },
+  {
+    "name": "rank7",
+    "animated": false,
+    "file": "rank7.png"
+  },
+  {
+    "name": "rank8",
+    "animated": false,
+    "file": "rank8.png"
+  },
+  {
+    "name": "rank9",
+    "animated": false,
+    "file": "rank9.png"
+  },
+  {
+    "name": "rarity_common",
+    "animated": false,
+    "file": "rarity_common.png"
+  },
+  {
+    "name": "rarity_epic",
+    "animated": false,
+    "file": "rarity_epic.png"
+  },
+  {
+    "name": "rarity_legendary",
+    "animated": false,
+    "file": "rarity_legendary.png"
+  },
+  {
+    "name": "rarity_mythic",
+    "animated": false,
+    "file": "rarity_mythic.png"
+  },
+  {
+    "name": "rarity_rare",
+    "animated": false,
+    "file": "rarity_rare.png"
+  },
+  {
+    "name": "rarity_uncommon",
+    "animated": false,
+    "file": "rarity_uncommon.png"
+  },
+  {
+    "name": "rocket",
+    "animated": false,
+    "file": "rocket.png"
+  },
+  {
+    "name": "soundCloud",
+    "animated": false,
+    "file": "soundCloud.png"
+  },
+  {
+    "name": "spotify",
+    "animated": false,
+    "file": "spotify.png"
+  },
+  {
+    "name": "staff",
+    "animated": false,
+    "file": "staff.png"
+  },
+  {
+    "name": "stage",
+    "animated": false,
+    "file": "stage.png"
+  },
+  {
+    "name": "topgg",
+    "animated": false,
+    "file": "topgg.png"
+  },
+  {
+    "name": "transfer",
+    "animated": false,
+    "file": "transfer.png"
+  },
+  {
+    "name": "trust",
+    "animated": false,
+    "file": "trust.png"
+  },
+  {
+    "name": "untrust",
+    "animated": false,
+    "file": "untrust.png"
+  },
+  {
+    "name": "xnico",
+    "animated": false,
+    "file": "xnico.png"
   }
 ]

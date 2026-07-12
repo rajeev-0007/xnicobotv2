@@ -8,6 +8,7 @@ const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 const imageCache = require('../../utils/imageCache');
 const { registerAllFonts } = require('../../utils/fontRegistry');
+const cooldowns = require('../../utils/animeCooldowns');
 
 try { registerAllFonts(); } catch {}
 
@@ -48,6 +49,18 @@ async function playGuess(context, user, channel, isInteraction, reply) {
         addTextDisplay(c, `## <:Cancel:1521227723916181644> Not Ready\nCharacter pool is still loading, try again shortly.`);
         return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
     }
+
+    // Anti-abuse cooldown (starting a round counts).
+    const animeData = animeManager.loadAnimeData();
+    const playerData = animeManager.getPlayerData(animeData, user.id);
+    const cd = cooldowns.check(playerData, 'aguess');
+    if (!cd.ok) {
+        const c = createContainer(0xED4245);
+        addTextDisplay(c, `## ${AE.clock} Slow down!\n> Try \`aguess\` again in **${cooldowns.fmt(cd.remaining)}**.`);
+        return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+    }
+    cooldowns.set(playerData, 'aguess');
+    animeManager.saveAnimeData();
 
     // Prefer more well-known characters for a fair guess
     const pool = chars.filter(c => ['mythic', 'legendary', 'epic', 'rare'].includes(c.rarity));
