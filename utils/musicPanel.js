@@ -498,7 +498,9 @@ function buildMusicLoading(message = 'Processing...') {
  */
 function buildVoiceStatus(player, track = null) {
     const currentTrack = track || player?.queue?.current;
-    if (!currentTrack?.info) return '';
+    // Return null (not '') so callers clear the VC status instead of trying
+    // to PUT an empty string, which Discord rejects/ignores.
+    if (!currentTrack?.info) return null;
 
     const { voiceStatusGlyph } = require('./musicHelpers');
     const glyph = voiceStatusGlyph(currentTrack.info.sourceName);
@@ -515,7 +517,7 @@ function buildVoiceStatus(player, track = null) {
  * @returns {string} Formatted waiting status
  */
 function buildWaitingStatus() {
-    return `<:Music:1521228141543165982> **/play <song>**`;
+    return `🎶 /play <song>`;
 }
 
 /**
@@ -551,23 +553,23 @@ async function updateVoiceChannelStatus(client, playerOrIds, type = 'auto', trac
             clearTimeout(voiceStatusDebounce.get(debounceKey));
         }
 
-        await new Promise((resolve) => {
-            voiceStatusDebounce.set(debounceKey, setTimeout(async () => {
-                voiceStatusDebounce.delete(debounceKey);
-                try {
-                    await client.rest.put(`/channels/${vc.id}/voice-status`, {
-                        body: { status: status === null ? null : status.substring(0, 500) }
-                    });
-                } catch (err) {
-                    if (err.status === 429) {
-                        log.warning(`Voice status rate-limited for guild ${guildId}`);
-                    } else if (err.status !== 403 && err.status !== 404) {
-                        log.error(`Voice status update failed: ${err.message}`);
-                    }
+        const timer = setTimeout(async () => {
+            voiceStatusDebounce.delete(debounceKey);
+            try {
+                // Any falsy status (null OR empty string) clears the VC status —
+                // Discord only accepts a non-empty string or null, not ''.
+                await client.rest.put(`/channels/${vc.id}/voice-status`, {
+                    body: { status: status ? status.substring(0, 500) : null }
+                });
+            } catch (err) {
+                if (err.status === 429) {
+                    log.warning(`Voice status rate-limited for guild ${guildId}`);
+                } else if (err.status !== 403 && err.status !== 404) {
+                    log.error(`Voice status update failed: ${err.message}`);
                 }
-                resolve();
-            }, 300));
-        });
+            }
+        }, 300);
+        voiceStatusDebounce.set(debounceKey, timer);
     } catch (e) {
         log.error(`Voice status error: ${e.message}`);
     }

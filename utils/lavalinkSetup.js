@@ -347,6 +347,7 @@ function setupLavalinkEvents(client, lavalinkManager) {
         lastPlayedTracks.delete(player.guildId);
         autoplayHistory.delete(player.guildId);
         nowPlayingMessages.delete(player.guildId);
+        stuckWatchdog.delete(player.guildId);
     });
 
     // ── trackError ──
@@ -436,9 +437,14 @@ function setupLavalinkEvents(client, lavalinkManager) {
 
         log.warning(`Voice socket closed for guild ${guildId} — code ${code} (${reason})`);
 
-        // Code 4014 means we were disconnected by Discord (kicked/moved) — don't reconnect
+        // Code 4014 means we were disconnected by Discord (kicked/moved) — destroy the player
         if (code === 4014) {
-            log.info(`Voice socket: code 4014 (disconnected by Discord) — not reconnecting`);
+            log.info(`Voice socket: code 4014 (disconnected by Discord) — destroying player`);
+            try {
+                if (!player.destroyed) await player.destroy();
+            } catch (e) {
+                log.error(`Voice socket: failed to destroy player after 4014: ${e.message}`);
+            }
             return;
         }
 
@@ -571,10 +577,6 @@ function setupLavalinkEvents(client, lavalinkManager) {
                 }
             })();
         }
-    });
-
-    lavalinkManager.on('playerDestroy', async (player) => {
-        stuckWatchdog.delete(player?.guildId);
     });
 
     // ── queueEnd ──
@@ -747,7 +749,7 @@ function setupLavalinkEvents(client, lavalinkManager) {
                 inactivityTimers.delete(guildIdForTimer);
                 try {
                     const currentPlayer = client.lavalinkManager?.getPlayer(guildIdForTimer);
-                    if (currentPlayer && !currentPlayer.queue.current && !currentPlayer.playing) {
+                    if (currentPlayer && !currentPlayer.queue.current && !currentPlayer.playing && (!currentPlayer.queue.tracks || currentPlayer.queue.tracks.length === 0)) {
                         log.info(`Inactivity disconnect: Destroying player in guild ${guildIdForTimer} after 10 minutes of idle`);
                         await currentPlayer.destroy();
                     }

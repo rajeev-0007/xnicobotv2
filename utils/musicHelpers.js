@@ -137,12 +137,12 @@ function parseTime(input) {
  */
 function voiceStatusGlyph(sourceName) {
     const s = (sourceName || '').toLowerCase();
-    if (s.includes('youtube'))    return '<:YoutubeLive:1521228137541927022>';
-    if (s.includes('spotify'))    return '<:spotify:1521228327761744043>';
-    if (s.includes('soundcloud')) return '<:soundCloud:1521228420468445375>';
-    if (s.includes('apple'))      return '<:applemusic:1521228425962983484>';
-    if (s.includes('deezer'))     return '<:Music:1521228141543165982>';
-    return '<:Music:1521228141543165982>';
+    if (s.includes('youtube'))    return '▶️';
+    if (s.includes('spotify'))    return '🟢';
+    if (s.includes('soundcloud')) return '🟠';
+    if (s.includes('apple'))      return '🍎';
+    if (s.includes('deezer'))     return '🎵';
+    return '🎶';
 }
 
 /**

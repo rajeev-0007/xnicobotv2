@@ -24,7 +24,11 @@ async function run(target, lavalinkManager) {
             unique.push(track);
         }
     }
-    player.queue.tracks = unique;
+    // Mutate the queue's tracks array in place instead of reassigning the
+    // property — reassigning `player.queue.tracks` swaps out the reference
+    // lavalink-client holds internally and bypasses its queue bookkeeping.
+    player.queue.tracks.length = 0;
+    player.queue.tracks.push(...unique);
     const removed = original - unique.length;
 
     if (removed === 0) {
