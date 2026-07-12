@@ -1,7 +1,7 @@
 'use strict';
 
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const { createContainer, addTextDisplay, addSeparator, SeparatorSpacingSize } = require('../../utils/componentHelpers');
+const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const economyManager = require('../../utils/economyManager');
 

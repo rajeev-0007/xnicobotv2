@@ -1,7 +1,7 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
-const { createContainer, addTextDisplay, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('../../utils/componentHelpers');
+const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const economyManager = require('../../utils/economyManager');
 const { renderFusion } = require('../../utils/animeCardCanvas');
@@ -103,8 +103,9 @@ async function handleFuse(reply, user, character1Name, character2Name) {
         `> 💰 Cost: **${fusionCost.toLocaleString()}** coins`,
     ].join('\n'));
 
-    const mediaGallery = new MediaGalleryBuilder();
-    mediaGallery.addItem(new MediaGalleryItemBuilder().setMedia('attachment://fusion.png'));
+    const mediaGallery = new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL('attachment://fusion.png')
+    );
     container.addMediaGalleryComponents(mediaGallery);
 
     let components = [container];
@@ -141,6 +142,7 @@ module.exports = {
     async execute(interaction) {
         const char1 = interaction.options.getString('character1');
         const char2 = interaction.options.getString('character2');
-        return handleFuse(interaction.reply.bind(interaction), interaction.user, char1, char2);
+        await interaction.deferReply();
+        return handleFuse((payload) => interaction.editReply(payload), interaction.user, char1, char2);
     },
 };
