@@ -223,13 +223,19 @@ function rollMultiple(count = MULTI_ROLL_COUNT) {
         }
     }
 
-    // Pity: if no rare+ in multi, replace the last one
+    // Pity: if no rare+ in multi, replace the last one.
+    // Guard against an empty rare bucket (degenerate/small pool) so we never
+    // insert `undefined` into the results (which would crash addToCollection).
     if (!hasRareOrBetter) {
-        const rarePool = getCharacters().filter(c => c.rarity === 'rare');
-        results[count - 1] = rarePool[Math.floor(Math.random() * rarePool.length)];
+        const all = getCharacters();
+        const rarePool = all.filter(c => c.rarity === 'rare');
+        const pick = rarePool.length > 0
+            ? rarePool[Math.floor(Math.random() * rarePool.length)]
+            : all[Math.floor(Math.random() * all.length)];
+        if (pick) results[count - 1] = pick;
     }
 
-    return results;
+    return results.filter(Boolean);
 }
 
 /* ═══════════════════════════════════════════════════════

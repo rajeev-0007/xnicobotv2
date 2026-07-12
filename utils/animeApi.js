@@ -46,6 +46,12 @@ const QUERY = `query ($page: Int, $perPage: Int) {
 
 let _memPool = null;      // in-memory cache of the character array
 let _fetching = null;     // in-flight fetch promise
+let _lastFailAt = 0;      // timestamp of the last failed full fetch
+const FAIL_COOLDOWN_MS = 5 * 60 * 1000; // after a failed fetch, wait before retrying
+
+const UA = 'xNicoBot/1.0 (+https://github.com/Rajeev0007/xnicobotv2)';
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 function _loadCached() {
     try {
@@ -72,36 +78,77 @@ function _assignRarities(characters) {
     return characters;
 }
 
+/** Fetch a single page, handling GraphQL errors + one 429 retry. */
+async function _fetchPage(page) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const res = await axios.post(
+                API,
+                { query: QUERY, variables: { page, perPage: PER_PAGE } },
+                {
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': UA },
+                    timeout: 15000,
+                    validateStatus: () => true, // we inspect the status ourselves
+                },
+            );
+
+            // Rate limited — respect Retry-After (seconds), then retry once.
+            if (res.status === 429) {
+                const retryAfter = Number(res.headers?.['retry-after']) || 3;
+                log.warning(`[AnimeAPI] page ${page} rate-limited (429) — waiting ${retryAfter}s`);
+                await sleep(Math.min(retryAfter, 10) * 1000);
+                continue;
+            }
+
+            if (res.status >= 400) {
+                log.warning(`[AnimeAPI] page ${page} HTTP ${res.status}`);
+                return null;
+            }
+
+            // AniList returns GraphQL errors with HTTP 200 — surface them.
+            if (Array.isArray(res.data?.errors) && res.data.errors.length) {
+                log.warning(`[AnimeAPI] page ${page} GraphQL error: ${res.data.errors[0]?.message || 'unknown'}`);
+                return null;
+            }
+
+            return res.data?.data?.Page?.characters || [];
+        } catch (err) {
+            log.warning(`[AnimeAPI] page ${page} fetch failed: ${err.response?.status || err.message}`);
+            return null;
+        }
+    }
+    return null;
+}
+
 async function _fetchFromApi() {
     const all = [];
     for (let page = 1; page <= PAGES; page++) {
-        try {
-            const res = await axios.post(API, { query: QUERY, variables: { page, perPage: PER_PAGE } }, {
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                timeout: 15000,
-            });
-            const chars = res.data?.data?.Page?.characters || [];
-            for (const c of chars) {
-                if (!c?.image?.large || !c?.name?.full) continue;
-                const media = c.media?.nodes?.[0]?.title;
-                all.push({
-                    id: `al_${c.id}`,
-                    name: c.name.full,
-                    anime: media?.english || media?.romaji || 'Unknown',
-                    image: c.image.large,
-                    favourites: c.favourites || 0,
-                });
-            }
-            // Gentle pacing to respect AniList rate limits (90/min).
-            await new Promise(r => setTimeout(r, 700));
-        } catch (err) {
-            log.warning(`[AnimeAPI] page ${page} fetch failed: ${err.response?.status || err.message}`);
-            // If we already have some data, stop early and use what we have.
+        const chars = await _fetchPage(page);
+        if (chars === null) {
+            // Hard failure for this page — keep what we have if it's usable.
             if (all.length >= PER_PAGE) break;
+            continue;
         }
+        for (const c of chars) {
+            if (!c?.image?.large || !c?.name?.full) continue;
+            const media = c.media?.nodes?.[0]?.title;
+            all.push({
+                id: `al_${c.id}`,
+                name: c.name.full,
+                anime: media?.english || media?.romaji || 'Unknown',
+                image: c.image.large,
+                favourites: c.favourites || 0,
+            });
+        }
+        // Gentle pacing to respect AniList rate limits (90/min).
+        await sleep(700);
     }
 
-    if (all.length === 0) return null;
+    if (all.length === 0) {
+        _lastFailAt = Date.now();
+        log.warning('[AnimeAPI] fetch produced no characters — using fallback/cache until retry');
+        return null;
+    }
 
     // De-dupe by id, sort by favourites desc, assign rarities.
     const seen = new Set();
@@ -129,6 +176,12 @@ async function ensurePool() {
     if (cached && (Date.now() - cached.fetchedAt) < REFRESH_MS) {
         _memPool = cached;
         return cached.characters;
+    }
+    // If a recent fetch failed, don't hammer the API (or block commands for
+    // 7-15s) on every call. Serve stale cache if we have it, else empty (the
+    // manager falls back to its built-in character list).
+    if (Date.now() - _lastFailAt < FAIL_COOLDOWN_MS) {
+        return cached ? (_memPool = cached).characters : [];
     }
     // Stale or missing — refresh (single-flight).
     if (!_fetching) {
