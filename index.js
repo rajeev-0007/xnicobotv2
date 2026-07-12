@@ -15,7 +15,8 @@ const { handleWelcomerButtons, handleAutoresponderButtons, handleAutoreactButton
 const { preloadGuildInvites, refreshGuildInvite, handleMemberJoin, handleMemberLeave, isTrackingEnabled } = require('./utils/inviteManager');
 const { logMessageDelete, logMessageUpdate, logMessageBulkDelete, logMemberJoin, logMemberLeave, logMemberUpdate, logUserUpdate, logVoiceStateUpdate, logChannelCreate, logChannelDelete, logChannelUpdate, logGuildUpdate, logRoleCreate, logRoleDelete, logRoleUpdate, logBan, logUnban, logMemberKick, logTimeout, logEmojiCreate, logEmojiDelete, logEmojiUpdate, logStickerCreate, logStickerDelete, logThreadCreate, logThreadDelete, logInviteCreate, logInviteDelete, logWebhookUpdate, logAntinukeTrigger, logAntinukeFailure, logAntiraidAction, logAntialtDetection, logVanityGuard, logThreatMode, logWhitelistChange, logSecurityConfigChange, logSoundboardCreate, logSoundboardDelete } = require('./utils/logger');
 const { handleVoiceStateUpdate: handleJoin2Create, handleJ2CButtons, handleJ2CSelects, handleJ2CModals } = require('./utils/join2createHandler');
-const { updateMusicPanel, buildIdlePanel, buildVoiceStatus, buildWaitingStatus, updateVoiceChannelStatus, EMOJIS: MUSIC_EMOJIS } = require('./utils/musicPanel');
+const { updateMusicPanel, buildIdlePanel, buildVoiceStatus, buildWaitingStatus, updateVoiceChannelStatus, is247Enabled: is247On, EMOJIS: MUSIC_EMOJIS } = require('./utils/musicPanel');
+const { startLiveCard } = require('./utils/liveMusicCard');
 const log = require('./utils/logger-styled');
 const { connectDatabase, models, getGuildConfig: getGuildConfigDb } = require('./utils/database');
 const jsonStore = require('./utils/jsonStore');
@@ -1820,10 +1821,12 @@ client.on(Events.ClientReady, async () => {
             for (const [guildId, config] of Object.entries(config247)) {
                 if (!config.enabled) continue;
 
-                // Re-validate server premium — `/247` and the music
-                // panel's 24/7 button are premium-gated, but the
-                // saved config keeps reconnecting forever otherwise.
-                if (!premiumManager.isServerPremium(guildId)) continue;
+                // 24/7 is gated at ENABLE time (the `247` command is
+                // premiumOnly). Once enabled it must survive restarts —
+                // the old `isServerPremium()` re-check always returned
+                // false (server premium was discontinued), so 24/7
+                // channels NEVER rejoined after a restart. Honour the
+                // saved config strictly instead.
 
                 try {
                     const guild = client.guilds.cache.get(guildId);
@@ -5627,15 +5630,9 @@ client.on('interactionCreate', async (interaction) => {
 
                             // Check if there are more tracks in the queue
                             if (!player.queue.tracks || player.queue.tracks.length === 0) {
-                                // Check 24/7 mode before destroying player (premium-only)
-                                let shouldStay = false;
-                                if (
-                                    premiumManager.isServerPremium(interaction.guild.id) &&
-                                    jsonStore.has('musicpanel-247')
-                                ) {
-                                    const config247 = jsonStore.read('musicpanel-247');
-                                    shouldStay = config247[interaction.guild.id]?.enabled || false;
-                                }
+                                // Check 24/7 mode before destroying player.
+                                // Strict: if 24/7 is on, NEVER destroy — just stop the track.
+                                const shouldStay = is247On(interaction.guild.id);
 
                                 if (shouldStay) {
                                     // Just stop the current track without destroying
@@ -5657,14 +5654,7 @@ client.on('interactionCreate', async (interaction) => {
 
                             await interaction.deferUpdate().catch(() => { });
 
-                            let is247Enabled = false;
-                            if (
-                                premiumManager.isServerPremium(interaction.guild.id) &&
-                                jsonStore.has('musicpanel-247')
-                            ) {
-                                const config247 = jsonStore.read('musicpanel-247');
-                                is247Enabled = config247[interaction.guild.id]?.enabled || false;
-                            }
+                            const is247Enabled = is247On(interaction.guild.id);
 
                             const guildIdForPanel = interaction.guild.id;
 
@@ -12933,17 +12923,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                     const humanMembers = voiceChannel.members.filter(m => !m.user.bot).size;
 
                     if (humanMembers === 0) {
-                        // Bot is alone - check 24/7 mode (premium-only)
-                        let is247Enabled = false;
-                        if (
-                            premiumManager.isServerPremium(voiceGuild.id) &&
-                            jsonStore.has('musicpanel-247')
-                        ) {
-                            try {
-                                const config247 = jsonStore.read('musicpanel-247');
-                                is247Enabled = config247[voiceGuild.id]?.enabled || false;
-                            } catch (e) { }
-                        }
+                        // Bot is alone - check 24/7 mode.
+                        // Strict: 24/7 on ⇒ pause & stay, never disconnect.
+                        const is247Enabled = is247On(voiceGuild.id);
 
                         if (is247Enabled) {
                             // 24/7 mode: Pause if playing, update panel & voice status

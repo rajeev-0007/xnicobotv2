@@ -1,22 +1,12 @@
 'use strict';
 
 const { SlashCommandBuilder } = require('discord.js');
-const { updateMusicPanel, updateVoiceChannelStatus } = require('../../utils/musicPanel');
+const { updateMusicPanel, updateVoiceChannelStatus, is247Enabled } = require('../../utils/musicPanel');
 const { preflightPlayer, musicSuccess, replyMusic } = require('../../utils/musicResponse');
-const jsonStore = require('../../utils/jsonStore');
-const premiumManager = require('../../utils/premiumManager');
 
-function read247(guildId) {
-    try {
-        // 24/7 is premium-only — non-premium servers fall through to
-        // the normal "leave voice on stop" branch even if the saved
-        // config still says enabled.
-        if (!premiumManager.isServerPremium(guildId)) return false;
-        if (!jsonStore.has('musicpanel-247')) return false;
-        const cfg = jsonStore.read('musicpanel-247');
-        return !!cfg?.[guildId]?.enabled;
-    } catch { return false; }
-}
+// 24/7 state resolves through the single source of truth in musicPanel.
+// When enabled, stop clears the queue but KEEPS the bot in voice.
+const read247 = (guildId) => is247Enabled(guildId);
 
 function clearQueue(player) {
     const tracks = player.queue?.tracks;

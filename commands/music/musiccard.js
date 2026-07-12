@@ -4,6 +4,7 @@ const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const { musicError, replyMusic } = require('../../utils/musicResponse');
 const { buildNowPlayingContainer } = require('../../utils/musicPanel');
 const { renderNowPlayingCard, cardOptionsFromPlayer, STYLES } = require('../../utils/musicCard');
+const { startLiveCard } = require('../../utils/liveMusicCard');
 
 function resolveStyle(raw) {
     const s = String(raw || '').trim().toLowerCase();
@@ -44,7 +45,14 @@ async function run(target, lavalinkManager, rawStyle) {
     if (!container) {
         return replyMusic(target, musicError('Load Failed', 'Could not load now-playing information.'), { ephemeral: isSlash });
     }
-    return replyMusic(target, container, { files: [attachment] });
+
+    const sent = await replyMusic(target, container, { files: [attachment] });
+
+    // Keep this card updating live in the same message every 10s, in the
+    // chosen style — the progress bar advances without new messages.
+    if (sent) startLiveCard(target.client, sent, style);
+
+    return sent;
 }
 
 module.exports = {

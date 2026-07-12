@@ -4,6 +4,7 @@ const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const { buildNowPlayingContainer } = require('../../utils/musicPanel');
 const { musicError, replyMusic } = require('../../utils/musicResponse');
 const { renderNowPlayingCard, cardOptionsFromPlayer } = require('../../utils/musicCard');
+const { startLiveCard } = require('../../utils/liveMusicCard');
 
 async function run(target, lavalinkManager) {
     const guildId = target.guild.id;
@@ -35,7 +36,14 @@ async function run(target, lavalinkManager) {
     if (!container) {
         return replyMusic(target, musicError('Load Failed', 'Could not load now-playing information.'), { ephemeral: isSlash });
     }
-    return replyMusic(target, container, attachment ? { files: [attachment] } : {});
+
+    const sent = await replyMusic(target, container, attachment ? { files: [attachment] } : {});
+
+    // If we rendered a card, keep it updating live (progress bar advances)
+    // in this same message every 10s — no extra messages.
+    if (sent && attachment) startLiveCard(target.client, sent, 'default');
+
+    return sent;
 }
 
 module.exports = {

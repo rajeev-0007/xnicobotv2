@@ -19,6 +19,33 @@ const log = require('./logger-styled');
 const updateLocks = new Map();
 const voiceStatusDebounce = new Map();
 
+/**
+ * SINGLE SOURCE OF TRUTH for 24/7 mode.
+ *
+ * Previously every disconnect guard did
+ *   `premiumManager.isServerPremium(guildId) && config247[...].enabled`
+ * but server premium was DISCONTINUED — `isServerPremium()` now always
+ * returns false, so that expression was always false and the bot
+ * disconnected on skip/stop/queue-end/alone EVEN WHEN 24/7 WAS ON.
+ *
+ * 24/7 is gated at ENABLE time (the `247` command is premiumOnly). Once
+ * enabled it must be honoured strictly at runtime — read the config and
+ * nothing else. This is the ONLY place 24/7 state should be resolved.
+ *
+ * @param {string} guildId
+ * @returns {boolean}
+ */
+function is247Enabled(guildId) {
+    if (!guildId) return false;
+    try {
+        if (!jsonStore.has('musicpanel-247')) return false;
+        const cfg = jsonStore.read('musicpanel-247');
+        return !!cfg?.[guildId]?.enabled;
+    } catch {
+        return false;
+    }
+}
+
 const MUSIC_THEME = {
     primary: 0x5865F2,
     success: 0x57F287,
@@ -677,6 +704,7 @@ module.exports = {
     buildVoiceStatus,
     buildWaitingStatus,
     updateVoiceChannelStatus,
+    is247Enabled,
     truncateText,
     MUSIC_THEME,
     EMOJIS

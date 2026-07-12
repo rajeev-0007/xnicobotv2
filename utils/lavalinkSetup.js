@@ -3,7 +3,8 @@ const path = require('path');
 const { LavalinkManager } = require('lavalink-client');
 const { ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize } = require('discord.js');
 const { formatTime } = require('./helpers');
-const { updateMusicPanel, updateVoiceChannelStatus } = require('./musicPanel');
+const { updateMusicPanel, updateVoiceChannelStatus, is247Enabled } = require('./musicPanel');
+const { stopLiveCard } = require('./liveMusicCard');
 const log = require('./logger-styled');
 const jsonStore = require('./jsonStore');
 const { getMusicSettings } = require('./musicSettings');
@@ -323,7 +324,10 @@ function setupLavalinkEvents(client, lavalinkManager) {
     lavalinkManager.on('playerDestroy', async (player) => {
         const guildId = player.guildId;
         const voiceChannelId = player.voiceChannelId;
-        
+
+        // Halt any live "Now Playing" card updates for this guild.
+        stopLiveCard(guildId);
+
         if (inactivityTimers.has(guildId)) {
             clearTimeout(inactivityTimers.get(guildId));
             inactivityTimers.delete(guildId);
@@ -587,15 +591,7 @@ function setupLavalinkEvents(client, lavalinkManager) {
             panelUpdateInProgress.delete(player.guildId);
         }
 
-        let is247Enabled = false;
-        if (jsonStore.has('musicpanel-247')) {
-            try {
-                const config247 = jsonStore.read('musicpanel-247');
-                is247Enabled = config247[player.guildId]?.enabled || false;
-            } catch (e) {
-                log.error(`Error reading 24/7 config: ${e.message}`);
-            }
-        }
+        const is247Active = is247Enabled(player.guildId);
 
         const isAutoplayEnabled = autoplayStatus.get(player.guildId) || false;
         const lastTrack = lastPlayedTracks.get(player.guildId);
@@ -735,9 +731,9 @@ function setupLavalinkEvents(client, lavalinkManager) {
             log.error(`Panel update failed in queueEnd: ${err.message}`, err);
         }
 
-        await updateVoiceChannelStatus(client, player, is247Enabled ? 'waiting' : 'clear');
+        await updateVoiceChannelStatus(client, player, is247Active ? 'waiting' : 'clear');
 
-        if (!is247Enabled) {
+        if (!is247Active) {
             if (inactivityTimers.has(player.guildId)) {
                 clearTimeout(inactivityTimers.get(player.guildId));
             }
@@ -900,17 +896,16 @@ async function initLavalink(client, lavalinkManager) {
                 config247 = {};
             }
 
-            // Lazy-load to avoid a circular require with this util.
-            const premiumManager = require('./premiumManager');
-
             let reconnected = 0;
             let configChanged = false;
 
             for (const [guildId, data] of Object.entries(config247)) {
                 if (data.enabled && data.voiceChannelId) {
-                    // 24/7 is premium-only — skip non-premium servers
-                    // even if their saved config still says enabled.
-                    if (!premiumManager.isServerPremium(guildId)) continue;
+                    // 24/7 is gated at enable time; honour the saved
+                    // config strictly so channels rejoin after a restart.
+                    // (The old isServerPremium() re-check always returned
+                    // false since server premium was discontinued, which
+                    // silently disabled all 24/7 reconnects.)
                     try {
                         const guild = client.guilds.cache.get(guildId);
                         if (!guild) {
