@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay, addSeparator, SeparatorSpacingSize } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 
 async function handleDropRates(reply, guildId) {
     const totalWeight = Object.values(animeManager.RARITIES).reduce((sum, r) => sum + r.weight, 0);
@@ -11,12 +12,12 @@ async function handleDropRates(reply, guildId) {
         const percent = ((rarity.weight / totalWeight) * 100).toFixed(1);
         const charCount = animeManager.CHARACTERS.filter(c => c.rarity === key).length;
         const bar = '█'.repeat(Math.max(1, Math.round(parseFloat(percent) / 5))) + '░'.repeat(Math.max(0, 10 - Math.round(parseFloat(percent) / 5)));
-        return `> ${rarity.emoji} **${rarity.name}** — ${percent}% \`[${bar}]\`\n>  └ ${charCount} characters • Value: 💰 ${rarity.value.toLocaleString()}`;
+        return `> ${rarity.emoji} **${rarity.name}** — ${percent}% \`[${bar}]\`\n>  └ ${charCount} characters • Value: ${AE.money} ${rarity.value.toLocaleString()}`;
     });
 
     const container = createContainer(0xCAD7E6);
     addTextDisplay(container, [
-        `## 🎰 Drop Rates & Rarity Info`,
+        `## ${AE.gacha} Drop Rates & Rarity Info`,
         '',
         lines.join('\n'),
     ].join('\n'));
@@ -24,13 +25,13 @@ async function handleDropRates(reply, guildId) {
     addSeparator(container, SeparatorSpacingSize.Small);
 
     addTextDisplay(container, [
-        `### 📋 System Info`,
-        `> 🎲 **Single Roll:** ${animeManager.ROLL_COST} coins`,
-        `> 🎲 **Multi Roll (x${animeManager.MULTI_ROLL_COUNT}):** ${animeManager.MULTI_ROLL_COST} coins (10% discount)`,
-        `> 🎟️ **Free Rolls:** ${animeManager.DAILY_FREE_ROLLS}/day`,
-        `> ⏱️ **Cooldown:** ${animeManager.ROLL_COOLDOWN / 1000}s between rolls`,
-        `> 🛡️ **Pity:** Multi-roll guarantees at least 1 Rare+`,
-        `> 💰 **Sell Value:** 50% of card's base value`,
+        `### ${AE.info} System Info`,
+        `> ${AE.roll} **Single Roll:** ${animeManager.ROLL_COST} coins`,
+        `> ${AE.roll} **Multi Roll (x${animeManager.MULTI_ROLL_COUNT}):** ${animeManager.MULTI_ROLL_COST} coins (10% discount)`,
+        `> ${AE.present} **Free Rolls:** ${animeManager.DAILY_FREE_ROLLS}/day`,
+        `> ${AE.clock} **Cooldown:** ${animeManager.ROLL_COOLDOWN / 1000}s between rolls`,
+        `> ${AE.shield} **Pity:** Multi-roll guarantees at least 1 Rare+`,
+        `> ${AE.money} **Sell Value:** 50% of card's base value`,
         '',
         `-# Total characters in pool: ${animeManager.CHARACTERS.length}`,
     ].join('\n'));

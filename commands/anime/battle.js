@@ -6,6 +6,7 @@ const { createContainer, addTextDisplay } = require('../../utils/componentHelper
 const { drawRoundedRect, truncateText } = require('../../utils/canvasDesign');
 const { registerAllFonts, getFontHelpers } = require('../../utils/fontRegistry');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 const imageCache = require('../../utils/imageCache');
 
@@ -102,9 +103,9 @@ async function handleBattle(reply, author, opponent, guildId) {
     const buffer = await renderVs(aCard, bCard, winnerSide);
     const c = createContainer(winnerSide === 'a' ? 0x57F287 : 0xED4245);
     addTextDisplay(c, [
-        `## ⚔️ Card Battle`,
+        `## ${AE.fire} Card Battle`,
         `> ${author.username}'s **${aCard.name}** vs ${opponent.username}'s **${bCard.name}**`,
-        `> 🏆 **Winner:** ${winner.username}  (+${WIN_REWARD} 💰)`,
+        `> ${AE.trophy} **Winner:** ${winner.username}  (+${WIN_REWARD} ${AE.money})`,
         `-# Outcome weighted by rarity & popularity`,
     ].join('\n'));
     c.addMediaGalleryComponents(

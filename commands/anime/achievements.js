@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 
 const ITEMS_PER_PAGE = 5;
 
@@ -28,14 +29,14 @@ async function handleAchievements(reply, user) {
 
         const lines = pageItems.map(ach => {
             const isUnlocked = unlocked.some(a => a.id === ach.id);
-            const icon = isUnlocked ? ach.emoji : '🔒';
+            const icon = isUnlocked ? ach.emoji : AE.lock;
             const status = isUnlocked ? '**(Unlocked)**' : '*(Locked)*';
-            return `### ${icon} ${ach.name} ${status}\n> ${ach.desc}\n> 💰 Reward: **${ach.reward}** coins`;
+            return `### ${icon} ${ach.name} ${status}\n> ${ach.desc}\n> ${AE.money} Reward: **${ach.reward}** coins`;
         });
 
         const container = createContainer(0xF1C40F);
         addTextDisplay(container, [
-            `## 🏆 Anime Achievements`,
+            `## ${AE.trophy} Anime Achievements`,
             `> You have unlocked **${unlocked.length}/${allAchievements.length}** achievements.`,
             '',
             lines.join('\n\n'),

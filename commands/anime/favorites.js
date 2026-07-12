@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 
 const MAX_FAVORITES = 5;
 
@@ -13,32 +14,32 @@ async function handleFavorites(reply, user, guildId, action = 'view', characterN
     if (action === 'add') {
         if (!characterName) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Error\nPlease specify a character name.`);
+            addTextDisplay(container, `## ${AE.cancel} Error\nPlease specify a character name.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         const char = animeManager.findCharacter(characterName);
         if (!char) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Not Found\nCharacter "${characterName}" not found.`);
+            addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${characterName}" not found.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (!animeManager.hasCharacter(playerData, char.id)) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Not Owned\nYou need to own **${char.name}** to add them as a favorite.`);
+            addTextDisplay(container, `## ${AE.cancel} Not Owned\nYou need to own **${char.name}** to add them as a favorite.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (playerData.favorites.includes(char.id)) {
             const container = createContainer(0xFEE75C);
-            addTextDisplay(container, `## ⚠️ Already Favorited\n**${char.name}** is already in your favorites.`);
+            addTextDisplay(container, `## ${AE.warn} Already Favorited\n**${char.name}** is already in your favorites.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (playerData.favorites.length >= MAX_FAVORITES) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Favorites Full\nYou can only have **${MAX_FAVORITES}** favorites. Remove one first.`);
+            addTextDisplay(container, `## ${AE.cancel} Favorites Full\nYou can only have **${MAX_FAVORITES}** favorites. Remove one first.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
@@ -48,7 +49,7 @@ async function handleFavorites(reply, user, guildId, action = 'view', characterN
         const rarity = animeManager.RARITIES[char.rarity];
         const container = createContainer(0x57F287);
         addTextDisplay(container, [
-            `## ✅ Favorite Added`,
+            `## ${AE.check} Favorite Added`,
             '',
             `${rarity.emoji} **${char.name}** is now one of your favorites!`,
             '',
@@ -60,21 +61,21 @@ async function handleFavorites(reply, user, guildId, action = 'view', characterN
     if (action === 'remove') {
         if (!characterName) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Error\nPlease specify a character name.`);
+            addTextDisplay(container, `## ${AE.cancel} Error\nPlease specify a character name.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         const char = animeManager.findCharacter(characterName);
         if (!char) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Not Found\nCharacter "${characterName}" not found.`);
+            addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${characterName}" not found.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         const idx = playerData.favorites.indexOf(char.id);
         if (idx === -1) {
             const container = createContainer(0xFEE75C);
-            addTextDisplay(container, `## ⚠️ Not a Favorite\n**${char.name}** is not in your favorites.`);
+            addTextDisplay(container, `## ${AE.warn} Not a Favorite\n**${char.name}** is not in your favorites.`);
             return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
@@ -82,7 +83,7 @@ async function handleFavorites(reply, user, guildId, action = 'view', characterN
         animeManager.saveAnimeData();
 
         const container = createContainer(0x57F287);
-        addTextDisplay(container, `## ✅ Removed\n**${char.name}** removed from your favorites.`);
+        addTextDisplay(container, `## ${AE.check} Removed\n**${char.name}** removed from your favorites.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -90,7 +91,7 @@ async function handleFavorites(reply, user, guildId, action = 'view', characterN
     if (playerData.favorites.length === 0) {
         const container = createContainer(0xCAD7E6);
         addTextDisplay(container, [
-            `## 💜 Your Favorites`,
+            `## ${AE.favorite} Your Favorites`,
             '',
             `> You haven't set any favorites yet!`,
             '',
@@ -108,7 +109,7 @@ async function handleFavorites(reply, user, guildId, action = 'view', characterN
 
     const container = createContainer(0x9B59B6);
     addTextDisplay(container, [
-        `## 💜 ${user.username}'s Favorites`,
+        `## ${AE.favorite} ${user.username}'s Favorites`,
         '',
         lines.join('\n'),
         '',

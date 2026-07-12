@@ -53,8 +53,12 @@ const EMOJIS = {
     chart:     '<:Inforect:1521228008285929532>',
     info:      '<:Infocircle:1521227700835057685>',
     search:    '<:Search:1521228231263387738>',
+    user:      '<:User:1521227714227343380>',
+    book:      '<:Book:1521228246748889179>',
+    server:    '<:Server:1521228371051413546>',
 
     // Prestige / highlights
+    shield:    '<:Shield:1521227694677692467>',
     trophy:    '<:Crown:1521227739988889764>',
     crown:     '<:Crown:1521227739988889764>',
     award:     '<:Award:1521228119640375336>',
@@ -66,7 +70,12 @@ const EMOJIS = {
     // Feedback
     check:     '<:Checkedbox:1521227734943269077>',
     cancel:    '<:Cancel:1521227723916181644>',
+    lock:      '<:Lock:1521227892770734120>',
+    warn:      '<:Infotriangle:1521227710381428926>',
     clock:     '<:Clock:1521228110408847623>',
+    sandwatch: '<:Sandwatch:1521228272426418367>',
+    upload:    '<:Upload:1521228365120405537>',
+    download:  '<:Download:1521228191899975810>',
 
     // Leaderboard rank badges (perfect for top positions 1-7)
     rank1:     '<:rank1:1522972998569689098>',

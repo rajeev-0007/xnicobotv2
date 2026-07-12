@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
 const { createContainer, addTextDisplay, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 const { renderUpgrade } = require('../../utils/animeCardCanvas');
 
@@ -10,7 +11,7 @@ async function handleUpgrade(reply, user, characterName) {
     if (!characterName) {
         const container = createContainer(0xED4245);
         addTextDisplay(container, [
-            `## ❌ Usage`,
+            `## ${AE.cancel} Usage`,
             '',
             `> \`aupgrade <character>\` — Upgrade a character to the next rarity`,
             '',
@@ -27,26 +28,26 @@ async function handleUpgrade(reply, user, characterName) {
     const char = animeManager.findCharacter(characterName);
     if (!char) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Found\nCharacter "${characterName}" not found.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Found\nCharacter "${characterName}" not found.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (!animeManager.hasCharacter(playerData, char.id)) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Not Owned\nYou don't own **${char.name}**.`);
+        addTextDisplay(container, `## ${AE.cancel} Not Owned\nYou don't own **${char.name}**.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     const upgradeCheck = animeManager.canUpgrade(playerData, char.id);
     if (!upgradeCheck.ok) {
         const container = createContainer(0xFEE75C);
-        addTextDisplay(container, `## ⚠️ Cannot Upgrade\n${upgradeCheck.reason}`);
+        addTextDisplay(container, `## ${AE.warn} Cannot Upgrade\n${upgradeCheck.reason}`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (userData.coins < upgradeCheck.cost) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Insufficient Funds\nUpgrading costs **${upgradeCheck.cost.toLocaleString()}** coins. You only have **${userData.coins.toLocaleString()}**.`);
+        addTextDisplay(container, `## ${AE.cancel} Insufficient Funds\nUpgrading costs **${upgradeCheck.cost.toLocaleString()}** coins. You only have **${userData.coins.toLocaleString()}**.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -76,11 +77,11 @@ async function handleUpgrade(reply, user, characterName) {
 
     const container = createContainer(0xF1C40F);
     addTextDisplay(container, [
-        `## ✨ Ascension Complete! ✨`,
+        `## ${AE.sparkle} Ascension Complete!`,
         '',
         `> You sacrificed **${animeManager.UPGRADE_SACRIFICE}** cards to ascend **${char.name}**.`,
         `> Their rarity is now **${animeManager.RARITIES[upgradedChar.rarity].name}**!`,
-        `> 💰 Cost: **${upgradeCheck.cost.toLocaleString()}** coins`,
+        `> ${AE.money} Cost: **${upgradeCheck.cost.toLocaleString()}** coins`,
     ].join('\n'));
 
     const mediaGallery = new MediaGalleryBuilder();
@@ -91,7 +92,7 @@ async function handleUpgrade(reply, user, characterName) {
     if (newAchievements.length > 0) {
         const achContainer = createContainer(0x57F287);
         const achLines = newAchievements.map(a => `${a.emoji} **${a.name}** (+${a.reward} coins)`);
-        addTextDisplay(achContainer, `### 🏆 Achievements Unlocked!\n${achLines.join('\n')}`);
+        addTextDisplay(achContainer, `### ${AE.trophy} Achievements Unlocked!\n${achLines.join('\n')}`);
         components.push(achContainer);
     }
 

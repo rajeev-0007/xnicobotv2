@@ -3,17 +3,18 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createContainer, addTextDisplay, addSeparator, SeparatorSpacingSize } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 
 async function handleTrade(reply, message, author, targetUser, offerName, wantName, guildId) {
     if (targetUser.id === author.id) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Trade Failed\nYou can't trade with yourself!`);
+        addTextDisplay(container, `## ${AE.cancel} Trade Failed\nYou can't trade with yourself!`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (targetUser.bot) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Trade Failed\nYou can't trade with bots!`);
+        addTextDisplay(container, `## ${AE.cancel} Trade Failed\nYou can't trade with bots!`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -22,13 +23,13 @@ async function handleTrade(reply, message, author, targetUser, offerName, wantNa
 
     if (!offerChar) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Trade Failed\nCharacter "${offerName}" not found. Use \`acharlist\` to see all characters.`);
+        addTextDisplay(container, `## ${AE.cancel} Trade Failed\nCharacter "${offerName}" not found. Use \`acharlist\` to see all characters.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (!wantChar) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Trade Failed\nCharacter "${wantName}" not found. Use \`acharlist\` to see all characters.`);
+        addTextDisplay(container, `## ${AE.cancel} Trade Failed\nCharacter "${wantName}" not found. Use \`acharlist\` to see all characters.`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -38,13 +39,13 @@ async function handleTrade(reply, message, author, targetUser, offerName, wantNa
 
     if (!animeManager.hasCharacter(authorData, offerChar.id)) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Trade Failed\nYou don't have **${offerChar.name}** in your collection!`);
+        addTextDisplay(container, `## ${AE.cancel} Trade Failed\nYou don't have **${offerChar.name}** in your collection!`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (!animeManager.hasCharacter(targetData, wantChar.id)) {
         const container = createContainer(0xED4245);
-        addTextDisplay(container, `## ❌ Trade Failed\n**${targetUser.username}** doesn't have **${wantChar.name}**!`);
+        addTextDisplay(container, `## ${AE.cancel} Trade Failed\n**${targetUser.username}** doesn't have **${wantChar.name}**!`);
         return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
@@ -54,12 +55,12 @@ async function handleTrade(reply, message, author, targetUser, offerName, wantNa
     // Send trade proposal
     const container = createContainer(0xF1C40F);
     addTextDisplay(container, [
-        `## 🔄 Trade Proposal`,
+        `## ${AE.trade} Trade Proposal`,
         '',
         `**${author.username}** wants to trade with **${targetUser.username}**!`,
         '',
-        `> 📤 **Offering:** ${offerRarity.emoji} ${offerChar.name} (*${offerChar.anime}*)`,
-        `> 📥 **Wants:** ${wantRarity.emoji} ${wantChar.name} (*${wantChar.anime}*)`,
+        `> ${AE.upload} **Offering:** ${offerRarity.emoji} ${offerChar.name} (*${offerChar.anime}*)`,
+        `> ${AE.download} **Wants:** ${wantRarity.emoji} ${wantChar.name} (*${wantChar.anime}*)`,
         '',
         `-# ${targetUser.username}, type \`accept\` or \`deny\` within 30 seconds`,
     ].join('\n'));
@@ -87,7 +88,7 @@ async function handleTrade(reply, message, author, targetUser, offerName, wantNa
 
             const successContainer = createContainer(0x57F287);
             addTextDisplay(successContainer, [
-                `## ✅ Trade Complete!`,
+                `## ${AE.check} Trade Complete!`,
                 '',
                 `> **${author.username}** received ${wantRarity.emoji} **${wantChar.name}**`,
                 `> **${targetUser.username}** received ${offerRarity.emoji} **${offerChar.name}**`,
@@ -97,12 +98,12 @@ async function handleTrade(reply, message, author, targetUser, offerName, wantNa
             return channel.send({ components: [successContainer], flags: MessageFlags.IsComponentsV2 });
         } else {
             const denyContainer = createContainer(0xED4245);
-            addTextDisplay(denyContainer, `## ❌ Trade Declined\n**${targetUser.username}** declined the trade.`);
+            addTextDisplay(denyContainer, `## ${AE.cancel} Trade Declined\n**${targetUser.username}** declined the trade.`);
             return channel.send({ components: [denyContainer], flags: MessageFlags.IsComponentsV2 });
         }
     } catch {
         const timeoutContainer = createContainer(0xFEE75C);
-        addTextDisplay(timeoutContainer, `## ⏳ Trade Expired\nThe trade request timed out.`);
+        addTextDisplay(timeoutContainer, `## ${AE.sandwatch} Trade Expired\nThe trade request timed out.`);
         return channel.send({ components: [timeoutContainer], flags: MessageFlags.IsComponentsV2 });
     }
 }
@@ -124,7 +125,7 @@ module.exports = {
         if (args.length < 3) {
             const container = createContainer(0xED4245);
             addTextDisplay(container, [
-                `## ❌ Usage Error`,
+                `## ${AE.cancel} Usage Error`,
                 '',
                 `> \`atrade @user <your_character> <their_character>\``,
                 '',
@@ -136,7 +137,7 @@ module.exports = {
         const target = message.mentions.users.first();
         if (!target) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Error\nPlease mention a user to trade with.`);
+            addTextDisplay(container, `## ${AE.cancel} Error\nPlease mention a user to trade with.`);
             return message.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
@@ -144,7 +145,7 @@ module.exports = {
         const textArgs = args.filter(a => !a.match(/^<@!?\d+>$/));
         if (textArgs.length < 2) {
             const container = createContainer(0xED4245);
-            addTextDisplay(container, `## ❌ Usage\n\`atrade @user <offer> | <want>\` or \`atrade @user <offer> <want>\``);
+            addTextDisplay(container, `## ${AE.cancel} Usage\n\`atrade @user <offer> | <want>\` or \`atrade @user <offer> <want>\``);
             return message.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 

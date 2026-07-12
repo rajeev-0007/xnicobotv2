@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
+const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const animeCard = require('../../utils/animeCardCanvas');
 
 async function handleDailyCard(reply, user, guildId) {
@@ -19,9 +20,9 @@ async function handleDailyCard(reply, user, guildId) {
         const minutes = Math.floor((timeUntil % 3600000) / 60000);
         const c = createContainer(0xFEE75C);
         addTextDisplay(c, [
-            `## 🎟️ Daily Rolls`,
+            `## ${AE.present} Daily Rolls`,
             `> You've used all your free rolls today!`,
-            `> ⏰ Reset in **${hours}h ${minutes}m**`,
+            `> ${AE.clock} Reset in **${hours}h ${minutes}m**`,
             `-# Free rolls: 0/${animeManager.DAILY_FREE_ROLLS} • Use coins: \`aroll\``,
         ].join('\n'));
         return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
@@ -41,11 +42,11 @@ async function handleDailyCard(reply, user, guildId) {
 
     const c = createContainer(rarity.color);
     const lines = [
-        `## 🎟️ Daily Free Roll — **${character.name}**`,
-        `> ${rarity.emoji} **${rarity.name}** • 💰 ${rarity.value.toLocaleString()} value`,
+        `## ${AE.present} Daily Free Roll — **${character.name}**`,
+        `> ${rarity.emoji} **${rarity.name}** • ${AE.money} ${rarity.value.toLocaleString()} value`,
         `-# Free rolls left today: ${remaining}/${animeManager.DAILY_FREE_ROLLS}`,
     ];
-    if (playerData.wishlist.includes(character.id)) lines.push(`\n🌟 **WISHLIST HIT!**`);
+    if (playerData.wishlist.includes(character.id)) lines.push(`\n${AE.star} **WISHLIST HIT!**`);
     addTextDisplay(c, lines.join('\n'));
     c.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
