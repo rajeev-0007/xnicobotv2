@@ -4,6 +4,7 @@ const LevelCard = require('../../utils/levelCard');
 const { getUserData, getGuildMember } = require('../../utils/database');
 const jsonStore = require('../../utils/jsonStore');
 const { resolveUser } = require('../../utils/resolveUser');
+const { resolveProfileAssets } = require('../../utils/discordAssets');
 
 function getLeveling() {
     if (!jsonStore.has('leveling')) return {};
@@ -36,6 +37,11 @@ async function generateRankCard(target, guild) {
 
     const member = await guild.members.fetch(target.id).catch(() => null);
     const userProfile = await getUserData(target.id).catch(() => ({ profile: {}, social: {} }));
+
+    // Resolve the user's REAL Discord banner + avatar decoration (force-fetch
+    // included) — partial users from interaction options don't include them.
+    const { fullUser, banner: discordBanner, decoration: avatarDecoration } =
+        await resolveProfileAssets(guild.client, target);
     
     let messageCount = userData.messages || 0;
     let voiceTime = 0;
@@ -55,8 +61,13 @@ async function generateRankCard(target, guild) {
     const selectedCardStyle = rankSettings.cardStyle || 'minimal';
     levelCard.setCardStyle(selectedCardStyle);
     if (rankSettings.customBackground) levelCard.setBackgroundImage(rankSettings.customBackground);
-    if (rankSettings.bannerImage) levelCard.setBannerImage(rankSettings.bannerImage);
-    if (rankSettings.bannerMode) levelCard.setBannerMode(rankSettings.bannerMode);
+    // Default the banner to the user's real Discord banner; a custom banner
+    // set via rank-customize overrides it.
+    const effectiveBanner = rankSettings.bannerImage || discordBanner;
+    if (effectiveBanner) {
+        levelCard.setBannerImage(effectiveBanner);
+        levelCard.setBannerMode(rankSettings.bannerMode || 'strip');
+    }
     if (rankSettings.backgroundColor) levelCard.setBackground(rankSettings.backgroundColor);
     if (rankSettings.progressBarColor) {
         levelCard.setProgressBarColor(rankSettings.progressBarColor);
@@ -67,7 +78,7 @@ async function generateRankCard(target, guild) {
     if (rankSettings.backgroundOpacity !== undefined) levelCard.setBackgroundOpacity(rankSettings.backgroundOpacity);
     if (rankSettings.fontFamily) levelCard.setFontFamily(rankSettings.fontFamily);
     
-    const cardBuffer = await levelCard.generate(target, {
+    const cardBuffer = await levelCard.generate(fullUser, {
         level: currentLevel,
         rank: rank || 0,
         xpProgress,
@@ -76,7 +87,8 @@ async function generateRankCard(target, guild) {
         memberCount: guild.memberCount,
         joinedAt: member?.joinedTimestamp || null,
         messagesCount: messageCount,
-        voiceTime
+        voiceTime,
+        avatarDecoration
     });
 
     const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank-card.png' });

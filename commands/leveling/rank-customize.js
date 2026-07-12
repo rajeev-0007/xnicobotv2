@@ -228,7 +228,7 @@ module.exports = {
                 : '`Default`';
             const bannerDisplay = currentSettings.banner
                 ? (currentSettings.banner.length > 35 ? currentSettings.banner.substring(0, 35) + '...' : currentSettings.banner)
-                : '`None`';
+                : '`Discord banner (default)`';
             const bannerModeLabel = currentSettings.bannerMode === 'full' ? 'Full background' : 'Top strip';
 
             const container = new ContainerBuilder()
