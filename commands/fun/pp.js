@@ -63,14 +63,15 @@ function userInches(userId) {
     return 1 + Math.round((p / 100) * 14);   // 1–15
 }
 
-async function buildAndSend(targetUser, displayName) {
+async function buildAndSend(targetUser) {
     const inches = userInches(targetUser.id);
     const barFill = Math.round((inches / 15) * 100);
     const tier = pickTier(barFill, tiers);
 
     const buffer = await renderPercentCard({
         title: 'PP Inspector',
-        subjectName: displayName || targetUser.username,
+        // Always use the Discord username (not the server nickname/display name).
+        subjectName: targetUser.username,
         avatarURL: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
         percent: inches,
         barMax: 15,
@@ -109,10 +110,8 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply().catch(() => { });
         const target = interaction.options.getUser('user') || interaction.user;
-        const member = interaction.guild?.members.cache.get(target.id);
-        const displayName = member?.displayName || target.username;
         try {
-            const { container, attachment } = await buildAndSend(target, displayName);
+            const { container, attachment } = await buildAndSend(target);
             await interaction.editReply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
         } catch (err) {
             console.error('[pp] render error:', err);
@@ -122,10 +121,8 @@ module.exports = {
 
     async executePrefix(message) {
         const target = message.mentions.users.first() || message.author;
-        const member = message.guild?.members.cache.get(target.id);
-        const displayName = member?.displayName || target.username;
         try {
-            const { container, attachment } = await buildAndSend(target, displayName);
+            const { container, attachment } = await buildAndSend(target);
             await message.reply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
         } catch (err) {
             console.error('[pp] render error:', err);

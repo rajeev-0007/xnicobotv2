@@ -12,6 +12,7 @@
 const jsonStore = require('./jsonStore');
 const log = require('./logger-styled');
 const animeApi = require('./animeApi');
+const { EMOJIS: AE } = require('./animeEmojis');
 
 /* ═══════════════════════════════════════════════════════
    RARITY SYSTEM
@@ -489,15 +490,15 @@ function getFusionCost(charId1, charId2) {
 
 const MYSTERY_BOXES = {
     bronze: {
-        name: 'Bronze Box', emoji: '🥉', cost: 500, cards: 3,
+        name: 'Bronze Box', emoji: AE.rank3, cost: 500, cards: 3,
         weights: { common: 45, uncommon: 30, rare: 15, epic: 7, legendary: 2.5, mythic: 0.5 },
     },
     silver: {
-        name: 'Silver Box', emoji: '🥈', cost: 1500, cards: 3,
+        name: 'Silver Box', emoji: AE.rank2, cost: 1500, cards: 3,
         weights: { common: 15, uncommon: 30, rare: 30, epic: 18, legendary: 6, mythic: 1 },
     },
     gold: {
-        name: 'Gold Box', emoji: '🥇', cost: 5000, cards: 3,
+        name: 'Gold Box', emoji: AE.rank1, cost: 5000, cards: 3,
         weights: { common: 0, uncommon: 0, rare: 10, epic: 50, legendary: 30, mythic: 10 },
     },
 };
@@ -530,24 +531,24 @@ function openMysteryBox(tier = 'bronze') {
    ═══════════════════════════════════════════════════════ */
 
 const ACHIEVEMENTS = [
-    { id: 'first_roll', name: 'First Steps', desc: 'Roll your first character', emoji: '🎲', reward: 50, check: pd => pd.totalRolls >= 1 },
-    { id: 'rolls_10', name: 'Getting Started', desc: 'Roll 10 times', emoji: '🎰', reward: 100, check: pd => pd.totalRolls >= 10 },
-    { id: 'rolls_50', name: 'Dedicated Roller', desc: 'Roll 50 times', emoji: '🎯', reward: 250, check: pd => pd.totalRolls >= 50 },
-    { id: 'rolls_100', name: 'Roll Master', desc: 'Roll 100 times', emoji: '💫', reward: 500, check: pd => pd.totalRolls >= 100 },
-    { id: 'rolls_500', name: 'Gacha Addict', desc: 'Roll 500 times', emoji: '🌟', reward: 2000, check: pd => pd.totalRolls >= 500 },
-    { id: 'unique_5', name: 'Small Collection', desc: 'Collect 5 unique characters', emoji: '📦', reward: 100, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 5 },
-    { id: 'unique_25', name: 'Card Enthusiast', desc: 'Collect 25 unique characters', emoji: '🃏', reward: 500, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 25 },
-    { id: 'unique_50', name: 'Serious Collector', desc: 'Collect 50 unique characters', emoji: '🏅', reward: 1000, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 50 },
-    { id: 'unique_100', name: 'Master Collector', desc: 'Collect 100 unique characters', emoji: '🏆', reward: 3000, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 100 },
+    { id: 'first_roll', name: 'First Steps', desc: 'Roll your first character', emoji: AE.roll, reward: 50, check: pd => pd.totalRolls >= 1 },
+    { id: 'rolls_10', name: 'Getting Started', desc: 'Roll 10 times', emoji: AE.gacha, reward: 100, check: pd => pd.totalRolls >= 10 },
+    { id: 'rolls_50', name: 'Dedicated Roller', desc: 'Roll 50 times', emoji: AE.star, reward: 250, check: pd => pd.totalRolls >= 50 },
+    { id: 'rolls_100', name: 'Roll Master', desc: 'Roll 100 times', emoji: AE.lightning, reward: 500, check: pd => pd.totalRolls >= 100 },
+    { id: 'rolls_500', name: 'Gacha Addict', desc: 'Roll 500 times', emoji: AE.fire, reward: 2000, check: pd => pd.totalRolls >= 500 },
+    { id: 'unique_5', name: 'Small Collection', desc: 'Collect 5 unique characters', emoji: AE.box, reward: 100, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 5 },
+    { id: 'unique_25', name: 'Card Enthusiast', desc: 'Collect 25 unique characters', emoji: AE.collection, reward: 500, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 25 },
+    { id: 'unique_50', name: 'Serious Collector', desc: 'Collect 50 unique characters', emoji: AE.award, reward: 1000, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 50 },
+    { id: 'unique_100', name: 'Master Collector', desc: 'Collect 100 unique characters', emoji: AE.crown, reward: 3000, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 100 },
     { id: 'rarity_epic', name: 'Epic Find', desc: 'Own an Epic rarity card', emoji: '🟣', reward: 200, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'epic'; }) },
     { id: 'rarity_legendary', name: 'Legendary Pull', desc: 'Own a Legendary rarity card', emoji: '🟡', reward: 500, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'legendary'; }) },
     { id: 'rarity_mythic', name: 'Mythic Discovery', desc: 'Own a Mythic rarity card', emoji: '🔴', reward: 2000, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'mythic'; }) },
-    { id: 'first_trade', name: 'First Trade', desc: 'Complete your first trade', emoji: '🤝', reward: 100, check: pd => pd.trades >= 1 },
-    { id: 'trades_10', name: 'Trader', desc: 'Complete 10 trades', emoji: '📊', reward: 500, check: pd => pd.trades >= 10 },
-    { id: 'spent_1000', name: 'Big Spender', desc: 'Spend 1,000 coins on rolls', emoji: '💸', reward: 200, check: pd => pd.totalSpent >= 1000 },
-    { id: 'spent_10000', name: 'Whale', desc: 'Spend 10,000 coins on rolls', emoji: '🐋', reward: 1000, check: pd => pd.totalSpent >= 10000 },
-    { id: 'favorites_set', name: 'Favorites Set', desc: 'Set at least 3 favorites', emoji: '💜', reward: 100, check: pd => pd.favorites.length >= 3 },
-    { id: 'wishlist_set', name: 'Wishful Thinking', desc: 'Add 5 characters to your wishlist', emoji: '⭐', reward: 100, check: pd => pd.wishlist.length >= 5 },
+    { id: 'first_trade', name: 'First Trade', desc: 'Complete your first trade', emoji: AE.trade, reward: 100, check: pd => pd.trades >= 1 },
+    { id: 'trades_10', name: 'Trader', desc: 'Complete 10 trades', emoji: AE.stats, reward: 500, check: pd => pd.trades >= 10 },
+    { id: 'spent_1000', name: 'Big Spender', desc: 'Spend 1,000 coins on rolls', emoji: AE.money, reward: 200, check: pd => pd.totalSpent >= 1000 },
+    { id: 'spent_10000', name: 'Whale', desc: 'Spend 10,000 coins on rolls', emoji: AE.money, reward: 1000, check: pd => pd.totalSpent >= 10000 },
+    { id: 'favorites_set', name: 'Favorites Set', desc: 'Set at least 3 favorites', emoji: AE.heart, reward: 100, check: pd => pd.favorites.length >= 3 },
+    { id: 'wishlist_set', name: 'Wishful Thinking', desc: 'Add 5 characters to your wishlist', emoji: AE.wishlist, reward: 100, check: pd => pd.wishlist.length >= 5 },
 ];
 
 function getUnlockedAchievements(playerData) {

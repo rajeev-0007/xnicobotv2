@@ -93,14 +93,15 @@ function createPercentCommand(cfg) {
         footerNote = '-# Just a fun random number — please don\'t take it seriously.',
     } = cfg;
 
-    async function run(targetUser, displayName) {
+    async function run(targetUser) {
         const seed = `${name}:${targetUser.id}`;
         const percent = random ? Math.floor(Math.random() * 101) : hashPercent(seed);
         const tier = pickTier(percent, tiers);
 
         const buffer = await renderPercentCard({
             title,
-            subjectName: displayName || targetUser.username || 'Unknown',
+            // Always use the Discord username (not the server nickname/display name).
+            subjectName: targetUser.username || 'Unknown',
             avatarURL: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
             percent,
             verdict: tier.text || '',
@@ -134,10 +135,8 @@ function createPercentCommand(cfg) {
         async execute(interaction) {
             await interaction.deferReply().catch(() => {});
             const target = interaction.options.getUser('user') || interaction.user;
-            const member = interaction.guild?.members.cache.get(target.id);
-            const displayName = member?.displayName || target.displayName || target.username;
             try {
-                const { container, attachment } = await run(target, displayName);
+                const { container, attachment } = await run(target);
                 await interaction.editReply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
             } catch (err) {
                 console.error(`[${name}] render error:`, err);
@@ -147,10 +146,8 @@ function createPercentCommand(cfg) {
 
         async executePrefix(message, args) {
             const target = message.mentions.users.first() || message.author;
-            const member = message.guild?.members.cache.get(target.id);
-            const displayName = member?.displayName || target.username;
             try {
-                const { container, attachment } = await run(target, displayName);
+                const { container, attachment } = await run(target);
                 await message.reply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
             } catch (err) {
                 console.error(`[${name}] render error:`, err);

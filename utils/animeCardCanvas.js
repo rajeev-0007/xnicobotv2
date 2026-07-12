@@ -25,6 +25,38 @@ const RARITY_COL = {
 function rc(rarity) { return RARITY_COL[rarity] || RARITY_COL.common; }
 
 /**
+ * Draw centered text with manual letter-spacing (tracking) for a clean,
+ * minimal "premium label" look. We do the spacing manually because canvas
+ * letterSpacing support is inconsistent across builds. Also draws a short
+ * accent underline beneath the label when `accent` is given.
+ */
+function drawTrackedLabel(ctx, text, cx, y, { spacing = 3, accent = null } = {}) {
+    const prevAlign = ctx.textAlign;
+    ctx.textAlign = 'left';
+    const chars = [...text];
+    const widths = chars.map(ch => ctx.measureText(ch).width);
+    const total = widths.reduce((a, b) => a + b, 0) + spacing * Math.max(0, chars.length - 1);
+    let x = cx - total / 2;
+    for (let i = 0; i < chars.length; i++) {
+        ctx.fillText(chars[i], x, y);
+        x += widths[i] + spacing;
+    }
+    if (accent) {
+        const lineW = Math.min(total, 160);
+        ctx.save();
+        ctx.strokeStyle = accent;
+        ctx.globalAlpha = 0.65;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - lineW / 2, y + 8);
+        ctx.lineTo(cx + lineW / 2, y + 8);
+        ctx.stroke();
+        ctx.restore();
+    }
+    ctx.textAlign = prevAlign;
+}
+
+/**
  * Single character card. 340×480 portrait card.
  */
 async function renderCard(character, { isDuplicate = false, isNew = false } = {}) {
@@ -309,8 +341,9 @@ async function renderShowcase(character) {
     ctx.fillText(truncateText(ctx, character.anime, W - 40), W / 2, imgY + imgH + 76);
 
     ctx.fillStyle = '#f1c40f';
-    ctx.font = fh.getSemiBoldFont(14);
-    ctx.fillText('✨ PREMIUM SHOWCASE ✨', W / 2, imgY + imgH + 104);
+    ctx.font = fh.getSemiBoldFont(13);
+    ctx.textAlign = 'center';
+    drawTrackedLabel(ctx, 'PREMIUM SHOWCASE', W / 2, imgY + imgH + 104, { spacing: 4, accent: '#f1c40f' });
     ctx.textAlign = 'left';
 
     return canvas.toBuffer('image/png');
@@ -331,9 +364,9 @@ async function renderMysteryBox(characters, boxName) {
     ctx.fillStyle = '#0f1116'; ctx.fillRect(0, 0, W, H);
     
     ctx.fillStyle = '#e6edf3'; 
-    ctx.font = fh.getBoldFont(22); 
+    ctx.font = fh.getBoldFont(20); 
     ctx.textAlign = 'center';
-    ctx.fillText(`🎁 ${boxName} Unboxed!`, W / 2, 34);
+    drawTrackedLabel(ctx, `${boxName.toUpperCase()} · UNBOXED`, W / 2, 34, { spacing: 2 });
 
     for (let i = 0; i < characters.length; i++) {
         const char = characters[i];
@@ -448,8 +481,9 @@ async function renderFusion(resultChar, isUpgrade) {
     ctx.fillText(truncateText(ctx, resultChar.anime, W - 40), W / 2, imgY + imgH + 74);
     
     ctx.fillStyle = '#9b59b6';
-    ctx.font = fh.getSemiBoldFont(14);
-    ctx.fillText('🔮 FUSION SUCCESS 🔮', W / 2, imgY + imgH + 104);
+    ctx.font = fh.getSemiBoldFont(13);
+    ctx.textAlign = 'center';
+    drawTrackedLabel(ctx, 'FUSION SUCCESS', W / 2, imgY + imgH + 104, { spacing: 4, accent: '#9b59b6' });
     ctx.textAlign = 'left';
 
     return canvas.toBuffer('image/png');
@@ -530,8 +564,9 @@ async function renderUpgrade(resultChar) {
     ctx.fillText(truncateText(ctx, resultChar.anime, W - 40), W / 2, imgY + imgH + 74);
     
     ctx.fillStyle = '#F1C40F';
-    ctx.font = fh.getSemiBoldFont(14);
-    ctx.fillText('✨ ASCENSION COMPLETE ✨', W / 2, imgY + imgH + 104);
+    ctx.font = fh.getSemiBoldFont(13);
+    ctx.textAlign = 'center';
+    drawTrackedLabel(ctx, 'ASCENSION COMPLETE', W / 2, imgY + imgH + 104, { spacing: 4, accent: '#F1C40F' });
     ctx.textAlign = 'left';
 
     return canvas.toBuffer('image/png');
