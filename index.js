@@ -5640,6 +5640,8 @@ client.on('interactionCreate', async (interaction) => {
                                 if (shouldStay) {
                                     // Just stop the current track without destroying
                                     await player.stopPlaying();
+                                    await updateVoiceChannelStatus(client, player, 'waiting');
+                                    await updateMusicPanel(client, null, autoplayStatus, interaction.guild.id).catch(() => { });
                                 } else {
                                     await player.destroy();
                                 }

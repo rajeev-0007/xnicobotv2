@@ -515,7 +515,7 @@ function buildVoiceStatus(player, track = null) {
  * @returns {string} Formatted waiting status
  */
 function buildWaitingStatus() {
-    return `<:Music:1521228141543165982> **/play <song>**`;
+    return `🎶 /play <song>`;
 }
 
 /**
@@ -551,23 +551,21 @@ async function updateVoiceChannelStatus(client, playerOrIds, type = 'auto', trac
             clearTimeout(voiceStatusDebounce.get(debounceKey));
         }
 
-        await new Promise((resolve) => {
-            voiceStatusDebounce.set(debounceKey, setTimeout(async () => {
-                voiceStatusDebounce.delete(debounceKey);
-                try {
-                    await client.rest.put(`/channels/${vc.id}/voice-status`, {
-                        body: { status: status === null ? null : status.substring(0, 500) }
-                    });
-                } catch (err) {
-                    if (err.status === 429) {
-                        log.warning(`Voice status rate-limited for guild ${guildId}`);
-                    } else if (err.status !== 403 && err.status !== 404) {
-                        log.error(`Voice status update failed: ${err.message}`);
-                    }
+        const timer = setTimeout(async () => {
+            voiceStatusDebounce.delete(debounceKey);
+            try {
+                await client.rest.put(`/channels/${vc.id}/voice-status`, {
+                    body: { status: status === null ? null : status.substring(0, 500) }
+                });
+            } catch (err) {
+                if (err.status === 429) {
+                    log.warning(`Voice status rate-limited for guild ${guildId}`);
+                } else if (err.status !== 403 && err.status !== 404) {
+                    log.error(`Voice status update failed: ${err.message}`);
                 }
-                resolve();
-            }, 300));
-        });
+            }
+        }, 300);
+        voiceStatusDebounce.set(debounceKey, timer);
     } catch (e) {
         log.error(`Voice status error: ${e.message}`);
     }
