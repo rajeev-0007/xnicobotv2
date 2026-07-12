@@ -131,18 +131,19 @@ function parseTime(input) {
 }
 
 /**
- * Voice-channel-status (/channels/:id/voice-status) cannot render custom
- * guild emoji. Map our internal platform key to a Unicode glyph that
- * actually shows up in the VC sidebar.
+ * Voice-channel-status (/channels/:id/voice-status) CANNOT render custom
+ * guild emoji or markdown — only plain Unicode shows up in the VC sidebar.
+ * Map the source to a brand-coloured Unicode glyph so the status reads
+ * cleanly and reflects the platform ("as per source").
  */
 function voiceStatusGlyph(sourceName) {
     const s = (sourceName || '').toLowerCase();
-    if (s.includes('youtube'))    return '<:YoutubeLive:1521228137541927022>';
-    if (s.includes('spotify'))    return '<:spotify:1521228327761744043>';
-    if (s.includes('soundcloud')) return '<:soundCloud:1521228420468445375>';
-    if (s.includes('apple'))      return '<:applemusic:1521228425962983484>';
-    if (s.includes('deezer'))     return '<:Music:1521228141543165982>';
-    return '<:Music:1521228141543165982>';
+    if (s.includes('youtube'))    return '🔴'; // YouTube red
+    if (s.includes('spotify'))    return '🟢'; // Spotify green
+    if (s.includes('soundcloud')) return '🟠'; // SoundCloud orange
+    if (s.includes('apple'))      return '🍎'; // Apple Music
+    if (s.includes('deezer'))     return '🟣'; // Deezer purple
+    return '🎵';
 }
 
 /**

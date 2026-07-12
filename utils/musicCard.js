@@ -27,7 +27,7 @@
 const { createCanvas } = require('@napi-rs/canvas');
 const imageCache = require('./imageCache');
 const {
-    drawRoundedRect, truncateText, fitText, rgba, getFontHelpers,
+    drawRoundedRect, truncateText, fitText, rgba, getFontHelpers, getNicoLogo,
 } = require('./canvasDesign');
 
 const fh = getFontHelpers('Inter');
@@ -281,6 +281,26 @@ async function renderNowPlayingCard(opts = {}) {
         drawRoundedRect(ctx, 0, 0, W, H, 22);
         ctx.clip();
         await paintBackground(ctx, W, H, theme, accent, thumbImg);
+
+        // Subtle nico logo watermark (background, small) — like the rank card.
+        // Drawn inside the clip and BEFORE the thumbnail/text so it always
+        // sits behind the content and never collides with the timestamps.
+        try {
+            const logo = await getNicoLogo();
+            if (logo) {
+                const size = 150;
+                const lx = W - size - 46;
+                const ly = (H - size) / 2;
+                ctx.save();
+                ctx.globalAlpha = theme.style === 'light' ? 0.05 : 0.07;
+                ctx.beginPath();
+                ctx.arc(lx + size / 2, ly + size / 2, size / 2, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(logo, lx, ly, size, size);
+                ctx.restore();
+            }
+        } catch { /* watermark is decorative — never fail the render */ }
+
         ctx.restore();
 
         /* ── Thumbnail ── */

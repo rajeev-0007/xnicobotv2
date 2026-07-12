@@ -518,7 +518,9 @@ function buildVoiceStatus(player, track = null) {
  * @returns {string} Formatted waiting status
  */
 function buildWaitingStatus() {
-    return `<:Music:1521228141543165982> **/play <song>**`;
+    // Voice-channel-status renders plain Unicode only — no custom guild
+    // emoji or markdown (they would show up as raw text in the sidebar).
+    return '🎵 Waiting — use /play <song>';
 }
 
 /**
@@ -548,14 +550,20 @@ async function updateVoiceChannelStatus(client, playerOrIds, type = 'auto', trac
             status = playerOrIds.queue ? buildVoiceStatus(playerOrIds, track) : null;
         }
 
-        // Debounce: avoid rapid voice status API calls (rate-limit safe)
+        // Debounce: avoid rapid voice status API calls (rate-limit safe).
+        // When a newer call supersedes a pending one we MUST resolve the
+        // superseded promise too — otherwise the earlier `await` (e.g. in
+        // the trackStart handler) would hang forever, silently stalling the
+        // code that runs after it.
         const debounceKey = guildId;
-        if (voiceStatusDebounce.has(debounceKey)) {
-            clearTimeout(voiceStatusDebounce.get(debounceKey));
+        const prev = voiceStatusDebounce.get(debounceKey);
+        if (prev) {
+            clearTimeout(prev.timer);
+            prev.resolve(); // release the superseded awaiter
         }
 
         await new Promise((resolve) => {
-            voiceStatusDebounce.set(debounceKey, setTimeout(async () => {
+            const timer = setTimeout(async () => {
                 voiceStatusDebounce.delete(debounceKey);
                 try {
                     await client.rest.put(`/channels/${vc.id}/voice-status`, {
@@ -569,7 +577,8 @@ async function updateVoiceChannelStatus(client, playerOrIds, type = 'auto', trac
                     }
                 }
                 resolve();
-            }, 300));
+            }, 300);
+            voiceStatusDebounce.set(debounceKey, { timer, resolve });
         });
     } catch (e) {
         log.error(`Voice status error: ${e.message}`);
