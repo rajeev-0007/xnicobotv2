@@ -36,6 +36,17 @@ async function generateRankCard(target, guild) {
 
     const member = await guild.members.fetch(target.id).catch(() => null);
     const userProfile = await getUserData(target.id).catch(() => ({ profile: {}, social: {} }));
+
+    // Force-fetch the full user so we get their REAL Discord banner + avatar
+    // decoration — partial users from interaction options don't include them.
+    let fullUser = target;
+    try { fullUser = await guild.client.users.fetch(target.id, { force: true }); } catch {}
+    const discordBanner = (typeof fullUser.bannerURL === 'function')
+        ? fullUser.bannerURL({ size: 1024, extension: 'png' })
+        : null;
+    const avatarDecoration = (typeof fullUser.avatarDecorationURL === 'function')
+        ? fullUser.avatarDecorationURL()
+        : null;
     
     let messageCount = userData.messages || 0;
     let voiceTime = 0;
@@ -55,8 +66,13 @@ async function generateRankCard(target, guild) {
     const selectedCardStyle = rankSettings.cardStyle || 'minimal';
     levelCard.setCardStyle(selectedCardStyle);
     if (rankSettings.customBackground) levelCard.setBackgroundImage(rankSettings.customBackground);
-    if (rankSettings.bannerImage) levelCard.setBannerImage(rankSettings.bannerImage);
-    if (rankSettings.bannerMode) levelCard.setBannerMode(rankSettings.bannerMode);
+    // Default the banner to the user's real Discord banner; a custom banner
+    // set via rank-customize overrides it.
+    const effectiveBanner = rankSettings.bannerImage || discordBanner;
+    if (effectiveBanner) {
+        levelCard.setBannerImage(effectiveBanner);
+        levelCard.setBannerMode(rankSettings.bannerMode || 'strip');
+    }
     if (rankSettings.backgroundColor) levelCard.setBackground(rankSettings.backgroundColor);
     if (rankSettings.progressBarColor) {
         levelCard.setProgressBarColor(rankSettings.progressBarColor);
@@ -67,7 +83,7 @@ async function generateRankCard(target, guild) {
     if (rankSettings.backgroundOpacity !== undefined) levelCard.setBackgroundOpacity(rankSettings.backgroundOpacity);
     if (rankSettings.fontFamily) levelCard.setFontFamily(rankSettings.fontFamily);
     
-    const cardBuffer = await levelCard.generate(target, {
+    const cardBuffer = await levelCard.generate(fullUser, {
         level: currentLevel,
         rank: rank || 0,
         xpProgress,
@@ -76,7 +92,8 @@ async function generateRankCard(target, guild) {
         memberCount: guild.memberCount,
         joinedAt: member?.joinedTimestamp || null,
         messagesCount: messageCount,
-        voiceTime
+        voiceTime,
+        avatarDecoration
     });
 
     const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank-card.png' });
