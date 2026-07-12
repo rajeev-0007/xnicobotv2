@@ -135,9 +135,12 @@ function buildNowPlayingContainer(player, autoplayStatus, options = {}) {
     const container = new ContainerBuilder();
     container.setAccentColor(platform.color);
 
-    // Artwork
-    const artworkUrl = track.info.artworkUrl || track.info.thumbnail;
-    if (artworkUrl && artworkUrl.startsWith('http')) {
+    // Artwork — prefer a pre-rendered canvas card (passed as an
+    // attachment:// URL by the nowplaying/musiccard commands); otherwise
+    // fall back to the remote track artwork. The auto-updating 5s panel
+    // calls without options, so it stays on the lightweight remote image.
+    const artworkUrl = options.cardImageUrl || track.info.artworkUrl || track.info.thumbnail;
+    if (artworkUrl && (artworkUrl.startsWith('http') || artworkUrl.startsWith('attachment://'))) {
         try {
             container.addMediaGalleryComponents(
                 new MediaGalleryBuilder().addItems(item => item.setURL(artworkUrl))
