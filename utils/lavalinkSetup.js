@@ -43,8 +43,12 @@ function createLavalinkManager(client) {
         const config = JSON.parse(fs.readFileSync(lavalinkConfigPath, 'utf8'));
         if (config.nodes && Array.isArray(config.nodes) && config.nodes.length > 0) {
             lavalinkNodes = config.nodes.map(node => ({
-                retryAmount: 10,
-                retryDelay: 5000,
+                // Retry effectively forever so a node NEVER permanently gives
+                // up on its own — the library's single-timer reconnect keeps
+                // reviving it (no stacking), so music self-heals without the
+                // user ever seeing an error or interruption.
+                retryAmount: 100000,
+                retryDelay: 10000,
                 ...node
             }));
             log.info(`Loaded ${config.nodes.length} Lavalink node(s) from config`);
@@ -69,8 +73,8 @@ function createLavalinkManager(client) {
             port: parseInt(process.env.LAVALINK_PORT || '2333', 10),
             authorization: process.env.LAVALINK_PASSWORD,
             secure: /^true$/i.test(process.env.LAVALINK_SECURE || 'false'),
-            retryAmount: 15,
-            retryDelay: 5000,
+            retryAmount: 100000,
+            retryDelay: 10000,
         };
         // De-dupe if the same host:port already exists in the config list.
         lavalinkNodes = lavalinkNodes.filter(n => !(n.host === envNode.host && n.port === envNode.port));

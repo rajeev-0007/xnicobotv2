@@ -6,7 +6,7 @@
       "port": 443,
       "authorization": "BassRoute",
       "secure": true,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -15,7 +15,7 @@
       "port": 443,
       "authorization": "BassRoute",
       "secure": true,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -24,7 +24,7 @@
       "port": 443,
       "authorization": "youshallnotpass",
       "secure": true,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -33,7 +33,7 @@
       "port": 2026,
       "authorization": "nexcloud",
       "secure": false,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -42,7 +42,7 @@
       "port": 2002,
       "authorization": "nexcloud",
       "secure": false,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -51,7 +51,7 @@
       "port": 2003,
       "authorization": "nexcloud",
       "secure": false,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -60,16 +60,16 @@
       "port": 443,
       "authorization": "https://dsc.gg/ajidevserver",
       "secure": true,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
-      "id": "sikaku",
+      "id": "shikakuzu",
       "host": "lavalinkv4.serenetia.com",
       "port": 80,
       "authorization": "https://dsc.gg/ajidevserver",
       "secure": false,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -78,7 +78,7 @@
       "port": 443,
       "authorization": "https://discord.gg/mjS5J2K3ep",
       "secure": true,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -87,7 +87,7 @@
       "port": 443,
       "authorization": "free",
       "secure": true,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -96,7 +96,7 @@
       "port": 2006,
       "authorization": "next.2.beat",
       "secure": false,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     },
     {
@@ -105,7 +105,7 @@
       "port": 2007,
       "authorization": "next.2.beat",
       "secure": false,
-      "retryAmount": 15,
+      "retryAmount": 100000,
       "retryDelay": 10000
     }
   ]
