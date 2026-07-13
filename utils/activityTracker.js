@@ -230,4 +230,42 @@ function getMessageLeaderboard(guildId, days = 1, limit = 10) {
     return rows.slice(0, limit);
 }
 
-module.exports = { recordMessage, recordVoice, getUserStats, getServerStats, getMessageLeaderboard, dayKey };
+/**
+ * Wipe ALL tracked activity (messages + voice, daily + per-channel) for a
+ * single user in a guild. Returns true if any data existed. Used by
+ * /clearmessages so a per-user reset also removes them from the windowed
+ * (daily/weekly/monthly) and live leaderboards — not just the all-time total.
+ */
+function clearUser(guildId, userId) {
+    if (!guildId || !userId) return false;
+    try {
+        const store = getStore();
+        if (store[guildId] && store[guildId][userId]) {
+            delete store[guildId][userId];
+            if (Object.keys(store[guildId]).length === 0) delete store[guildId];
+            jsonStore.markDirty(STORE);
+            return true;
+        }
+    } catch { /* non-fatal */ }
+    return false;
+}
+
+/**
+ * Wipe ALL tracked activity for an entire guild. Returns the number of members
+ * whose data was removed.
+ */
+function clearGuild(guildId) {
+    if (!guildId) return 0;
+    try {
+        const store = getStore();
+        const g = store[guildId];
+        if (!g) return 0;
+        const n = Object.keys(g).length;
+        delete store[guildId];
+        jsonStore.markDirty(STORE);
+        return n;
+    } catch { /* non-fatal */ }
+    return 0;
+}
+
+module.exports = { recordMessage, recordVoice, getUserStats, getServerStats, getMessageLeaderboard, clearUser, clearGuild, dayKey };
