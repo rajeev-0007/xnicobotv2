@@ -6458,8 +6458,11 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
-            // Live Leaderboard period select
-            if (interaction.customId === 'llb_period') {
+            // Live Leaderboard string selects: multi-period picker, legacy
+            // single period, and entry-count. (llb_periods/llb_count were added
+            // to the command but weren't routed here — that unrouted select was
+            // the "interaction failed" error when choosing multiple periods.)
+            if (interaction.customId === 'llb_periods' || interaction.customId === 'llb_period' || interaction.customId === 'llb_count') {
                 const llbCmd = client.commands.get('liveleaderboard');
                 if (llbCmd?.handleInteraction) {
                     try { const h = await llbCmd.handleInteraction(interaction); if (h) return; } catch (e) { log.error(`LLB Select: ${e.message}`, e); }

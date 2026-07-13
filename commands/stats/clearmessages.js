@@ -4,6 +4,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('disc
 const { getGuildMember, updateGuildMember } = require('../../utils/database');
 const ui = require('../../utils/statsUI');
 const jsonStore = require('../../utils/jsonStore');
+const activityTracker = require('../../utils/activityTracker');
 
 async function handleClear(reply, channel, authorId, guild, target, amount) {
     const gid = guild.id;
@@ -61,11 +62,18 @@ async function handleClear(reply, channel, authorId, guild, target, amount) {
                 const analytics = member?.analytics || {};
                 analytics.totalMessages = 0;
                 await updateGuildMember(gid, target.id, { analytics });
+                // Also wipe the windowed activity data so they drop off the
+                // daily/weekly/monthly + live leaderboards, not just the total.
+                activityTracker.clearUser(gid, target.id);
 
                 return channel.send(ui.payload(ui.card({
                     guildId: gid,
                     title: `${ui.E.ok} Messages Cleared`,
-                    blocks: [ui.rows([`**User:** ${target.username}`, `Messages reset from \`${old.toLocaleString()}\` → \`0\``])],
+                    blocks: [ui.rows([
+                        `**User:** ${target.username}`,
+                        `Messages reset from \`${old.toLocaleString()}\` → \`0\``,
+                        `Removed from all leaderboards (all-time, daily/weekly/monthly & live).`,
+                    ])],
                 })));
             } else {
                 return channel.send(ui.payload(ui.card({ guildId: gid, title: `${ui.E.no} Cancelled`, blocks: ['No changes were made.'] })));
@@ -116,11 +124,17 @@ async function handleClear(reply, channel, authorId, guild, target, amount) {
                 }
             }
             jsonStore.write('guild_members', members);
+            // Also wipe the windowed activity data for the whole guild so every
+            // leaderboard (daily/weekly/monthly & live) resets too.
+            activityTracker.clearGuild(gid);
 
             return channel.send(ui.payload(ui.card({
                 guildId: gid,
                 title: `${ui.E.ok} Server Messages Cleared`,
-                blocks: [ui.rows([`**Members reset:** \`${cleared}\``, `All message counts set to \`0\`.`])],
+                blocks: [ui.rows([
+                    `**Members reset:** \`${cleared}\``,
+                    `All message counts set to \`0\` across every leaderboard.`,
+                ])],
             })));
         } else {
             return channel.send(ui.payload(ui.card({ guildId: gid, title: `${ui.E.no} Cancelled`, blocks: ['No changes were made.'] })));
