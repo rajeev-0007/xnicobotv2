@@ -232,65 +232,67 @@ module.exports = {
         if (!customId || !customId.startsWith('llb_')) return false;
 
         if (!member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
-            await interaction.reply({ content: '<:Cancel:1521227723916181644> You need **Manage Server** permission.', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: '<:Cancel:1521227723916181644> You need **Manage Server** permission.', flags: MessageFlags.Ephemeral }).catch(() => {});
             return true;
         }
 
         const guildId = guild.id;
-        let config = (await db.get(dbKey(guildId))) || {};
 
-        // ── Channel select (tracked channels) ──
-        if (customId === 'llb_channels') {
-            config.trackedChannels = interaction.values || [];
-            await db.set(dbKey(guildId), config);
-            await interaction.deferUpdate();
+        // IMPORTANT: acknowledge the interaction BEFORE any awaited DB work.
+        // `db.get` lazily loads the custom-data cache from PostgreSQL on a cold
+        // start, which can exceed Discord's 3s ack window — that produced the
+        // "This interaction failed" error when changing the time period (or any
+        // select) repeatedly during setup. Ack first, persist after.
+
+        // ── Selects (tracked channels / period / target channel) ──
+        if (customId === 'llb_channels' || customId === 'llb_period' || customId === 'llb_target') {
+            try { await interaction.deferUpdate(); } catch { /* already acknowledged */ }
+            try {
+                const config = (await db.get(dbKey(guildId))) || {};
+                if (customId === 'llb_channels') {
+                    config.trackedChannels = interaction.values || [];
+                } else if (customId === 'llb_period') {
+                    config.period = interaction.values?.[0] || 'daily';
+                } else {
+                    config.targetChannel = interaction.values?.[0] || null;
+                }
+                await db.set(dbKey(guildId), config);
+            } catch (e) {
+                // Interaction is already acknowledged; just log the persistence issue.
+                try { require('../../utils/logger-styled').error(`[LiveLeaderboard] save failed: ${e.message}`); } catch {}
+            }
             return true;
         }
 
-        // ── Period select ──
-        if (customId === 'llb_period') {
-            config.period = interaction.values?.[0] || 'daily';
-            await db.set(dbKey(guildId), config);
-            await interaction.deferUpdate();
-            return true;
-        }
-
-        // ── Target channel select ──
-        if (customId === 'llb_target') {
-            config.targetChannel = interaction.values?.[0] || null;
-            await db.set(dbKey(guildId), config);
-            await interaction.deferUpdate();
-            return true;
-        }
-
-        // ── Reset ──
+        // ── Reset ── (interaction.update IS the acknowledgement → do it first)
         if (customId === 'llb_reset') {
             stopRefreshInterval(guildId);
-            await db.delete(dbKey(guildId));
             await interaction.update({
                 components: [buildSetupPanel({})],
                 flags: MessageFlags.IsComponentsV2,
-            });
+            }).catch(() => {});
+            await db.delete(dbKey(guildId)).catch(() => {});
             return true;
         }
 
         // ── Confirm ──
         if (customId === 'llb_confirm') {
+            try { await interaction.deferUpdate(); } catch { /* already acknowledged */ }
+
+            const config = (await db.get(dbKey(guildId))) || {};
+
             if (!config.targetChannel) {
-                await interaction.reply({ content: '<:Cancel:1521227723916181644> Please select a leaderboard channel first.', flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ content: '<:Cancel:1521227723916181644> Please select a leaderboard channel first.', flags: MessageFlags.Ephemeral }).catch(() => {});
                 return true;
             }
-
-            await interaction.deferUpdate();
 
             config.enabled = true;
             config.period = config.period || 'daily';
             config.trackedChannels = config.trackedChannels || [];
 
-            // Post initial leaderboard image
             const channel = guild.channels.cache.get(config.targetChannel);
             if (!channel) {
-                await interaction.followUp({ content: '<:Cancel:1521227723916181644> Target channel not found.', flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ content: '<:Cancel:1521227723916181644> Target channel not found.', flags: MessageFlags.Ephemeral }).catch(() => {});
                 return true;
             }
 
@@ -312,9 +314,9 @@ module.exports = {
                     `-# Canvas image refreshes every 60 seconds.`
                 ));
 
-                await interaction.editReply({ components: [successContainer], flags: MessageFlags.IsComponentsV2 });
+                await interaction.editReply({ components: [successContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
             } catch (err) {
-                await interaction.followUp({ content: `<:Cancel:1521227723916181644> Failed to create leaderboard: ${err.message}`, flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ content: `<:Cancel:1521227723916181644> Failed to create leaderboard: ${err.message}`, flags: MessageFlags.Ephemeral }).catch(() => {});
             }
             return true;
         }
