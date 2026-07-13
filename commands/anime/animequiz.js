@@ -5,6 +5,7 @@ const { createContainer, addTextDisplay } = require('../../utils/componentHelper
 const animeManager = require('../../utils/animeManager');
 const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
+const cooldowns = require('../../utils/animeCooldowns');
 
 const QUIZ_REWARD = 50;
 
@@ -58,6 +59,18 @@ const QUIZ_TYPES = [
 ];
 
 async function handleQuiz(reply, context, user, guildId, isInteraction) {
+    // Anti-abuse cooldown (starting a quiz counts).
+    const animeData = animeManager.loadAnimeData();
+    const playerData = animeManager.getPlayerData(animeData, user.id);
+    const cd = cooldowns.check(playerData, 'animequiz');
+    if (!cd.ok) {
+        const c = createContainer(0xED4245);
+        addTextDisplay(c, `## ${AE.clock} Slow down!\n> Try \`animequiz\` again in **${cooldowns.fmt(cd.remaining)}**.`);
+        return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+    }
+    cooldowns.set(playerData, 'animequiz');
+    animeManager.saveAnimeData();
+
     const quizType = QUIZ_TYPES[Math.floor(Math.random() * QUIZ_TYPES.length)];
     const quiz = quizType.generate();
 

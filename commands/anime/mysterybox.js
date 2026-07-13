@@ -6,6 +6,7 @@ const animeManager = require('../../utils/animeManager');
 const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 const { renderMysteryBox } = require('../../utils/animeCardCanvas');
+const cooldowns = require('../../utils/animeCooldowns');
 
 async function handleMysteryBox(reply, user, tier = 'bronze') {
     const box = animeManager.MYSTERY_BOXES[tier.toLowerCase()];
@@ -24,6 +25,20 @@ async function handleMysteryBox(reply, user, tier = 'bronze') {
     const economy = economyManager.loadEconomy();
     const { userData } = economyManager.getUser(economy, user.id);
 
+    // 12h cooldown — prevents wealthy users bulk-opening boxes.
+    const cd = cooldowns.check(playerData, 'aopen');
+    if (!cd.ok) {
+        const container = createContainer(0xED4245);
+        addTextDisplay(container, [
+            `## ${AE.clock} Mystery Box on Cooldown`,
+            '',
+            `> You can open another mystery box in **${cooldowns.fmt(cd.remaining)}**.`,
+            '',
+            `-# Boxes are limited to one every 12 hours.`,
+        ].join('\n'));
+        return reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    }
+
     if (userData.coins < box.cost) {
         const container = createContainer(0xED4245);
         addTextDisplay(container, `## ${AE.cancel} Insufficient Funds\nA **${box.name}** costs **${box.cost.toLocaleString()}** coins. You only have **${userData.coins.toLocaleString()}**.`);
@@ -34,8 +49,12 @@ async function handleMysteryBox(reply, user, tier = 'bronze') {
     userData.coins -= box.cost;
     economyManager.saveEconomy(economy);
 
-    const results = animeManager.openMysteryBox(tier.toLowerCase());
-    
+    const voteBoost = animeManager.hasActiveVote(user.id);
+    const results = animeManager.openMysteryBox(tier.toLowerCase(), voteBoost);
+
+    // Stamp the 12h cooldown now that the purchase went through.
+    cooldowns.set(playerData, 'aopen');
+
     // Add to collection
     for (const char of results) {
         animeManager.addToCollection(playerData, char);
@@ -56,12 +75,14 @@ async function handleMysteryBox(reply, user, tier = 'bronze') {
     const attachment = new AttachmentBuilder(buffer, { name: 'mysterybox.png' });
 
     const container = createContainer(0x9B59B6);
-    addTextDisplay(container, [
+    const boxLines = [
         `## ${box.emoji} Unboxed: ${box.name}!`,
         '',
         `> You bought a **${box.name}** for **${box.cost.toLocaleString()}** coins.`,
         `> You received **${results.length}** characters!`,
-    ].join('\n'));
+    ];
+    if (voteBoost) boxLines.push(`> ${AE.fire} **Vote boost active** — better Epic/Legendary/Mythic odds!`);
+    addTextDisplay(container, boxLines.join('\n'));
 
     const mediaGallery = new MediaGalleryBuilder().addItems(
         new MediaGalleryItemBuilder().setURL('attachment://mysterybox.png')

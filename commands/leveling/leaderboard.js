@@ -41,6 +41,7 @@ const economyManager = require('../../utils/economyManager');
 const { formatCoins, coinIcon } = require('../../utils/currencyHelper');
 const { generateLeaderboardCard } = require('../../utils/leaderboardCard');
 const { generateStatsCard } = require('../../utils/statsCard');
+const { getRankEmoji } = require('../../utils/rankEmojis');
 
 /* ─────────────────────────── Constants ─────────────────────────── */
 
@@ -209,10 +210,7 @@ function progressBar(pct, length = 10) {
 }
 
 function rankBadge(rank) {
-    if (rank === 1) return E.medal1;
-    if (rank === 2) return E.medal2;
-    if (rank === 3) return E.medal3;
-    return `\`#${String(rank).padStart(2, '0')}\``;
+    return getRankEmoji(rank);
 }
 
 function escapeMarkdown(text) {
@@ -476,9 +474,7 @@ function buildPanel({
 
         for (const entry of podium) {
             const isYou = entry.userId === requesterEntry?.userId;
-            const accentEmoji =
-                entry.rank === 1 ? E.medal1 :
-                entry.rank === 2 ? E.medal2 : E.medal3;
+            const accentEmoji = getRankEmoji(entry.rank);
             const valueStr = cfg.format(entry.value, guildId);
 
             const youBadge = isYou ? `  ${E.you} *you*` : '';

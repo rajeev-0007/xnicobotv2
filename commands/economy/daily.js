@@ -53,7 +53,10 @@ async function handleDaily(reply, userId, guildId) {
     const dailyBonus = Number(user.bonuses?.daily) || 0;
     const bonusAmount = Math.floor(baseReward * dailyBonus);
     const streakBonus = Math.floor(baseReward * Math.min(streak * 0.02, 0.5));
-    const grossReward = baseReward + bonusAmount + streakBonus;
+    // Crown item grants bonuses.global — a flat % on ALL coin earnings.
+    // This was only applied in /weekly; daily now honors it too.
+    const globalBonus = Math.floor(baseReward * (Number(user.bonuses?.global) || 0));
+    const grossReward = baseReward + bonusAmount + streakBonus + globalBonus;
 
     // Wealth tax: once a player crosses 100k total wealth (wallet+bank)
     // every income payout has 18% withheld. Keeps endgame from
@@ -77,6 +80,7 @@ async function handleDaily(reply, userId, guildId) {
     rewardText += `> ${coinIcon(guildId)} **Base Reward:** ${formatCoinsAmount(baseReward, guildId)}\n`;
     if (streakBonus > 0) rewardText += `> <:Fire:1521227907647668374> **Streak Bonus** (${streak} days): +${formatCoins(streakBonus, guildId)}\n`;
     if (bonusAmount > 0) rewardText += `> <:Crown:1521227739988889764> **Daily Bonus:** +${formatCoins(bonusAmount, guildId)}\n`;
+    if (globalBonus > 0) rewardText += `> <:Crown:1521227739988889764> **Global Bonus:** +${formatCoins(globalBonus, guildId)}\n`;
 
     addTextDisplay(container, rewardText);
     addSeparator(container, SeparatorSpacingSize.Small);

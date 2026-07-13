@@ -6,12 +6,25 @@
  * frame, name, anime, and a rarity gem. Also renders a multi-roll grid.
  */
 
-const { createCanvas } = require('@napi-rs/canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { registerAllFonts, getFontHelpers } = require('./fontRegistry');
 const { drawRoundedRect, truncateText } = require('./canvasDesign');
 const imageCache = require('./imageCache');
+const { loadRarityBadge } = require('./rarityBadges');
 
 try { registerAllFonts(); } catch {}
+
+/** Draw the crystal rarity badge centered at (cx, cy) at the given size. */
+async function drawRarityBadge(ctx, rarity, cx, cy, size) {
+    try {
+        const img = await loadRarityBadge(rarity, loadImage);
+        if (img) {
+            ctx.drawImage(img, cx - size / 2, cy - size / 2, size, size);
+            return true;
+        }
+    } catch {}
+    return false;
+}
 
 const RARITY_COL = {
     common:    { c: '#B0BEC5', c2: '#78909C', name: 'COMMON',    tier: 1 },
@@ -115,10 +128,11 @@ async function renderCard(character, { isDuplicate = false, isNew = false } = {}
     ctx.fillStyle = '#0e1013';
     ctx.fillRect(0, 0, W, H);
 
-    // Rarity glow behind the card (radial from top)
+    // Rarity glow behind the card (radial from top) — kept subtle for a
+    // cleaner, less noisy look.
     ctx.save();
     const bgGlow = ctx.createRadialGradient(W / 2, 150, 30, W / 2, 150, 360);
-    bgGlow.addColorStop(0, hexToRgba(rar.c, 0.28));
+    bgGlow.addColorStop(0, hexToRgba(rar.c, 0.16));
     bgGlow.addColorStop(1, 'rgba(14,16,19,0)');
     ctx.fillStyle = bgGlow;
     ctx.fillRect(0, 0, W, H);
@@ -160,12 +174,8 @@ async function renderCard(character, { isDuplicate = false, isNew = false } = {}
     ctx.fillStyle = grad; ctx.fillRect(imgX, imgY + imgH - 110, imgW, 110);
     ctx.restore();
 
-    // Two-tone gradient rarity frame (double stroke for a premium edge)
-    drawGradientFrame(ctx, imgX, imgY, imgW, imgH, 14, rar.c, rar.c2, 3.5);
-    ctx.save();
-    ctx.globalAlpha = 0.35;
-    drawGradientFrame(ctx, imgX + 4, imgY + 4, imgW - 8, imgH - 8, 11, rar.c2, rar.c, 1);
-    ctx.restore();
+    // Single clean gradient rarity frame
+    drawGradientFrame(ctx, imgX, imgY, imgW, imgH, 14, rar.c, rar.c2, 3);
 
     // Rarity badge (top-left over image)
     ctx.font = fh.getBoldFont(12);
@@ -201,13 +211,34 @@ async function renderCard(character, { isDuplicate = false, isNew = false } = {}
     shadowText(ctx, truncateText(ctx, character.anime, imgW - 24), W / 2, imgY + imgH - 16, 5);
     ctx.textAlign = 'left';
 
-    // Rarity stars row below the portrait
-    drawStars(ctx, fh, W / 2, imgY + imgH + 34, rar.tier, rar.c);
+    // ── Info panel below the portrait: crystal badge + rarity name + tier ──
+    const infoY = imgY + imgH + 14;
+    const panelH = H - infoY - 14;
 
-    // Rarity name label under the stars
-    ctx.font = fh.getSemiBoldFont(13); ctx.fillStyle = rar.c; ctx.textAlign = 'center';
-    ctx.fillText(rar.name, W / 2, imgY + imgH + 60);
+    // Subtle rounded panel with a thin rarity-tinted border
+    drawRoundedRect(ctx, imgX, infoY, imgW, panelH, 12);
+    ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fill();
+    ctx.strokeStyle = hexToRgba(rar.c, 0.28); ctx.lineWidth = 1;
+    drawRoundedRect(ctx, imgX, infoY, imgW, panelH, 12); ctx.stroke();
+
+    const panelMid = infoY + panelH / 2;
+
+    // Crystal badge on the left of the panel (fallback: rarity dot)
+    const badgeCx = imgX + 42;
+    const badgeDrawn = await drawRarityBadge(ctx, character.rarity, badgeCx, panelMid, 60);
+    if (!badgeDrawn) {
+        ctx.beginPath();
+        ctx.arc(badgeCx, panelMid, 16, 0, Math.PI * 2);
+        ctx.fillStyle = rar.c; ctx.fill();
+    }
+
+    // Rarity name + tier text to the right of the badge
+    const textX = imgX + 82;
     ctx.textAlign = 'left';
+    ctx.font = fh.getBoldFont(19); ctx.fillStyle = rar.c;
+    ctx.fillText(rar.name, textX, panelMid - 3);
+    ctx.font = fh.getFont(11); ctx.fillStyle = '#8b949e';
+    ctx.fillText(`Rarity Tier  ${rar.tier}/6`, textX, panelMid + 16);
 
     return canvas.toBuffer('image/png');
 }
@@ -269,6 +300,9 @@ async function renderMulti(characters) {
 
         // Gradient rarity frame
         drawGradientFrame(ctx, x, y, cw, imgH, 10, rar.c, rar.c2, 2.5);
+
+        // Small crystal rarity badge (top-left corner)
+        await drawRarityBadge(ctx, char.rarity, x + 20, y + 20, 32);
 
         // Name below
         ctx.fillStyle = '#e6edf3'; ctx.font = fh.getSemiBoldFont(11); ctx.textAlign = 'center';

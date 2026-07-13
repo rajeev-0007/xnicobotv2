@@ -46,7 +46,7 @@ const NEW_COMMANDS = new Set([
     // ── Auction marketplace ──
     'auction',
     // ── Anime Collection System ──
-    'aroll', 'acollection', 'atrade', 'awishlist', 'asell', 'afavorites',
+    'aroll', 'amulti', 'acollection', 'atrade', 'awishlist', 'asell', 'afavorites',
     'acharinfo', 'acharlist', 'aleaderboard', 'aprofile', 'agift',
     'animequiz', 'adaily', 'adroprates', 'aguess', 'abattle', 'adropsetup',
     // ── Message Stats System ──
@@ -191,7 +191,7 @@ const CATEGORY_GROUP_RULES = {
 
     // ── 17. Anime Collection ──────────────────────────────────
     anime: [
-        { name: 'Gacha & Rolls',       emoji: '<:Gamepad:1521228035213230090>',    cmds: ['aroll', 'adaily', 'adroprates'] },
+        { name: 'Gacha & Rolls',       emoji: '<:Gamepad:1521228035213230090>',    cmds: ['aroll', 'amulti', 'adaily', 'adroprates', 'aopen'] },
         { name: 'Collection',          emoji: '<:Bookopen:1521227911137595605>',   cmds: ['acollection', 'aprofile', 'afavorites', 'acharinfo', 'acharlist'] },
         { name: 'Trading & Economy',   emoji: '<:transfer:1521228019824590948>',   cmds: ['atrade', 'asell', 'agift'] },
         { name: 'Games & Battles',     emoji: '<:Star:1521227981685526568>',       cmds: ['aguess', 'abattle', 'animequiz', 'awishlist', 'aleaderboard'] },

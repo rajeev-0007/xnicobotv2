@@ -13,18 +13,25 @@ const jsonStore = require('./jsonStore');
 const log = require('./logger-styled');
 const animeApi = require('./animeApi');
 const { EMOJIS: AE } = require('./animeEmojis');
+const { getRarityEmoji } = require('./rarityBadges');
 
 /* ═══════════════════════════════════════════════════════
    RARITY SYSTEM
-   ═══════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════
+   Emoji is sourced from the shared rarityBadges helper so the anime and
+   economy (pets/weapons) systems use one consistent rarity emoji set.
+   Returns branded custom emojis once uploaded, else Unicode circle fallback.
+*/
 
+// `emoji` is a getter so it resolves the live application emoji at usage time
+// (app emojis aren't loaded yet when this module is first required).
 const RARITIES = {
-    common:    { name: 'Common',    emoji: '⚪', color: 0x95A5A6, weight: 50, value: 50 },
-    uncommon:  { name: 'Uncommon',  emoji: '🟢', color: 0x2ECC71, weight: 25, value: 150 },
-    rare:      { name: 'Rare',      emoji: '🔵', color: 0x3498DB, weight: 14, value: 400 },
-    epic:      { name: 'Epic',      emoji: '🟣', color: 0x9B59B6, weight: 7,  value: 1000 },
-    legendary: { name: 'Legendary', emoji: '🟡', color: 0xF1C40F, weight: 3,  value: 3000 },
-    mythic:    { name: 'Mythic',    emoji: '🔴', color: 0xE74C3C, weight: 1,  value: 10000 },
+    common:    { name: 'Common',    get emoji() { return getRarityEmoji('common'); },    color: 0x95A5A6, weight: 50, value: 50 },
+    uncommon:  { name: 'Uncommon',  get emoji() { return getRarityEmoji('uncommon'); },  color: 0x2ECC71, weight: 25, value: 150 },
+    rare:      { name: 'Rare',      get emoji() { return getRarityEmoji('rare'); },      color: 0x3498DB, weight: 14, value: 400 },
+    epic:      { name: 'Epic',      get emoji() { return getRarityEmoji('epic'); },      color: 0x9B59B6, weight: 7,  value: 1000 },
+    legendary: { name: 'Legendary', get emoji() { return getRarityEmoji('legendary'); }, color: 0xF1C40F, weight: 3,  value: 3000 },
+    mythic:    { name: 'Mythic',    get emoji() { return getRarityEmoji('mythic'); },    color: 0xE74C3C, weight: 1,  value: 10000 },
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -134,8 +141,8 @@ async function ensurePool() {
    ═══════════════════════════════════════════════════════ */
 
 const ROLL_COST = 100;
-const MULTI_ROLL_COUNT = 10;
-const MULTI_ROLL_COST = 900; // 10% discount
+const MULTI_ROLL_COUNT = 5;   // ×5 multi-roll (capped to curb bulk rolling)
+const MULTI_ROLL_COST = 450;  // 10% discount vs 5 singles (500)
 const ROLL_COOLDOWN = 30000; // 30 seconds
 const DAILY_FREE_ROLLS = 10;      // free rolls per day
 const VOTE_BONUS_ROLLS = 2;       // extra rolls granted per vote once daily rolls are used
@@ -191,32 +198,63 @@ function getPlayerData(data, userId) {
    GACHA MECHANICS
    ═══════════════════════════════════════════════════════ */
 
-function rollRarity() {
-    const totalWeight = Object.values(RARITIES).reduce((sum, r) => sum + r.weight, 0);
+/**
+ * Vote boost: multiplies the weight of the high tiers so voters get
+ * meaningfully better odds at Epic/Legendary/Mythic pulls. Base rates stay
+ * low (mythic ≈ 1%); with a boost mythic ≈ 3%, legendary ≈ 2.5×, epic ≈ 1.5×.
+ */
+const VOTE_RARITY_MULTIPLIER = { epic: 1.5, legendary: 2.5, mythic: 3 };
+
+/** Apply the vote-boost multiplier to a { rarity: weight } map. */
+function applyVoteBoost(weights) {
+    const out = {};
+    for (const [k, w] of Object.entries(weights)) {
+        out[k] = w * (VOTE_RARITY_MULTIPLIER[k] || 1);
+    }
+    return out;
+}
+
+/** True if the user has a vote within the active 12h window. */
+function hasActiveVote(userId) {
+    try {
+        const userVotes = jsonStore.read('user-votes') || {};
+        const v = userVotes[userId];
+        return !!(v && v.lastVote && (Date.now() - v.lastVote < VOTE_WINDOW_MS));
+    } catch {
+        return false;
+    }
+}
+
+function rollRarity(boost = false) {
+    const base = {};
+    for (const [key, r] of Object.entries(RARITIES)) base[key] = r.weight;
+    const weights = boost ? applyVoteBoost(base) : base;
+
+    const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
     let roll = Math.random() * totalWeight;
 
-    for (const [key, rarity] of Object.entries(RARITIES)) {
-        roll -= rarity.weight;
+    for (const [key, w] of Object.entries(weights)) {
+        roll -= w;
         if (roll <= 0) return key;
     }
     return 'common';
 }
 
-function rollCharacter() {
+function rollCharacter(boost = false) {
     const CHARACTERS = getCharacters();
-    const rarity = rollRarity();
+    const rarity = rollRarity(boost);
     const pool = CHARACTERS.filter(c => c.rarity === rarity);
     if (pool.length === 0) return CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
     return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function rollMultiple(count = MULTI_ROLL_COUNT) {
+function rollMultiple(count = MULTI_ROLL_COUNT, boost = false) {
     const results = [];
     // Guarantee at least 1 rare+ in a multi-roll
     let hasRareOrBetter = false;
 
     for (let i = 0; i < count; i++) {
-        const char = rollCharacter();
+        const char = rollCharacter(boost);
         results.push(char);
         if (['rare', 'epic', 'legendary', 'mythic'].includes(char.rarity)) {
             hasRareOrBetter = true;
@@ -562,16 +600,18 @@ const MYSTERY_BOXES = {
     },
 };
 
-function openMysteryBox(tier = 'bronze') {
+function openMysteryBox(tier = 'bronze', boost = false) {
     const box = MYSTERY_BOXES[tier];
     if (!box) return [];
 
+    const weights = boost ? applyVoteBoost(box.weights) : box.weights;
+
     const results = [];
     for (let i = 0; i < box.cards; i++) {
-        const totalWeight = Object.values(box.weights).reduce((s, w) => s + w, 0);
+        const totalWeight = Object.values(weights).reduce((s, w) => s + w, 0);
         let roll = Math.random() * totalWeight;
         let rarity = 'common';
-        for (const [key, weight] of Object.entries(box.weights)) {
+        for (const [key, weight] of Object.entries(weights)) {
             roll -= weight;
             if (roll <= 0) { rarity = key; break; }
         }
@@ -660,6 +700,8 @@ module.exports = {
     checkDailyRolls,
     useFreeRoll,
     claimVoteRolls,
+    hasActiveVote,
+    VOTE_RARITY_MULTIPLIER,
     removeFromCollection,
     hasCharacter,
     getCharacterCount,

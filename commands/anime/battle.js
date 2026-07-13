@@ -9,6 +9,7 @@ const animeManager = require('../../utils/animeManager');
 const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const economyManager = require('../../utils/economyManager');
 const imageCache = require('../../utils/imageCache');
+const cooldowns = require('../../utils/animeCooldowns');
 
 try { registerAllFonts(); } catch {}
 
@@ -83,6 +84,14 @@ async function handleBattle(reply, author, opponent, guildId) {
     const aData = animeManager.getPlayerData(animeData, author.id);
     const bData = animeManager.getPlayerData(animeData, opponent.id);
 
+    // Anti-abuse cooldown for the challenger.
+    const cd = cooldowns.check(aData, 'abattle');
+    if (!cd.ok) {
+        const c = createContainer(0xED4245);
+        addTextDisplay(c, `## ${AE.clock} Battle Cooldown\n> Try \`abattle\` again in **${cooldowns.fmt(cd.remaining)}**.`);
+        return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+    }
+
     const aCard = strongestCard(aData);
     const bCard = strongestCard(bData);
     if (!aCard) { const c = createContainer(0xED4245); addTextDisplay(c, `## <:Cancel:1521227723916181644> No Cards\nYou need cards to battle. Use \`aroll\`.`); return reply({ components: [c], flags: MessageFlags.IsComponentsV2 }); }
@@ -99,6 +108,10 @@ async function handleBattle(reply, author, opponent, guildId) {
     const { userData } = economyManager.getUser(economy, winner.id);
     userData.coins += WIN_REWARD;
     economyManager.saveEconomy(economy);
+
+    // Stamp challenger's battle cooldown.
+    cooldowns.set(aData, 'abattle');
+    animeManager.saveAnimeData();
 
     const buffer = await renderVs(aCard, bCard, winnerSide);
     const c = createContainer(winnerSide === 'a' ? 0x57F287 : 0xED4245);

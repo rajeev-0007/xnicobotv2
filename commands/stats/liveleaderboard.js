@@ -12,42 +12,29 @@ const activityTracker = require('../../utils/activityTracker');
 const ui = require('../../utils/statsUI');
 
 const PERIOD_DAYS = { daily: 1, weekly: 7, monthly: 30 };
-const PERIOD_LABEL = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', alltime: 'All Time' };
-const PERIODS = ['daily', 'weekly', 'monthly', 'alltime'];
+const PERIOD_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', alltime: 'All Time' };
+const VALID_PERIODS = ['daily', 'weekly', 'monthly', 'alltime'];
+const VALID_COUNTS = [5, 10, 15, 20];
 
 const DB_KEY_PREFIX = 'llb_config_';
 const REFRESH_INTERVAL = 60_000; // 1 minute
 
 function dbKey(guildId) { return `${DB_KEY_PREFIX}${guildId}`; }
 
-/**
- * Normalize a stored config to the multi-board shape:
- *   { boards: { [period]: { period, targetChannel, messageId } }, draft: {...} }
- * Migrates the legacy single-board shape (top-level messageId/targetChannel/period).
- */
-function normalizeConfig(config) {
-    const c = config && typeof config === 'object' ? { ...config } : {};
-    if (!c.boards || typeof c.boards !== 'object') {
-        c.boards = {};
-        // Legacy single-board migration
-        if (c.messageId && c.targetChannel) {
-            const p = PERIODS.includes(c.period) ? c.period : 'daily';
-            c.boards[p] = { period: p, targetChannel: c.targetChannel, messageId: c.messageId };
-        }
-    }
-    if (!c.draft || typeof c.draft !== 'object') {
-        c.draft = {
-            period: PERIODS.includes(c.period) ? c.period : 'daily',
-            targetChannel: c.targetChannel || null,
-        };
-    }
-    // Drop legacy top-level fields so they can't resurrect stale boards.
-    delete c.messageId; delete c.targetChannel; delete c.period; delete c.trackedChannels; delete c.enabled;
+/** Coerce a stored config into a safe, normalized shape. */
+function normalize(config) {
+    const c = (config && typeof config === 'object') ? { ...config } : {};
+    let periods = Array.isArray(c.periods) ? c.periods.filter(p => VALID_PERIODS.includes(p)) : [];
+    if (periods.length === 0) periods = [VALID_PERIODS.includes(c.period) ? c.period : 'daily'];
+    // de-dupe while keeping order
+    c.periods = [...new Set(periods)];
+    c.period = c.periods[0];
+    c.entryCount = VALID_COUNTS.includes(c.entryCount) ? c.entryCount : 10;
+    c.trackedChannels = Array.isArray(c.trackedChannels) ? c.trackedChannels : [];
+    if (!c.messageIds || typeof c.messageIds !== 'object') c.messageIds = {};
+    // migrate legacy single message
+    if (c.messageId) { if (!c.messageIds[c.periods[0]]) c.messageIds[c.periods[0]] = c.messageId; delete c.messageId; }
     return c;
-}
-
-function activePeriods(config) {
-    return PERIODS.filter(p => config.boards?.[p]?.messageId);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -55,73 +42,57 @@ function activePeriods(config) {
    ───────────────────────────────────────────────────────────── */
 
 function buildSetupPanel(rawConfig) {
-    const config = normalizeConfig(rawConfig);
-    const draft = config.draft;
-    const active = activePeriods(config);
-
+    const config = normalize(rawConfig);
     const container = new ContainerBuilder().setAccentColor(0x5865F2);
 
-    let header =
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
         `# Live Leaderboard Setup\n\n` +
-        `> Deploy auto-updating message leaderboards. You can run **one board per time period** ` +
-        `(Daily · Weekly · Monthly · All Time) at the same time, each in its own channel.\n` +
-        `-# Every board refreshes once a minute.`;
-    if (active.length) {
-        header += `\n\n**Active boards (${active.length}):**\n` +
-            active.map(p => `> ${PERIOD_LABEL[p]} → <#${config.boards[p].targetChannel}>`).join('\n');
-    }
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
+        `> Post live, auto-updating message leaderboards.\n` +
+        `> Pick **one or more time periods** — each becomes its own board.\n` +
+        `-# Every board refreshes once a minute.`
+    ));
 
     // Buttons
     container.addActionRowComponents(new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('llb_reset').setLabel('Reset All').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('llb_confirm').setLabel('Deploy Board').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('llb_reset').setLabel('Reset').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('llb_confirm').setLabel('Confirm Setup').setStyle(ButtonStyle.Success),
     ));
 
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
 
-    // Time period
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('**1. Time period** — which board to deploy'));
+    // Time periods (multi-select) — this is the "multiple boards" control.
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('**1. Time periods** — select one or more (a board is deployed for each)'));
     container.addActionRowComponents(new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
-            .setCustomId('llb_period')
-            .setPlaceholder('Select a time period')
-            .addOptions(PERIODS.map(p => ({
-                label: `${PERIOD_LABEL[p]}${active.includes(p) ? ' (active)' : ''}`,
-                value: p,
-                description: p === 'daily' ? 'Last 24 hours'
-                    : p === 'weekly' ? 'Last 7 days'
-                        : p === 'monthly' ? 'Last 30 days' : 'Never resets',
-                default: draft.period === p,
-            })))
+            .setCustomId('llb_periods')
+            .setPlaceholder('Choose time periods')
+            .setMinValues(1).setMaxValues(4)
+            .addOptions(
+                { label: 'Daily', value: 'daily', description: 'Resets every 24 hours', default: config.periods.includes('daily') },
+                { label: 'Weekly', value: 'weekly', description: 'Resets every 7 days', default: config.periods.includes('weekly') },
+                { label: 'Monthly', value: 'monthly', description: 'Resets every 30 days', default: config.periods.includes('monthly') },
+                { label: 'All Time', value: 'alltime', description: 'Never resets', default: config.periods.includes('alltime') },
+            )
     ));
 
-    // Target channel
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('**2. Leaderboard channel** — where this board posts'));
+    // Entry count
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('**2. Entries to show**'));
+    container.addActionRowComponents(new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('llb_count')
+            .setPlaceholder('How many users to display')
+            .addOptions(VALID_COUNTS.map(n => ({ label: `${n} users`, value: String(n), default: config.entryCount === n })))
+    ));
+
+    // Leaderboard channel
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('**3. Leaderboard channel** — where the boards post'));
     const targetSelect = new ChannelSelectMenuBuilder()
         .setCustomId('llb_target')
         .setPlaceholder('Select a channel')
         .setChannelTypes(ChannelType.GuildText)
         .setMinValues(1).setMaxValues(1);
-    if (draft.targetChannel) { try { targetSelect.setDefaultChannels(draft.targetChannel); } catch {} }
+    if (config.targetChannel) { try { targetSelect.setDefaultChannels(config.targetChannel); } catch {} }
     container.addActionRowComponents(new ActionRowBuilder().addComponents(targetSelect));
-
-    // Remove a board (only when boards exist)
-    if (active.length) {
-        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent('**Remove a board**'));
-        container.addActionRowComponents(new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId('llb_remove')
-                .setPlaceholder('Select a board to stop & remove')
-                .setMinValues(1).setMaxValues(1)
-                .addOptions(active.map(p => ({
-                    label: `${PERIOD_LABEL[p]} board`,
-                    value: p,
-                    description: `Stop and delete the ${PERIOD_LABEL[p].toLowerCase()} board`,
-                })))
-        ));
-    }
 
     return container;
 }
@@ -130,19 +101,21 @@ function buildSetupPanel(rawConfig) {
    CANVAS LEADERBOARD BUILDER
    ───────────────────────────────────────────────────────────── */
 
-async function buildLeaderboardImage(guild, board, client) {
-    const period = PERIODS.includes(board.period) ? board.period : 'daily';
-    const periodLabel = PERIOD_LABEL[period];
+async function buildLeaderboardImage(guild, config, client, periodOverride) {
+    const period = VALID_PERIODS.includes(periodOverride) ? periodOverride
+        : (config.periods?.[0] || config.period || 'daily');
+    const periodLabel = PERIOD_LABELS[period] || 'Daily';
+    const limit = VALID_COUNTS.includes(config.entryCount) ? config.entryCount : 10;
 
     let ranked;
     if (period === 'alltime') {
-        const lb = await getLeaderboard(guild.id, 'analytics.totalMessages', 10);
+        const lb = await getLeaderboard(guild.id, 'analytics.totalMessages', limit);
         ranked = lb
             .map(e => ({ userId: e.userId, value: e.analytics?.totalMessages || 0 }))
             .filter(e => e.value > 0);
     } else {
         const days = PERIOD_DAYS[period] || 1;
-        ranked = activityTracker.getMessageLeaderboard(guild.id, days, 10);
+        ranked = activityTracker.getMessageLeaderboard(guild.id, days, limit);
     }
 
     const entries = [];
@@ -172,38 +145,52 @@ async function buildLeaderboardImage(guild, board, client) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   REFRESH LOGIC — refreshes EVERY active board for the guild
+   REFRESH LOGIC — one message per period, all update together
    ───────────────────────────────────────────────────────────── */
 
 async function refreshLeaderboard(client, guildId) {
     try {
-        const config = normalizeConfig(await db.get(dbKey(guildId)));
-        const active = activePeriods(config);
-        if (active.length === 0) { stopRefreshInterval(guildId); return; }
+        const config = normalize(await db.get(dbKey(guildId)));
+        if (!config.enabled || !config.targetChannel) { stopRefreshInterval(guildId); return; }
 
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return;
+        const channel = guild.channels.cache.get(config.targetChannel);
+        if (!channel) return;
 
+        const messageIds = config.messageIds || {};
         let changed = false;
-        for (const period of active) {
-            const board = config.boards[period];
-            const channel = guild.channels.cache.get(board.targetChannel);
-            if (!channel) continue;
+
+        // Update / (re)create a board for each selected period.
+        for (const period of config.periods) {
             try {
-                const buffer = await buildLeaderboardImage(guild, board, client);
+                const buffer = await buildLeaderboardImage(guild, config, client, period);
                 const attachment = new AttachmentBuilder(buffer, { name: `leaderboard-${period}.png` });
-                try {
-                    const msg = await channel.messages.fetch(board.messageId);
-                    await msg.edit({ content: null, files: [attachment], components: [] });
-                } catch {
-                    // Original message deleted — repost and remember the new id.
+                const existingId = messageIds[period];
+                if (existingId) {
+                    try {
+                        const msg = await channel.messages.fetch(existingId);
+                        await msg.edit({ content: null, files: [attachment], components: [] });
+                    } catch {
+                        const newMsg = await channel.send({ files: [attachment] });
+                        messageIds[period] = newMsg.id; changed = true;
+                    }
+                } else {
                     const newMsg = await channel.send({ files: [attachment] });
-                    board.messageId = newMsg.id;
-                    changed = true;
+                    messageIds[period] = newMsg.id; changed = true;
                 }
             } catch { /* skip this board this cycle */ }
         }
-        if (changed) await db.set(dbKey(guildId), config);
+
+        // Remove boards for periods that are no longer selected.
+        for (const key of Object.keys(messageIds)) {
+            if (!config.periods.includes(key)) {
+                try { const old = await channel.messages.fetch(messageIds[key]); await old.delete(); } catch {}
+                delete messageIds[key]; changed = true;
+            }
+        }
+
+        if (changed) { config.messageIds = messageIds; await db.set(dbKey(guildId), config); }
     } catch { /* never throw from the interval */ }
 }
 
@@ -229,8 +216,8 @@ async function resumeAll(client) {
     try {
         const keys = await db.list(DB_KEY_PREFIX);
         for (const key of keys) {
-            const config = normalizeConfig(await db.get(key));
-            if (activePeriods(config).length > 0) {
+            const config = normalize(await db.get(key));
+            if (config.enabled && Object.keys(config.messageIds).length > 0) {
                 startRefreshInterval(client, key.replace(DB_KEY_PREFIX, ''));
             }
         }
@@ -240,15 +227,6 @@ async function resumeAll(client) {
 /* ─────────────────────────────────────────────────────────────
    COMMAND
    ───────────────────────────────────────────────────────────── */
-
-async function deleteBoardMessage(guild, board) {
-    if (!board?.messageId || !board?.targetChannel) return;
-    try {
-        const ch = guild.channels.cache.get(board.targetChannel);
-        const msg = await ch?.messages.fetch(board.messageId);
-        await msg?.delete();
-    } catch { /* already gone */ }
-}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -286,96 +264,100 @@ module.exports = {
         const guildId = guild.id;
         const client = interaction.client;
 
-        // Acknowledge BEFORE any awaited DB work (db.get can lazily load the
-        // Postgres cache and blow past Discord's 3s window → "interaction failed").
+        // IMPORTANT: acknowledge the interaction BEFORE any awaited DB work.
+        // db.get lazily loads the Postgres-backed cache on a cold start, which
+        // can exceed Discord's 3s window — that produced "This interaction
+        // failed" when changing time periods (or any select) during setup.
 
-        // ── Selects that only update the draft ──
-        if (customId === 'llb_period' || customId === 'llb_target') {
+        // ── Selects that only persist config (no heavy work) ──
+        if (customId === 'llb_channels' || customId === 'llb_periods' || customId === 'llb_period' || customId === 'llb_count' || customId === 'llb_target') {
             try { await interaction.deferUpdate(); } catch {}
             try {
-                const config = normalizeConfig(await db.get(dbKey(guildId)));
-                config.draft = config.draft || {};
-                if (customId === 'llb_period') config.draft.period = interaction.values?.[0] || 'daily';
-                else config.draft.targetChannel = interaction.values?.[0] || null;
-                await db.set(dbKey(guildId), config);
-                await interaction.editReply({ components: [buildSetupPanel(config)], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
-            } catch (e) {
-                try { require('../../utils/logger-styled').error(`[LiveLeaderboard] draft save failed: ${e.message}`); } catch {}
-            }
-            return true;
-        }
-
-        // ── Remove a board ──
-        if (customId === 'llb_remove') {
-            try { await interaction.deferUpdate(); } catch {}
-            try {
-                const config = normalizeConfig(await db.get(dbKey(guildId)));
-                const period = interaction.values?.[0];
-                if (config.boards?.[period]) {
-                    await deleteBoardMessage(guild, config.boards[period]);
-                    delete config.boards[period];
+                const config = (await db.get(dbKey(guildId))) || {};
+                if (customId === 'llb_channels') {
+                    config.trackedChannels = interaction.values || [];
+                } else if (customId === 'llb_periods') {
+                    const vals = (interaction.values || []).filter(v => VALID_PERIODS.includes(v));
+                    config.periods = vals.length ? [...new Set(vals)] : ['daily'];
+                    config.period = config.periods[0];
+                } else if (customId === 'llb_period') {
+                    config.periods = [VALID_PERIODS.includes(interaction.values?.[0]) ? interaction.values[0] : 'daily'];
+                    config.period = config.periods[0];
+                } else if (customId === 'llb_count') {
+                    const n = parseInt(interaction.values?.[0], 10);
+                    config.entryCount = VALID_COUNTS.includes(n) ? n : 10;
+                } else { // llb_target
+                    config.targetChannel = interaction.values?.[0] || null;
                 }
-                if (activePeriods(config).length === 0) stopRefreshInterval(guildId);
                 await db.set(dbKey(guildId), config);
-                await interaction.editReply({ components: [buildSetupPanel(config)], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
             } catch (e) {
-                try { require('../../utils/logger-styled').error(`[LiveLeaderboard] remove failed: ${e.message}`); } catch {}
+                try { require('../../utils/logger-styled').error(`[LiveLeaderboard] save failed: ${e.message}`); } catch {}
             }
             return true;
         }
 
-        // ── Reset all ── (interaction.update IS the acknowledgement → do it first)
+        // ── Reset ── (interaction.update IS the acknowledgement → do it first)
         if (customId === 'llb_reset') {
             stopRefreshInterval(guildId);
             await interaction.update({ components: [buildSetupPanel({})], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
             try {
-                const config = normalizeConfig(await db.get(dbKey(guildId)));
-                for (const p of activePeriods(config)) await deleteBoardMessage(guild, config.boards[p]);
+                const config = normalize(await db.get(dbKey(guildId)));
+                const channel = config.targetChannel ? guild.channels.cache.get(config.targetChannel) : null;
+                if (channel) {
+                    for (const id of Object.values(config.messageIds)) {
+                        try { const m = await channel.messages.fetch(id); await m.delete(); } catch {}
+                    }
+                }
             } catch {}
             await db.delete(dbKey(guildId)).catch(() => {});
             return true;
         }
 
-        // ── Deploy the drafted board ──
+        // ── Confirm — deploy one board per selected period ──
         if (customId === 'llb_confirm') {
             try { await interaction.deferUpdate(); } catch {}
 
-            const config = normalizeConfig(await db.get(dbKey(guildId)));
-            const draft = config.draft || {};
-            const period = PERIODS.includes(draft.period) ? draft.period : 'daily';
+            const config = normalize(await db.get(dbKey(guildId)));
 
-            if (!draft.targetChannel) {
-                await interaction.followUp({ content: '<:Cancel:1521227723916181644> Pick a **leaderboard channel** first, then Deploy Board.', flags: MessageFlags.Ephemeral }).catch(() => {});
+            if (!config.targetChannel) {
+                await interaction.followUp({ content: '<:Cancel:1521227723916181644> Pick a **leaderboard channel** first, then Confirm Setup.', flags: MessageFlags.Ephemeral }).catch(() => {});
                 return true;
             }
-            const channel = guild.channels.cache.get(draft.targetChannel);
+            const channel = guild.channels.cache.get(config.targetChannel);
             if (!channel) {
                 await interaction.followUp({ content: '<:Cancel:1521227723916181644> That channel no longer exists.', flags: MessageFlags.Ephemeral }).catch(() => {});
                 return true;
             }
 
             try {
-                const board = { period, targetChannel: draft.targetChannel };
-                const buffer = await buildLeaderboardImage(guild, board, client);
-                const attachment = new AttachmentBuilder(buffer, { name: `leaderboard-${period}.png` });
-                const lbMsg = await channel.send({ files: [attachment] });
+                // Delete any previously posted board messages before reposting.
+                for (const oldId of Object.values(config.messageIds)) {
+                    try { const m = await channel.messages.fetch(oldId); await m.delete(); } catch {}
+                }
+                config.messageIds = {};
 
-                // Replacing this period's board? Remove the old posted message.
-                const prev = config.boards[period];
-                if (prev && !(prev.targetChannel === draft.targetChannel && prev.messageId === lbMsg.id)) {
-                    await deleteBoardMessage(guild, prev);
+                // Post one canvas per selected period.
+                for (const period of config.periods) {
+                    const buffer = await buildLeaderboardImage(guild, config, client, period);
+                    const attachment = new AttachmentBuilder(buffer, { name: `leaderboard-${period}.png` });
+                    const lbMsg = await channel.send({ files: [attachment] });
+                    config.messageIds[period] = lbMsg.id;
                 }
 
-                board.messageId = lbMsg.id;
-                config.boards[period] = board;
+                config.enabled = true;
                 await db.set(dbKey(guildId), config);
                 startRefreshInterval(client, guildId);
 
-                await interaction.editReply({ components: [buildSetupPanel(config)], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
-                await interaction.followUp({
-                    content: `<:Checkedbox:1521227734943269077> **${PERIOD_LABEL[period]}** leaderboard deployed in <#${draft.targetChannel}> — refreshing every minute. Pick another period + channel to add more.`,
-                    flags: MessageFlags.Ephemeral,
-                }).catch(() => {});
+                const periodsDisplay = config.periods.map(p => PERIOD_LABELS[p] || p).join(', ');
+                const successContainer = new ContainerBuilder().setAccentColor(0x57F287);
+                successContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                    `# <:Checkedbox:1521227734943269077> Live Leaderboard Active\n\n` +
+                    `> Posted in <#${config.targetChannel}>\n` +
+                    `> Periods: **${periodsDisplay}** (${config.periods.length} separate ${config.periods.length === 1 ? 'board' : 'boards'})\n` +
+                    `> Showing: **${config.entryCount} entries** per board\n\n` +
+                    `-# All boards refresh every 60 seconds.`
+                ));
+                await interaction.editReply({ components: [successContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
             } catch (err) {
                 await interaction.followUp({ content: `<:Cancel:1521227723916181644> Failed to create leaderboard: ${err.message}`, flags: MessageFlags.Ephemeral }).catch(() => {});
             }

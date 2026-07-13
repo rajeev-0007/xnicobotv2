@@ -37,50 +37,92 @@ function pushPing(v) {
     if (global._pingHistory.length > 24) global._pingHistory.shift();
 }
 
+/** Catmull-Rom → cubic-bezier smoothing for a clean latency curve. */
+function strokeSmooth(ctx, pts) {
+    if (pts.length < 2) return;
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i - 1] || pts[i];
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
+        const p3 = pts[i + 2] || p2;
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    }
+}
+
 function drawGraph(ctx, fh, x, y, w, h, data, color) {
     // Panel
-    drawRoundedRect(ctx, x, y, w, h, 8);
-    ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fill();
+    drawRoundedRect(ctx, x, y, w, h, 10);
+    ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fill();
+    ctx.strokeStyle = COL.border; ctx.lineWidth = 1;
+    drawRoundedRect(ctx, x, y, w, h, 10); ctx.stroke();
 
     if (data.length < 2) {
-        ctx.font = fh.getFont(11); ctx.fillStyle = COL.dim; ctx.textAlign = 'center';
-        ctx.fillText('collecting data…', x + w / 2, y + h / 2 + 4);
+        ctx.font = fh.getFont(12); ctx.fillStyle = COL.dim; ctx.textAlign = 'center';
+        ctx.fillText('Collecting latency data…', x + w / 2, y + h / 2 + 4);
         ctx.textAlign = 'left';
         return;
     }
 
-    const max = Math.max(...data, 1) * 1.2;
-    const min = 0;
-    const pad = 10;
-    const gx = x + pad, gy = y + pad, gw = w - pad * 2, gh = h - pad * 2;
+    // Nice rounded max for the y-axis
+    const rawMax = Math.max(...data, 1);
+    const step = rawMax <= 50 ? 20 : rawMax <= 100 ? 25 : rawMax <= 250 ? 50 : rawMax <= 500 ? 100 : 200;
+    const max = Math.ceil((rawMax * 1.15) / step) * step;
+
+    const axisW = 34;                 // room for y-axis labels
+    const padT = 12, padB = 14, padR = 12;
+    const gx = x + axisW, gy = y + padT, gw = w - axisW - padR, gh = h - padT - padB;
     const n = data.length;
     const px = i => gx + (gw * i) / (n - 1);
-    const py = v => gy + gh - (gh * ((v - min) / (max - min)));
+    const py = v => gy + gh - (gh * (v / max));
 
-    // Gridlines
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
-    for (let i = 0; i <= 3; i++) {
-        const yy = gy + (gh * i) / 3;
+    // Gridlines + y-axis labels
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.font = fh.getFont(9);
+    const rows = 4;
+    for (let i = 0; i <= rows; i++) {
+        const val = (max / rows) * (rows - i);
+        const yy = gy + (gh * i) / rows;
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(gx, yy); ctx.lineTo(gx + gw, yy); ctx.stroke();
+        ctx.fillStyle = COL.dim;
+        ctx.fillText(`${Math.round(val)}`, gx - 8, yy);
     }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 
-    // Area fill
+    const pts = data.map((v, i) => ({ x: px(i), y: py(v) }));
+
+    // Area fill (under the smoothed curve)
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(gx, gy + gh);
-    data.forEach((v, i) => ctx.lineTo(px(i), py(v)));
+    strokeSmooth(ctx, pts);
     ctx.lineTo(gx + gw, gy + gh);
+    ctx.lineTo(gx, gy + gh);
     ctx.closePath();
-    ctx.fillStyle = color + '22'; ctx.fill();
+    const areaGrad = ctx.createLinearGradient(0, gy, 0, gy + gh);
+    areaGrad.addColorStop(0, color + '33');
+    areaGrad.addColorStop(1, color + '05');
+    ctx.fillStyle = areaGrad; ctx.fill();
+    ctx.restore();
 
-    // Line
+    // Smoothed line with glow
+    ctx.save();
     ctx.beginPath();
-    data.forEach((v, i) => { i === 0 ? ctx.moveTo(px(i), py(v)) : ctx.lineTo(px(i), py(v)); });
+    strokeSmooth(ctx, pts);
+    ctx.shadowColor = color; ctx.shadowBlur = 8;
     ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     ctx.stroke();
+    ctx.restore();
 
-    // Last point dot
-    const lx = px(n - 1), ly = py(data[n - 1]);
-    ctx.beginPath(); ctx.arc(lx, ly, 3.5, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+    // Last point marker
+    const last = pts[n - 1];
+    ctx.beginPath(); ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = COL.bg; ctx.lineWidth = 2; ctx.stroke();
 }
 
 async function buildPingCard(client, roundtripMs) {
@@ -94,60 +136,73 @@ async function buildPingCard(client, roundtripMs) {
     const avg = hist.length ? Math.round(hist.reduce((a, b) => a + b, 0) / hist.length) : api;
     const peak = hist.length ? Math.max(...hist) : api;
 
-    const W = 480, H = 300;
+    const W = 520, H = 340, PAD = 22;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
 
-    drawRoundedRect(ctx, 0, 0, W, H, 12);
+    // Card background + border
+    drawRoundedRect(ctx, 0, 0, W, H, 14);
     ctx.fillStyle = COL.bg; ctx.fill();
-
-    // Header
-    ctx.font = fh.getBoldFont(20); ctx.fillStyle = COL.text;
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.fillText('Pong!', 20, 34);
-
-    // Status badge
-    ctx.font = fh.getSemiBoldFont(11);
-    const bw = ctx.measureText(status.label).width + 16;
-    drawRoundedRect(ctx, W - 20 - bw, 18, bw, 22, 6);
-    ctx.fillStyle = status.color + '30'; ctx.fill();
-    ctx.textAlign = 'center'; ctx.fillStyle = status.color;
-    ctx.fillText(status.label, W - 20 - bw / 2, 33);
-    ctx.textAlign = 'left';
-
-    // Big API number
-    ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
-    ctx.fillText('API LATENCY', 20, 58);
-    ctx.font = fh.getBoldFont(34); ctx.fillStyle = status.color;
-    ctx.fillText(`${api}`, 20, 92);
-    ctx.font = fh.getFont(14); ctx.fillStyle = COL.muted;
-    const numW = ctx.measureText(`${api}`).width;
-    ctx.font = fh.getBoldFont(34); const bigW = ctx.measureText(`${api}`).width;
-    ctx.font = fh.getFont(14); ctx.fillStyle = COL.muted;
-    ctx.fillText('ms', 24 + bigW, 92);
-
-    // Right-side mini stats
-    ctx.textAlign = 'right';
-    ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
-    ctx.fillText(`avg ${avg}ms  •  peak ${peak}ms`, W - 20, 92);
-    ctx.textAlign = 'left';
-
-    // Graph
-    drawGraph(ctx, fh, 20, 108, W - 40, 120, hist, status.color);
-
-    // Bottom stat row
-    const by = 258;
     ctx.strokeStyle = COL.border; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(20, by - 12); ctx.lineTo(W - 20, by - 12); ctx.stroke();
+    drawRoundedRect(ctx, 0.5, 0.5, W - 1, H - 1, 14); ctx.stroke();
 
-    const cell = (label, val, x) => {
-        ctx.font = fh.getFont(10); ctx.fillStyle = COL.muted; ctx.fillText(label, x, by);
-        ctx.font = fh.getSemiBoldFont(13); ctx.fillStyle = COL.text; ctx.fillText(val, x, by + 18);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+    // ── Header ──
+    ctx.font = fh.getBoldFont(20); ctx.fillStyle = COL.text;
+    ctx.fillText('Latency', PAD, PAD + 18);
+    ctx.font = fh.getFont(11); ctx.fillStyle = COL.dim;
+    ctx.fillText('Gateway & API response', PAD, PAD + 34);
+
+    // Status pill (top-right)
+    ctx.font = fh.getSemiBoldFont(11);
+    const bw = ctx.measureText(status.label).width + 20;
+    const bx = W - PAD - bw;
+    drawRoundedRect(ctx, bx, PAD, bw, 24, 12);
+    ctx.fillStyle = status.color + '26'; ctx.fill();
+    ctx.strokeStyle = status.color + '80'; ctx.lineWidth = 1;
+    drawRoundedRect(ctx, bx, PAD, bw, 24, 12); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillStyle = status.color;
+    ctx.fillText(status.label, bx + bw / 2, PAD + 16);
+    ctx.textAlign = 'left';
+
+    // ── Big API number ──
+    const numY = PAD + 84;
+    ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
+    ctx.fillText('API LATENCY', PAD, PAD + 58);
+    ctx.font = fh.getBoldFont(40); ctx.fillStyle = status.color;
+    ctx.fillText(`${api}`, PAD, numY);
+    const bigW = ctx.measureText(`${api}`).width;
+    ctx.font = fh.getFont(15); ctx.fillStyle = COL.muted;
+    ctx.fillText('ms', PAD + bigW + 6, numY);
+
+    // avg / peak (right, aligned with the number)
+    ctx.textAlign = 'right';
+    ctx.font = fh.getSemiBoldFont(12); ctx.fillStyle = COL.text;
+    ctx.fillText(`avg ${avg}ms`, W - PAD, numY - 18);
+    ctx.font = fh.getFont(11); ctx.fillStyle = COL.muted;
+    ctx.fillText(`peak ${peak}ms`, W - PAD, numY);
+    ctx.textAlign = 'left';
+
+    // ── Graph ──
+    drawGraph(ctx, fh, PAD, PAD + 98, W - PAD * 2, 130, hist, status.color);
+
+    // ── Bottom stat row ──
+    const by = H - PAD - 6;
+    ctx.strokeStyle = COL.border; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD, by - 26); ctx.lineTo(W - PAD, by - 26); ctx.stroke();
+
+    const cols = 4;
+    const colW = (W - PAD * 2) / cols;
+    const cell = (label, val, i) => {
+        const cx = PAD + i * colW;
+        ctx.font = fh.getFont(9); ctx.fillStyle = COL.dim; ctx.fillText(label, cx, by - 10);
+        ctx.font = fh.getSemiBoldFont(13); ctx.fillStyle = COL.text; ctx.fillText(val, cx, by + 8);
     };
-    cell('ROUNDTRIP', roundtripMs !== null ? `${roundtripMs}ms` : '...', 20);
-    cell('UPTIME', uptime, 150);
-    cell('SHARD', `#${shard}`, 300);
-    cell('SAMPLES', String(hist.length), 400);
+    cell('ROUNDTRIP', roundtripMs !== null ? `${roundtripMs}ms` : '…', 0);
+    cell('UPTIME', uptime, 1);
+    cell('SHARD', `#${shard}`, 2);
+    cell('SAMPLES', String(hist.length), 3);
 
     return canvas.toBuffer('image/png');
 }

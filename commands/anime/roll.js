@@ -1,13 +1,31 @@
 'use strict';
 
-const { SlashCommandBuilder, MessageFlags, AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+const {
+    SlashCommandBuilder, MessageFlags, AttachmentBuilder,
+    MediaGalleryBuilder, MediaGalleryItemBuilder,
+    ActionRowBuilder, ButtonBuilder, ButtonStyle,
+} = require('discord.js');
 const { createContainer, addTextDisplay } = require('../../utils/componentHelpers');
 const animeManager = require('../../utils/animeManager');
 const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const animeCard = require('../../utils/animeCardCanvas');
 const economyManager = require('../../utils/economyManager');
 
-async function handleRoll(reply, user, guildId, multi = false) {
+/** Action buttons shown under a roll result for quick re-rolls. */
+function rollButtons() {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('aroll_again').setLabel('Roll Again').setEmoji(AE.roll).setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('aroll_multi').setLabel(`×${animeManager.MULTI_ROLL_COUNT} Multi`).setEmoji(AE.gacha).setStyle(ButtonStyle.Secondary),
+    );
+}
+
+/**
+ * Run one roll (single or multi) and build the response payload WITHOUT
+ * sending it. Performs all side effects (cooldown check, coin deduction,
+ * collection updates, saves). Returns { container, files, ok }.
+ *   ok=false → a cooldown / insufficient-funds container (no action buttons).
+ */
+async function computeRoll(user, multi = false) {
     await animeManager.ensurePool();
     const animeData = animeManager.loadAnimeData();
     const playerData = animeManager.getPlayerData(animeData, user.id);
@@ -19,11 +37,21 @@ async function handleRoll(reply, user, guildId, multi = false) {
     if (now - playerData.lastRoll < animeManager.ROLL_COOLDOWN) {
         const remaining = Math.ceil((animeManager.ROLL_COOLDOWN - (now - playerData.lastRoll)) / 1000);
         const c = createContainer(0xED4245);
-        addTextDisplay(c, `## <:Alarm:1521227869047750689> Cooldown\nPlease wait **${remaining}s** before rolling again.`);
-        return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+        addTextDisplay(c, `## ${AE.clock} Cooldown\nPlease wait **${remaining}s** before rolling again.`);
+        return { container: c, ok: false };
     }
 
-    const freeRolls = animeManager.checkFreeRolls(playerData);
+    // Eagerly bank any fresh, unclaimed vote bonus (persists until spent).
+    let voteBonusClaimed = 0;
+    {
+        const claim = animeManager.claimVoteRolls(playerData, user.id);
+        if (claim.claimed) {
+            voteBonusClaimed = claim.granted;
+            animeManager.saveAnimeData();
+        }
+    }
+
+    let freeRolls = animeManager.checkFreeRolls(playerData);
     let isFreeRoll = false;
 
     if (freeRolls > 0 && !multi) {
@@ -33,13 +61,13 @@ async function handleRoll(reply, user, guildId, multi = false) {
         if (userData.coins < cost) {
             const c = createContainer(0xED4245);
             addTextDisplay(c, [
-                `## <:Money:1521228266957045900> Not Enough Coins`,
+                `## ${AE.money} Not Enough Coins`,
                 '',
-                `You need **${cost.toLocaleString()}** coins to roll${multi ? ' (×10)' : ''}.`,
+                `You need **${cost.toLocaleString()}** coins to roll${multi ? ` (×${animeManager.MULTI_ROLL_COUNT})` : ''}.`,
                 `> Balance: **${(userData.coins || 0).toLocaleString()}** coins`,
                 freeRolls > 0 ? `\n-# ${AE.present} You have ${freeRolls} free roll(s) — use \`adaily\`` : `\n-# Free rolls used — \`adaily\` to vote for +${animeManager.VOTE_BONUS_ROLLS} more, or earn coins with \`daily\` / \`work\``,
             ].join('\n'));
-            return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+            return { container: c, ok: false };
         }
         userData.coins -= cost;
         playerData.totalSpent += cost;
@@ -49,8 +77,11 @@ async function handleRoll(reply, user, guildId, multi = false) {
     if (isFreeRoll) animeManager.useFreeRoll(playerData);
     playerData.lastRoll = now;
 
+    const voteBoost = animeManager.hasActiveVote(user.id);
+
+    // ── Multi roll ──
     if (multi) {
-        const results = animeManager.rollMultiple();
+        const results = animeManager.rollMultiple(animeManager.MULTI_ROLL_COUNT, voteBoost);
         let newCount = 0, dupCount = 0;
         for (const char of results) {
             const isDup = animeManager.addToCollection(playerData, char);
@@ -61,20 +92,22 @@ async function handleRoll(reply, user, guildId, multi = false) {
 
         const buffer = await animeCard.renderMulti(results);
         const c = createContainer(0x9B59B6);
-        addTextDisplay(c, [
-            `## <:Present:1521228115655917659> Multi Roll ×${animeManager.MULTI_ROLL_COUNT}`,
+        const mLines = [
+            `## ${AE.present} Multi Roll ×${animeManager.MULTI_ROLL_COUNT}`,
             `> ${AE.sparkle} **${newCount} New** • ${AE.refresh} **${dupCount} Dupes**`,
-            `-# ${isFreeRoll ? 'Free roll' : `${animeManager.MULTI_ROLL_COST} coins`} • Collection: ${playerData.collection.length} cards`,
-        ].join('\n'));
+        ];
+        if (voteBonusClaimed > 0) mLines.push(`> ${AE.gift} **+${voteBonusClaimed} vote bonus rolls claimed!**`);
+        if (voteBoost) mLines.push(`> ${AE.fire} **Vote boost active** — better Epic/Legendary/Mythic odds!`);
+        mLines.push(`-# ${isFreeRoll ? 'Free roll' : `${animeManager.MULTI_ROLL_COST} coins`} • Collection: ${playerData.collection.length} cards`);
+        addTextDisplay(c, mLines.join('\n'));
         c.addMediaGalleryComponents(
-            new MediaGalleryBuilder().addItems(
-                new MediaGalleryItemBuilder().setURL('attachment://multiroll.png')
-            )
+            new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://multiroll.png'))
         );
-        return reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'multiroll.png' })], flags: MessageFlags.IsComponentsV2 });
+        return { container: c, files: [new AttachmentBuilder(buffer, { name: 'multiroll.png' })], ok: true };
     }
 
-    const character = animeManager.rollCharacter();
+    // ── Single roll ──
+    const character = animeManager.rollCharacter(voteBoost);
     const isDuplicate = animeManager.addToCollection(playerData, character);
     playerData.totalRolls++;
     animeManager.saveAnimeData();
@@ -89,22 +122,51 @@ async function handleRoll(reply, user, guildId, multi = false) {
         `> ${rarity.emoji} **${rarity.name}** • ${AE.money} ${rarity.value.toLocaleString()} value`,
         `-# ${isFreeRoll ? 'Free roll' : `${animeManager.ROLL_COST} coins`} • Collection: ${playerData.collection.length} cards`,
     ];
+    if (voteBonusClaimed > 0) lines.push(`> ${AE.sparkle} **+${voteBonusClaimed} vote bonus rolls claimed!**`);
+    if (voteBoost) lines.push(`> ${AE.fire} **Vote boost active** — better Epic/Legendary/Mythic odds!`);
     if (wishlistHit) lines.push(`\n${AE.star} **WISHLIST HIT!**`);
     addTextDisplay(c, lines.join('\n'));
     c.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-            new MediaGalleryItemBuilder().setURL('attachment://card.png')
-        )
+        new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://card.png'))
     );
+    return { container: c, files: [new AttachmentBuilder(buffer, { name: 'card.png' })], ok: true };
+}
 
-    return reply({ components: [c], files: [new AttachmentBuilder(buffer, { name: 'card.png' })], flags: MessageFlags.IsComponentsV2 });
+/** Attach a persistent collector so the Roll Again / Multi buttons work. */
+function attachRollCollector(message, user) {
+    if (!message || typeof message.createMessageComponentCollector !== 'function') return;
+    const collector = message.createMessageComponentCollector({
+        filter: (i) => i.user.id === user.id && (i.customId === 'aroll_again' || i.customId === 'aroll_multi'),
+        time: 300_000,
+    });
+    collector.on('collect', async (i) => {
+        const multi = i.customId === 'aroll_multi';
+        try {
+            const r = await computeRoll(user, multi);
+            if (r.ok) r.container.addActionRowComponents(rollButtons());
+            const payload = { components: [r.container], flags: MessageFlags.IsComponentsV2, files: r.files || [] };
+            await i.update(payload);
+        } catch {
+            await i.deferUpdate().catch(() => {});
+        }
+    });
+}
+
+async function handleRoll(reply, user, guildId, multi = false) {
+    const r = await computeRoll(user, multi);
+    if (r.ok) r.container.addActionRowComponents(rollButtons());
+    const payload = { components: [r.container], flags: MessageFlags.IsComponentsV2 };
+    if (r.files) payload.files = r.files;
+    const sent = await reply(payload);
+    if (r.ok) attachRollCollector(sent, user);
+    return sent;
 }
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('aroll')
         .setDescription('Roll for a random anime character card')
-        .addBooleanOption(o => o.setName('multi').setDescription('Do a multi-roll (×10)').setRequired(false)),
+        .addBooleanOption(o => o.setName('multi').setDescription(`Do a multi-roll (×${animeManager.MULTI_ROLL_COUNT})`).setRequired(false)),
     prefix: 'aroll',
     description: 'Roll for a random anime character card (gacha)',
     usage: 'aroll [--multi]',
@@ -112,7 +174,7 @@ module.exports = {
     category: 'anime',
 
     async executePrefix(message, args) {
-        const multi = args.includes('multi') || args.includes('--multi') || args.includes('x10');
+        const multi = args.includes('multi') || args.includes('--multi') || args.includes('x5') || args.includes('x10');
         await message.channel.sendTyping().catch(() => {});
         return handleRoll(message.reply.bind(message), message.author, message.guild?.id, multi);
     },
@@ -120,6 +182,12 @@ module.exports = {
     async execute(interaction) {
         const multi = interaction.options?.getBoolean('multi') || false;
         await interaction.deferReply();
-        return handleRoll((payload) => interaction.editReply(payload), interaction.user, interaction.guild?.id, multi);
+        return handleRoll(
+            async (payload) => { await interaction.editReply(payload); return interaction.fetchReply(); },
+            interaction.user, interaction.guild?.id, multi
+        );
     },
+
+    // Shared so the dedicated /amulti command can reuse the exact same logic.
+    handleRoll,
 };

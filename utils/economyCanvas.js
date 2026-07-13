@@ -29,9 +29,10 @@
  *     monochrome system fallbacks.
  */
 
-const { createCanvas } = require('@napi-rs/canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const imageCache = require('./imageCache');
 const { drawTextWithEmoji } = require('./emojiCanvasHelper');
+const { loadRarityBadge, RARITY_META } = require('./rarityBadges');
 const {
     getFont, getMediumFont, getBoldFont, getSemiBoldFont,
     drawRoundedRect, drawGradientBackground, drawDiagonalLines,
@@ -392,10 +393,21 @@ async function drawPetPanel(ctx, box, pet, accentColor) {
     ctx.fillStyle = COLORS.white;
     await drawTextWithEmoji(ctx, truncateText(ctx, String(pet.name || 'Pet'), nameMaxW), nameX, y + 33, 18);
 
-    // Rarity subtitle
+    // Rarity subtitle — crystal badge + tier name
+    const petRarity = String(pet.rarity || 'common').toLowerCase();
+    let raritySubX = innerX;
+    try {
+        const rImg = await loadRarityBadge(petRarity, loadImage);
+        if (rImg) {
+            ctx.drawImage(rImg, innerX, y + 43, 16, 16);
+            raritySubX = innerX + 20;
+        }
+    } catch {}
     ctx.font = getFont(12);
-    ctx.fillStyle = COLORS.muted;
-    ctx.fillText(String(pet.rarity || 'common'), innerX, y + 54);
+    ctx.fillStyle = RARITY_META[petRarity]
+        ? rgba('#' + RARITY_META[petRarity].color.toString(16).padStart(6, '0'), 0.9)
+        : COLORS.muted;
+    ctx.fillText(petRarity.charAt(0).toUpperCase() + petRarity.slice(1), raritySubX, y + 54);
 
     /* ── HP bar ── */
     const maxHp = Math.max(1, pet.maxHp || pet.hp || 1);
@@ -836,8 +848,12 @@ async function createEconomyProfileCard({
             ctx.fillText(truncateText(ctx, p.name || 'Pet', nameMaxWidth), namePx, startY + 26);
 
             ctx.font = f.font(10);
-            ctx.fillStyle = COLORS.muted;
-            ctx.fillText(`Lv.${p.level || 1} · ${p.rarity || 'common'}`, namePx, startY + 44);
+            const pr = String(p.rarity || 'common');
+            const prLabel = pr.charAt(0).toUpperCase() + pr.slice(1);
+            ctx.fillStyle = RARITY_META[pr.toLowerCase()]
+                ? rgba('#' + RARITY_META[pr.toLowerCase()].color.toString(16).padStart(6, '0'), 0.85)
+                : COLORS.muted;
+            ctx.fillText(`Lv.${p.level || 1} · ${prLabel}`, namePx, startY + 44);
         }
 
         if (remaining > 0) {

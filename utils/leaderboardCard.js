@@ -19,22 +19,27 @@
  *   }
  */
 
-const { createCanvas } = require('@napi-rs/canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { registerAllFonts, getFontHelpers } = require('./fontRegistry');
 const { drawRoundedRect, truncateText, formatNumber } = require('./canvasDesign');
 const imageCache = require('./imageCache');
+const { RANK_BADGE_URLS, RANK_BADGE_FILES } = require('./rankEmojis');
+const fs = require('fs');
 
 try { registerAllFonts(); } catch {}
 
-const RANK_BADGE_URLS = {
-    1: 'https://cdn.discordapp.com/emojis/1522973015002976297.png',
-    2: 'https://cdn.discordapp.com/emojis/1522973012385599519.png',
-    3: 'https://cdn.discordapp.com/emojis/1522973009525080176.png',
-    4: 'https://cdn.discordapp.com/emojis/1522973006874279936.png',
-    5: 'https://cdn.discordapp.com/emojis/1522973004378935486.png',
-    6: 'https://cdn.discordapp.com/emojis/1522973001849770044.png',
-    7: 'https://cdn.discordapp.com/emojis/1522972998569689098.png',
-};
+/** Load a rank badge image — local file first, then CDN fallback. */
+async function loadRankBadge(rank) {
+    const localPath = RANK_BADGE_FILES[rank];
+    if (localPath && fs.existsSync(localPath)) {
+        try { return await loadImage(localPath); } catch {}
+    }
+    const url = RANK_BADGE_URLS[rank];
+    if (url) {
+        try { return await imageCache.loadWithCache(url, 4000); } catch {}
+    }
+    return null;
+}
 
 const COL = {
     bg: '#0f1116', card: '#1a1d24', cardBorder: '#262a33',
@@ -84,11 +89,14 @@ async function generateLeaderboardCard(entries = [], options = {}) {
     drawRoundedRect(ctx, 0, 0, W, 5, 0);
     ctx.fillStyle = accent; ctx.fillRect(0, 0, W, 5);
 
-    // Preload rank badges
+    // Preload rank badges (1–10, local files with CDN fallback)
     ctx._badges = {};
-    await Promise.all(Object.entries(RANK_BADGE_URLS).map(async ([r, url]) => {
-        try { const img = await imageCache.loadWithCache(url, 3000); if (img) ctx._badges[Number(r)] = img; } catch {}
-    }));
+    await Promise.all(
+        Array.from({ length: Math.min(count, 10) }, (_, i) => i + 1).map(async (r) => {
+            const img = await loadRankBadge(r);
+            if (img) ctx._badges[r] = img;
+        })
+    );
 
     // ── Header ──
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -146,8 +154,8 @@ async function generateLeaderboardCard(entries = [], options = {}) {
         }
 
         // Rank badge
-        const badgeSize = 30, bx = PAD + 6, by = y + (ROW_H - 6 - badgeSize) / 2;
-        if (entry.rank <= 7 && ctx._badges[entry.rank]) {
+        const badgeSize = 32, bx = PAD + 6, by = y + (ROW_H - 6 - badgeSize) / 2;
+        if (entry.rank <= 10 && ctx._badges[entry.rank]) {
             ctx.drawImage(ctx._badges[entry.rank], bx, by, badgeSize, badgeSize);
         } else {
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

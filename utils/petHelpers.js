@@ -3,6 +3,7 @@
 const path = require('path');
 
 const jsonStore = require('./jsonStore');
+const { getRarityEmoji } = require('./rarityBadges');
 const PETS_PATH = path.join(__dirname, '../data/pets.json');
 
 /* ═══════════════════════════════════════════════════════
@@ -14,9 +15,16 @@ const RARITY_PREFIX = {
   epic: 'epc', legendary: 'lgd', mythic: 'myc',
 };
 
+// Sourced from the shared rarityBadges helper so pets/weapons and the anime
+// system show one consistent rarity emoji set (was the ⬜🟩🟦 square glyphs).
+// Getters resolve the live application emoji at usage time.
 const RARITY_EMOJI = {
-  common: '⬜', uncommon: '🟩', rare: '🟦',
-  epic: '🟪', legendary: '🟨', mythic: '🟥',
+  get common()    { return getRarityEmoji('common'); },
+  get uncommon()  { return getRarityEmoji('uncommon'); },
+  get rare()      { return getRarityEmoji('rare'); },
+  get epic()      { return getRarityEmoji('epic'); },
+  get legendary() { return getRarityEmoji('legendary'); },
+  get mythic()    { return getRarityEmoji('mythic'); },
 };
 
 const RARITY_COLOR = {

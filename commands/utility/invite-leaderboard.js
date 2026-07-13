@@ -2,6 +2,7 @@ const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, MessageFlags 
 const { getLeaderboard } = require('../../utils/inviteManager');
 const { paginate, setupPaginationCollector } = require('../../utils/pagination');
 const { buildLoadingResponse, buildProgressResponse } = require('../../utils/responseBuilder');
+const { getRankEmoji } = require('../../utils/rankEmojis');
 
 async function buildLeaderboardLines(client, guildId, onProgress) {
     // Fetch full leaderboard (up to 100)
@@ -16,8 +17,8 @@ async function buildLeaderboardLines(client, guildId, onProgress) {
         const entry = leaderboard[i];
         const user = await client.users.fetch(entry.userId).catch(() => null);
         const username = user ? user.username : 'Unknown User';
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `**${i + 1}.**`;
-        lines.push(`${medal} **${username}** — ${entry.total} invites\n-# └ Regular: ${entry.regular} | Bonus: ${entry.bonus} | Left: ${entry.left}`);
+        const rankBadge = getRankEmoji(i + 1);
+        lines.push(`${rankBadge} **${username}** — ${entry.total} invites\n-# └ Regular: ${entry.regular} | Bonus: ${entry.bonus} | Left: ${entry.left}`);
 
         if (typeof onProgress === 'function') {
             await onProgress({ current: i + 1, total: leaderboard.length, stage: username });

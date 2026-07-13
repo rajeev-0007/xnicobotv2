@@ -63,7 +63,10 @@ async function handleWork(reply, userId, guildId) {
 
     const tipChance = Math.random();
     const tipAmount = tipChance < 0.15 ? Math.floor(Math.random() * 50) + 25 : 0;
-    const grossEarned = baseEarned + bonusAmount + tipAmount;
+    // Crown item grants bonuses.global — a flat % on ALL coin earnings.
+    // This was only applied in /weekly; work now honors it too.
+    const globalBonus = Math.floor(baseEarned * (Number(user.bonuses?.global) || 0));
+    const grossEarned = baseEarned + bonusAmount + tipAmount + globalBonus;
 
     // Wealth tax — applies once total wealth (wallet+bank) ≥ 100k.
     const taxResult = applyIncomeTax(grossEarned, user);
@@ -87,6 +90,7 @@ async function handleWork(reply, userId, guildId) {
     earningsText += `### ${coinIcon(guildId)} Earnings\n`;
     earningsText += `> ${coinIcon(guildId)} **Base Pay:** ${formatCoinsAmount(baseEarned, guildId)}\n`;
     if (bonusAmount > 0) earningsText += `> <:Crown:1521227739988889764> **Work Bonus:** +${formatCoins(bonusAmount, guildId)}\n`;
+    if (globalBonus > 0) earningsText += `> <:Crown:1521227739988889764> **Global Bonus:** +${formatCoins(globalBonus, guildId)}\n`;
     if (tipAmount > 0) earningsText += `> <:Sketch:1521228025365004471> **Tip Received:** +${formatCoinsAmount(tipAmount, guildId)}\n`;
 
     addTextDisplay(container, earningsText);
