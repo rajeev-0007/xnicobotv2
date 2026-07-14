@@ -32,6 +32,7 @@ const {
 } = require('discord.js');
 const { buildErrorResponse } = require('./responseBuilder');
 const { resolveUser } = require('./resolveUser');
+const jsonStore = require('./jsonStore');
 
 // ── Brand constants (kept in sync with utils/responseBuilder.js) ─────────
 const BRAND_EMOJI = '<:xnico:1521228240440660180>';
@@ -477,6 +478,22 @@ function createActionCommand(opts) {
         dmAllowed: true,
 
         async execute(interaction) {
+            if (interaction.guildId) {
+                const store = jsonStore.read('actions') || {};
+                const config = store[interaction.guildId] || { enabled: true };
+                
+                if (config.enabled === false) {
+                    const errEmoji = ACTION_EMOJIS[opts.name] || opts.emoji;
+                    return interaction.reply({
+                        components: [buildErrorResponse(
+                            'Module Disabled',
+                            `${errEmoji} Roleplay action commands are currently disabled in this server.`
+                        )],
+                        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+                    });
+                }
+            }
+
             // ── Solo action path ───────────────────────────────────────
             if (isSolo) {
                 await interaction.deferReply();

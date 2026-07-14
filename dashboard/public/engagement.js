@@ -14,7 +14,8 @@ async function pageStarboard() {
         api(`/api/guild/${g.id}/channels`),
     ]);
     state.channels = Array.isArray(channels) ? channels : [];
-    const w = cfg && !cfg._error ? cfg : { enabled: false, channelId: null, threshold: 3, starredCount: 0 };
+    const w = cfg && !cfg._error ? cfg : { enabled: false, channelId: null, threshold: 3, emojis: ['⭐'], starredCount: 0 };
+    const currentEmojis = Array.isArray(w.emojis) ? w.emojis.join(', ') : '⭐';
 
     const chSel = state.channels.filter(c => c.type === 0 || c.type === 5)
         .map(c => `<option value="${esc(c.id)}" ${w.channelId === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('');
@@ -24,10 +25,11 @@ async function pageStarboard() {
             <div class="row wrap"><a class="btn" href="#/server/${esc(g.id)}">${icon('home')} Overview</a></div></div>
 
         <div class="card mb-2">
-            <div class="card-h"><div class="ic">${icon('star')}</div><div class="tt"><div class="t">Configuration</div><div class="s">When a message gets enough ⭐ reactions, it's posted to the starboard channel.</div></div></div>
+            <div class="card-h"><div class="ic">${icon('star')}</div><div class="tt"><div class="t">Configuration</div><div class="s">When a message gets enough star reactions, it's posted to the starboard channel.</div></div></div>
             <div class="switch-row"><div><div class="lbl">Enable Starboard</div></div><label class="switch"><input type="checkbox" id="sb-enabled" ${w.enabled ? 'checked' : ''}><span class="slide"></span></label></div>
             <div class="form-row mt-2"><label>Starboard Channel</label><select id="sb-channel"><option value="">— None —</option>${chSel}</select></div>
-            <div class="form-row"><label>Star Threshold</label><input type="number" id="sb-threshold" value="${w.threshold}" min="1" max="100"><div class="hint">How many ⭐ reactions before a message is posted.</div></div>
+            <div class="form-row"><label>Star Threshold</label><input type="number" id="sb-threshold" value="${w.threshold}" min="1" max="100"><div class="hint">How many reactions before a message is posted.</div></div>
+            <div class="form-row"><label>Star Emojis</label><input type="text" id="sb-emojis" value="${esc(currentEmojis)}" placeholder="⭐"><div class="hint">Comma separated emojis (e.g. ⭐, 🔥, or ID like 1521227907647668374).</div></div>
             <hr>
             <div class="text-sm text-mute">Starred messages so far: <b>${w.starredCount}</b></div>
         </div>
@@ -39,10 +41,14 @@ async function pageStarboard() {
 
     $('#sb-save').onclick = async () => {
         const btn = $('#sb-save'); btn.disabled = true; btn.textContent = 'Saving…';
+        const emojiInput = $('#sb-emojis').value || '⭐';
+        const emojis = emojiInput.split(',').map(e => e.trim()).filter(e => e.length > 0);
+        
         const r = await api(`/api/guild/${g.id}/starboard-config`, { method: 'PUT', body: JSON.stringify({
             enabled: $('#sb-enabled').checked,
             channelId: $('#sb-channel').value || null,
-            threshold: Number.parseInt($('#sb-threshold').value) || 3
+            threshold: Number.parseInt($('#sb-threshold').value) || 3,
+            emojis: emojis.length > 0 ? emojis : ['⭐']
         })});
         btn.disabled = false; btn.innerHTML = icon('check') + ' Save';
         if (r && !r._error) toast('Starboard saved!', 'success');

@@ -15,6 +15,16 @@ window.XNICO_MODULES = [
         custom: true  // rendered by a dedicated page function, not the generic form
     },
     {
+        id: 'actions',
+        name: 'Roleplay Actions',
+        group: 'Engagement',
+        description: 'Enable or disable roleplay action commands (hug, kiss, pat, etc.) for your server.',
+        icon: 'star',
+        fields: [
+            { key: 'enabled', label: 'Enable Actions', type: 'toggle' }
+        ]
+    },
+    {
         id: 'message-builder',
         name: 'Message Builder',
         group: 'Utility',
