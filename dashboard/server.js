@@ -4230,7 +4230,8 @@ app.get('/api/users/me/analytics', authMiddleware, (req, res) => {
 
     const guildMembers = readBotStore('guild_members') || [];
     const levelingStore = readBotStore('leveling') || {};
-    const memberEntries = guildMembers.filter(m => m.user_id === discordId);
+    const membersList = Array.isArray(guildMembers) ? guildMembers : Object.values(guildMembers || {});
+    const memberEntries = membersList.filter(m => m.user_id === discordId);
 
     const totalMsgs = memberEntries.reduce((s, m) => s + Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0), 0);
     const totalVoice = memberEntries.reduce((s, m) => s + Number(m.analytics?.voiceTime || 0), 0);
