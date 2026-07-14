@@ -48,6 +48,68 @@ window.__testLeave = async function() {
     }
 };
 
+window.__toggleCanvasPreview = function(type) {
+    const isChecked = document.getElementById(`preview-toggle-${type}`).checked;
+    const container = document.getElementById(`canvas-preview-${type}`);
+    if (!container) return;
+    if (isChecked) {
+        container.style.display = 'flex';
+        window.__updateCanvasPreview(type);
+    } else {
+        container.style.display = 'none';
+    }
+};
+
+window.__updateCanvasPreview = function(type) {
+    const container = document.getElementById(`canvas-preview-${type}`);
+    if (!container || container.style.display === 'none') return;
+
+    const prefix = type === 'welcome' ? 'canvas.' : 'leave.canvas.';
+    
+    const bgInput = document.querySelector(`input[data-key="${prefix}backgroundColor"][type="color"]`);
+    const accentInput = document.querySelector(`input[data-key="${prefix}accentColor"][type="color"]`);
+    const textInput = document.querySelector(`input[data-key="${prefix}textColor"][type="color"]`);
+    const imgInput = document.querySelector(`input[data-key="${prefix}backgroundImage"]`);
+    const msgInput = document.querySelector(`input[data-key="${prefix}customMessage"]`);
+
+    const bgColor = bgInput ? bgInput.value : (type === 'welcome' ? '#23272a' : '#23272a');
+    const accColor = accentInput ? accentInput.value : (type === 'welcome' ? '#bcf1e4' : '#ed4245');
+    const txtColor = textInput ? textInput.value : '#ffffff';
+    const bgImg = imgInput ? imgInput.value : '';
+    const customMsg = msgInput ? msgInput.value : (type === 'welcome' ? 'Member #123' : 'User left the server.');
+
+    container.style.backgroundColor = bgColor;
+    if (bgImg && bgImg.startsWith('http')) {
+        container.style.backgroundImage = `url("${bgImg}")`;
+        container.style.backgroundSize = 'cover';
+        container.style.backgroundPosition = 'center';
+    } else {
+        container.style.backgroundImage = 'none';
+    }
+
+    const avatar = document.getElementById(`cp-avatar-${type}`);
+    if (avatar) avatar.style.borderColor = accColor;
+
+    const title = document.getElementById(`cp-title-${type}`);
+    const msg = document.getElementById(`cp-msg-${type}`);
+    
+    if (title) title.style.color = txtColor;
+    if (msg) {
+        msg.style.color = txtColor;
+        msg.innerText = customMsg || (type === 'welcome' ? 'Member #123' : 'User left the server.');
+    }
+};
+
+document.addEventListener('input', (e) => {
+    if (!e.target || !e.target.dataset || !e.target.dataset.key) return;
+    const key = e.target.dataset.key;
+    if (key.startsWith('canvas.')) {
+        if (typeof window.__updateCanvasPreview === 'function') window.__updateCanvasPreview('welcome');
+    } else if (key.startsWith('leave.canvas.')) {
+        if (typeof window.__updateCanvasPreview === 'function') window.__updateCanvasPreview('leave');
+    }
+});
+
 async function pageWelcomer() {
     const g = state.currentGuild;
     const [cfg, channels, roles, customBtns, customMenus] = await Promise.all([
@@ -327,6 +389,18 @@ function _renderWelcomerBody(g, w, hasDraft) {
                     <div class="form-row"><label>Text Color</label>${colorIn('canvas.textColor', w.canvas?.textColor||'#ffffff')}</div>
                     <div class="form-row"><label>Background Image</label><input type="url" data-key="canvas.backgroundImage" value="${esc(w.canvas?.backgroundImage||'')}"></div>
                     <div class="form-row"><label>Custom Message</label><input type="text" data-key="canvas.customMessage" value="${esc(w.canvas?.customMessage||'')}" placeholder="Member #{membercount}"></div>
+                    <hr>
+                    <div class="switch-row">
+                        <div><div class="lbl">Show Live Preview</div><div class="desc">A local mockup of how the card might look.</div></div>
+                        <label class="switch"><input type="checkbox" id="preview-toggle-welcome" onchange="window.__toggleCanvasPreview('welcome')"><span class="slide"></span></label>
+                    </div>
+                    <div id="canvas-preview-welcome" style="display:none; margin-top:1rem; border:1px solid var(--border); border-radius:8px; padding:2rem; overflow:hidden; position:relative; min-height:180px; align-items:center; justify-content:center; flex-direction:column; background:#23272a;">
+                        <div style="z-index:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
+                            <div style="width:80px; height:80px; border-radius:50%; background:#4f545c; border:4px solid #bcf1e4;" id="cp-avatar-welcome"></div>
+                            <h3 style="margin:0; color:#ffffff;" id="cp-title-welcome">Welcome to Server!</h3>
+                            <p style="margin:0; color:#ffffff; opacity:0.8;" id="cp-msg-welcome">Member #123</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -393,6 +467,18 @@ function _renderWelcomerBody(g, w, hasDraft) {
                     <div class="form-row"><label>Text</label>${colorIn('leave.canvas.textColor', w.leave?.canvas?.textColor||'#ffffff')}</div>
                     <div class="form-row"><label>Background Image</label><input type="url" data-key="leave.canvas.backgroundImage" value="${esc(w.leave?.canvas?.backgroundImage||'')}"></div>
                     <div class="form-row"><label>Custom Message</label><input type="text" data-key="leave.canvas.customMessage" value="${esc(w.leave?.canvas?.customMessage||'')}"></div>
+                    <hr>
+                    <div class="switch-row">
+                        <div><div class="lbl">Show Live Preview</div><div class="desc">A local mockup of how the card might look.</div></div>
+                        <label class="switch"><input type="checkbox" id="preview-toggle-leave" onchange="window.__toggleCanvasPreview('leave')"><span class="slide"></span></label>
+                    </div>
+                    <div id="canvas-preview-leave" style="display:none; margin-top:1rem; border:1px solid var(--border); border-radius:8px; padding:2rem; overflow:hidden; position:relative; min-height:180px; align-items:center; justify-content:center; flex-direction:column; background:#23272a;">
+                        <div style="z-index:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
+                            <div style="width:80px; height:80px; border-radius:50%; background:#4f545c; border:4px solid #ed4245;" id="cp-avatar-leave"></div>
+                            <h3 style="margin:0; color:#ffffff;" id="cp-title-leave">Goodbye from Server!</h3>
+                            <p style="margin:0; color:#ffffff; opacity:0.8;" id="cp-msg-leave">User left the server.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

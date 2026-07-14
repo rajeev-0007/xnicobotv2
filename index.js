@@ -13744,47 +13744,62 @@ client.on('messageReactionAdd', async (reaction, user) => {
     }
 
     // Starboard System
-    if (reaction.emoji.id === '1521227907647668374' || reaction.emoji.name === '⭐') {
-        if (!jsonStore.has('starboard')) return;
-
+    if (jsonStore.has('starboard')) {
         const starboard = jsonStore.read('starboard');
-        const guildStarboard = starboard[reaction.message.guild.id];
+        const guildStarboard = reaction.message.guild ? starboard[reaction.message.guild.id] : null;
 
-        if (!guildStarboard) return;
+        if (guildStarboard && guildStarboard.enabled) {
+            const configuredEmojis = (guildStarboard.emojis && guildStarboard.emojis.length > 0) ? guildStarboard.emojis : ['⭐'];
+            const rId = reaction.emoji.id;
+            const rName = reaction.emoji.name;
+            
+            const matchedEmoji = configuredEmojis.find(e => {
+                if (e === rId || e === rName) return true;
+                if (rId && e.includes(rId)) return true;
+                return false;
+            });
 
-        const starCount = reaction.count;
+            // Fallback for legacy configs that expect the hardcoded Fire emoji mapping
+            const legacyMatch = (rId === '1521227907647668374' && configuredEmojis.includes('⭐'));
 
-        if (starCount >= guildStarboard.threshold) {
-            const starChannel = reaction.message.guild.channels.cache.get(guildStarboard.channelId);
-            if (!starChannel) return;
+            if (matchedEmoji || legacyMatch) {
+                const starCount = reaction.count;
+                if (starCount >= guildStarboard.threshold) {
+                    const starChannel = reaction.message.guild.channels.cache.get(guildStarboard.channelId);
+                    if (starChannel) {
+                        if (!guildStarboard.starredMessages) {
+                            guildStarboard.starredMessages = {};
+                        }
 
-            if (!guildStarboard.starredMessages) {
-                guildStarboard.starredMessages = {};
-            }
+                        const displayEmoji = legacyMatch 
+                            ? '<:Fire:1521227907647668374>' 
+                            : (reaction.emoji.id ? `<${reaction.emoji.animated ? 'a' : ''}:${reaction.emoji.name}:${reaction.emoji.id}>` : reaction.emoji.name);
 
-            if (guildStarboard.starredMessages[reaction.message.id]) {
-                const starredMsg = await starChannel.messages.fetch(guildStarboard.starredMessages[reaction.message.id]).catch(() => null);
-                if (starredMsg) {
-                    const container = new ContainerBuilder()
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder()
-                                .setContent(`# <:Fire:1521227907647668374> Starboard (${starCount} stars)\n\n**Author:** ${reaction.message.author}\n**Channel:** ${reaction.message.channel}\n**[Jump to Message](${reaction.message.url})**\n\n${reaction.message.content || '*[No text content]*'}`)
-                        );
+                        if (guildStarboard.starredMessages[reaction.message.id]) {
+                            const starredMsg = await starChannel.messages.fetch(guildStarboard.starredMessages[reaction.message.id]).catch(() => null);
+                            if (starredMsg) {
+                                const container = new ContainerBuilder()
+                                    .addTextDisplayComponents(
+                                        new TextDisplayBuilder()
+                                            .setContent(`# ${displayEmoji} Starboard (${starCount} stars)\n\n**Author:** ${reaction.message.author}\n**Channel:** ${reaction.message.channel}\n**[Jump to Message](${reaction.message.url})**\n\n${reaction.message.content || '*[No text content]*'}`)
+                                    );
+                                await starredMsg.edit({ components: [container] });
+                            }
+                        } else {
+                            const container = new ContainerBuilder()
+                                .addTextDisplayComponents(
+                                    new TextDisplayBuilder()
+                                        .setContent(`# ${displayEmoji} Starboard (${starCount} stars)\n\n**Author:** ${reaction.message.author}\n**Channel:** ${reaction.message.channel}\n**[Jump to Message](${reaction.message.url})**\n\n${reaction.message.content || '*[No text content]*'}`)
+                                );
 
-                    await starredMsg.edit({ components: [container] });
+                            const starredMsg = await starChannel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+                            guildStarboard.starredMessages[reaction.message.id] = starredMsg.id;
+                            guildStarboard.starredCount = (guildStarboard.starredCount || 0) + 1;
+                            jsonStore.write('starboard', starboard);
+                        }
+                    }
                 }
-                return;
             }
-
-            const container = new ContainerBuilder()
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(`# <:Fire:1521227907647668374> Starboard (${starCount} stars)\n\n**Author:** ${reaction.message.author}\n**Channel:** ${reaction.message.channel}\n**[Jump to Message](${reaction.message.url})**\n\n${reaction.message.content || '*[No text content]*'}`)
-                );
-
-            const starredMsg = await starChannel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
-            guildStarboard.starredMessages[reaction.message.id] = starredMsg.id;
-            jsonStore.write('starboard', starboard);
         }
     }
 });

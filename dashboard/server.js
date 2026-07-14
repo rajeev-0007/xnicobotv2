@@ -209,7 +209,8 @@ const MODULE_TO_STORE = {
     // keys (moderation, message, ...). The translation lives in the
     // logging-specific GET/PUT handlers further below; here we just
     // make sure cache-invalidation events fire on the right store.
-    logging: 'logs'
+    logging: 'logs',
+    actions: 'actions'
 };
 
 function notifyModuleUpdate(moduleName, guildId, updated) {
@@ -627,7 +628,7 @@ async function updateUserStore(userId, mutator) {
     writeJSON('modlogs.json', []);
 })();
 
-// â”€â”€ Auth Middleware â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Auth Middleware â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function authMiddleware(req, res, next) {
     const t = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     if (!t) {
@@ -901,7 +902,7 @@ app.post('/api/guilds/refresh', authMiddleware, async (req, res) => {
     }
 });
 
-// â”€â”€ Guild Config (Welcomer, AutoMod, etc.) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Guild Config (Welcomer, AutoMod, etc.) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Translate the dashboard's "logging" payload (UI field names like
@@ -1103,6 +1104,7 @@ const MODULE_DEFAULTS = {
     antilink: () => ({ enabled: false, action: 'delete', whitelistedLinks: [], whitelistedRoles: [], whitelistedChannels: [], logChannel: null }),
     suggestions: () => ({ enabled: false, channelId: null, approvedChannelId: null, deniedChannelId: null, allowComments: true, anonymousMode: false }),
     afk: () => ({ enabled: true }),
+    actions: () => ({ enabled: true }),
     'button-commands': () => ({}),
     'select-menus': () => ({}),
     'media-only': () => ({ enabled: false, channels: [] }),
