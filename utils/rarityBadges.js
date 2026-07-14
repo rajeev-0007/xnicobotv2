@@ -30,16 +30,16 @@ const RARITY_META = {
     mythic:    { name: 'Mythic',    color: 0xE74C3C, index: 5 },
 };
 
-// Discord custom emoji references. Replace the IDs below after uploading the
-// assets/emojis/rarity_<tier>.png crystals to your bot's emoji server.
-// Until then getRarityEmoji() returns the Unicode fallback so nothing breaks.
+// Real Application Emoji IDs (uploaded via scripts/sync-emojis.js). The live
+// guard resolves these by name at runtime; these hardcoded tags are a solid
+// fallback so the crystal badges still render before the guard has loaded.
 const RARITY_EMOJIS = {
-    common:    '<:rarity_common:0>',
-    uncommon:  '<:rarity_uncommon:0>',
-    rare:      '<:rarity_rare:0>',
-    epic:      '<:rarity_epic:0>',
-    legendary: '<:rarity_legendary:0>',
-    mythic:    '<:rarity_mythic:0>',
+    common:    '<:rarity_common:1525949021880058006>',
+    uncommon:  '<:rarity_uncommon:1525949034836267101>',
+    rare:      '<:rarity_rare:1525949032361496756>',
+    epic:      '<:rarity_epic:1525949024635457577>',
+    legendary: '<:rarity_legendary:1525949027236057218>',
+    mythic:    '<:rarity_mythic:1525949029844783134>',
 };
 
 // Clean Unicode fallback (renders on every client). Used while the custom

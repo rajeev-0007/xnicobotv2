@@ -5,6 +5,7 @@ const { createContainer, addTextDisplay, addSeparator, SeparatorSpacingSize } = 
 const animeManager = require('../../utils/animeManager');
 const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const { resolveUser } = require('../../utils/resolveUser');
+const combat = require('../../utils/animeCombat');
 
 async function handleProfile(reply, targetUser, guildId) {
     const animeData = animeManager.loadAnimeData();
@@ -63,6 +64,36 @@ async function handleProfile(reply, targetUser, guildId) {
     ].join('\n'));
 
     addSeparator(container, SeparatorSpacingSize.Small);
+
+    // Strongest card + combat power
+    combat.ensureCombatState(playerData);
+    let strongest = null, strongestWeapon = null, topPower = 0;
+    const seen = new Set();
+    for (const entry of playerData.collection) {
+        if (seen.has(entry.charId)) continue;
+        seen.add(entry.charId);
+        const ch = animeManager.CHARACTERS.find(c => c.id === entry.charId);
+        if (!ch) continue;
+        const wep = combat.getEquippedWeapon(playerData, ch.id);
+        const pw = combat.battlePower(ch, wep);
+        if (pw > topPower) { topPower = pw; strongest = ch; strongestWeapon = wep; }
+    }
+
+    if (strongest) {
+        const rar = animeManager.RARITIES[strongest.rarity];
+        const stats = combat.effectiveStats(strongest, strongestWeapon);
+        const ability = combat.getAbility(strongest);
+        const ownedWpns = (playerData.weapons || []).length;
+        addTextDisplay(container, [
+            `### ⚔️ Combat`,
+            `> ${rar.emoji} **Lead:** ${strongest.name}  ·  Power **${topPower}**`,
+            `> ${ability.emoji} *${ability.name}* — ${ability.desc}`,
+            `> ⚔️ ATK ${stats.atk}  ·  ❤️ HP ${stats.hp}  ·  💨 SPD ${stats.spd}`,
+            strongestWeapon ? `> 🛠️ ${strongestWeapon.emoji} ${strongestWeapon.name}` : `> 🛠️ No weapon — use \`aequip\``,
+            ownedWpns > 0 ? `-# ${AE.shield || '🛡️'} ${ownedWpns} weapon${ownedWpns > 1 ? 's' : ''} owned` : `-# No weapons yet — buy with \`aweapons\``,
+        ].join('\n'));
+        addSeparator(container, SeparatorSpacingSize.Small);
+    }
 
     addTextDisplay(container, [
         `### ${AE.favorite} Favorites`,

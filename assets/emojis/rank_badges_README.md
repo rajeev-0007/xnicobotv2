@@ -1,33 +1,25 @@
-# Rank Badge Emojis
+# Rank & Rarity Badges
 
-Shield-style numbered badges (1–10) used in the live leaderboard canvas and text-based leaderboards.
+Two badge sets, both generated programmatically and auto-uploaded to the bot's
+Application Emojis (via `manifest.json` + `utils/emojiAutoSync.js`).
 
-## Setup
+## Rank badges (leaderboards) — `rank1.png` … `rank10.png`
+Ornate pennant badges for leaderboard positions 1–10.
+- Regenerate: `node scripts/generate-rank-badges.js`
+- Canvas cards load the local PNGs directly (`utils/rankEmojis.js` → `RANK_BADGE_FILES`).
+- Message text resolves the live app emoji **by name** (`rank1`…`rank10`) via
+  `emojiGuard.remapByName` in `getRankEmoji()` — no hardcoded IDs.
 
-1. Save the full rank badges strip image as `assets/emojis/rank_badges_strip.png`
-2. Run: `node scripts/crop-rank-badges.js`
-3. This generates `rank1.png` through `rank10.png` (128×128 each)
-4. Upload all 10 to your bot's emoji server
-5. Update the IDs in `utils/rankEmojis.js`
+## Rarity badges (anime + economy) — `rarity_<tier>.png`
+Crystal-gem badges for the 6 tiers (common → mythic).
+- Regenerate: `node scripts/generate-rarity-badges.js`
+- Canvas cards load them via `utils/rarityBadges.js` → `loadRarityBadge()`.
+- Message text resolves live by name (`rarity_common`…`rarity_mythic`) via
+  `getRarityEmoji()`, falling back to Unicode circles before the guard loads.
 
-## Files
-
-| File | Rank | Style |
-|------|------|-------|
-| rank1.png | #1 | Gold shield with crown |
-| rank2.png | #2 | Silver shield |
-| rank3.png | #3 | Bronze/amber shield |
-| rank4.png | #4 | Purple shield |
-| rank5.png | #5 | Blue shield |
-| rank6.png | #6 | Cyan shield |
-| rank7.png | #7 | Green shield |
-| rank8.png | #8 | Orange/amber shield |
-| rank9.png | #9 | Pink/magenta shield |
-| rank10.png | #10 | Gray/silver shield |
-
-## How it works
-
-- The **canvas leaderboard** loads badge images directly from `assets/emojis/rank{N}.png` (local files).
-- If local files are missing, it falls back to CDN URLs in `utils/rankEmojis.js`.
-- For ranks > 10, a plain `#N` text label is rendered instead.
-- **Text-based leaderboards** use the Discord emoji format from `RANK_EMOJIS` in `utils/rankEmojis.js`.
+## New token / deployment
+On startup `emojiAutoSync` detects a new application id (new token) and uploads
+every bundled emoji (including these badges) automatically, then refreshes the
+emoji guard so names resolve to the freshly-uploaded IDs. If you add or change
+badge images, run `node scripts/rebuild-emoji-manifest.js` so the manifest picks
+them up before the next boot.

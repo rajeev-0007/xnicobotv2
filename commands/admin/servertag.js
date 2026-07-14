@@ -3,6 +3,7 @@ const { buildErrorResponse, buildSuccessResponse, buildPermissionDenied, COLORS,
 
 const jsonStore = require('../../utils/jsonStore');
 const economyManager = require('../../utils/economyManager');
+const { getRankEmoji } = require('../../utils/rankEmojis');
 
 function loadConfig() {
     try {
@@ -117,9 +118,8 @@ module.exports = {
             let content = `# ${EMOJIS.STAR} Server Tag Leaderboard\n\n`;
             content += `Tag: **${guildConfig.tag}**\n\n`;
 
-            const medals = ['🥇', '🥈', '🥉'];
             for (let i = 0; i < top.length; i++) {
-                const prefix = i < 3 ? medals[i] : `**${i + 1}.**`;
+                const prefix = getRankEmoji(i + 1);
                 const member = message.guild.members.cache.get(top[i].userId);
                 const name = member ? member.displayName : `<@${top[i].userId}>`;
                 const active = top[i].equippedAt ? ' <:online:1521228065752088576>' : '';

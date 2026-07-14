@@ -40,6 +40,7 @@ const { gamblingGuard } = require('../../utils/economyGuards');
 
 const lotteryAI = require('../../utils/lotteryAI');
 const scheduler = require('../../utils/lotteryScheduler');
+const { getRankEmoji } = require('../../utils/rankEmojis');
 
 /* ─────────────────────────── Constants ─────────────────────────── */
 
@@ -173,9 +174,9 @@ function buildPanel(lottery, viewerId, guildId) {
     // ── Prize split ──
     c.addTextDisplayComponents(new TextDisplayBuilder().setContent(
         `### <:Present:1521228115655917659> Prize Split\n` +
-        `> 🥇 1st (60%) — **${formatNumber(winnerSplit[0])}**\n` +
-        `> 🥈 2nd (25%) — **${formatNumber(winnerSplit[1])}**\n` +
-        `> 🥉 3rd (15%) — **${formatNumber(Math.max(0, winnerSplit[2]))}**`
+        `> ${getRankEmoji(1)} 1st (60%) — **${formatNumber(winnerSplit[0])}**\n` +
+        `> ${getRankEmoji(2)} 2nd (25%) — **${formatNumber(winnerSplit[1])}**\n` +
+        `> ${getRankEmoji(3)} 3rd (15%) — **${formatNumber(Math.max(0, winnerSplit[2]))}**`
     ));
 
     c.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
@@ -200,11 +201,10 @@ function buildPanel(lottery, viewerId, guildId) {
     const hist = lottery.history;
     if (hist && hist.endedAt && Array.isArray(hist.winners) && hist.winners.length > 0) {
         const ts = Math.floor(new Date(hist.endedAt).getTime() / 1000);
-        const medals = ['🥇', '🥈', '🥉'];
         const histLines = hist.winners.map((w, i) => {
             const isAI = lotteryAI.isAIEntry(w.id);
             const tag = isAI ? `${lotteryAI.AI_BADGE} ${lotteryAI.AI_USERNAME}` : `<@${w.id}>`;
-            return `> ${medals[i] || '•'} ${tag} — **${formatNumber(w.reward || 0)}**`;
+            return `> ${getRankEmoji(i + 1)} ${tag} — **${formatNumber(w.reward || 0)}**`;
         });
         c.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
         c.addTextDisplayComponents(new TextDisplayBuilder().setContent(
@@ -254,7 +254,7 @@ function buildInfoPanel(guildId) {
         `> • You can hold up to **${MAX_TICKETS}** tickets per draw.\n` +
         `> • Winners are picked weighted by tickets — more tickets = better odds.\n` +
         `> • Tax of **${Math.round(GST_RATE * 100)}%** is removed before payout.\n` +
-        `> • Winner split: 🥇 60% · 🥈 25% · 🥉 15%.\n\n` +
+        `> • Winner split: ${getRankEmoji(1)} 60% · ${getRankEmoji(2)} 25% · ${getRankEmoji(3)} 15%.\n\n` +
 
         `### ${lotteryAI.AI_BADGE} The AI Participant\n` +
         `> • A single bot — **${lotteryAI.AI_USERNAME}** — competes against you.\n` +
