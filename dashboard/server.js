@@ -3981,7 +3981,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
                 id: req.user.id, discordId: null, username: req.user.username,
                 email: req.user.email || null, avatar: req.user.avatar || null,
                 role: req.user.role || 'member', isOwner: false,
-                hasPremium: false, premiumExpires: null, memberSince: null
+                hasPremium: false, hasVoted: false, premiumExpires: null, memberSince: null
             },
             economy: { wallet: 0, bank: 0, total: 0, inventory: [], lastDaily: null, lastWeekly: null, lastWork: null },
             social: { reputation: 0, bio: '', badges: [], marriedTo: null },
@@ -4048,12 +4048,14 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
     const premiumEntry = Array.isArray(premiumStore) ? premiumStore.find(p => p.userId === discordId) : null;
     const hasPremium = !!(premiumEntry && (!premiumEntry.expiresAt || new Date(premiumEntry.expiresAt) > now));
     const isOwner = isBotOwner(req);
+    const voteLock = require('../utils/voteLock');
+    const hasVoted = voteLock.hasActiveVote(discordId);
 
     res.json({
         user: {
             id: req.user.id, discordId, username: req.user.username,
             email: req.user.email || null, avatar: req.user.avatar || null,
-            role: req.user.role || 'member', isOwner, hasPremium,
+            role: req.user.role || 'member', isOwner, hasPremium, hasVoted,
             premiumExpires: premiumEntry?.expiresAt || null,
             memberSince: userRec.created_at || null
         },
@@ -4123,6 +4125,19 @@ app.put('/api/users/me/profile', authMiddleware, async (req, res) => {
     if (!discordId) return res.status(400).json({ error: 'No Discord ID linked' });
 
     const body = req.body || {};
+    
+    if (body.card || body.profileCard) {
+        const premiumStore = readBotStore('premium') || [];
+        const premiumEntry = Array.isArray(premiumStore) ? premiumStore.find(p => p.userId === discordId) : null;
+        const hasPremium = !!(premiumEntry && (!premiumEntry.expiresAt || new Date(premiumEntry.expiresAt) > new Date()));
+        const voteLock = require('../utils/voteLock');
+        const hasVoted = voteLock.hasActiveVote(discordId);
+        
+        if (!hasPremium && !hasVoted && !isBotOwner(req)) {
+            return res.status(403).json({ error: 'Customizing your profile card requires Premium or an active Top.gg vote.' });
+        }
+    }
+
     const allowedStyles = new Set(['default', 'minimal', 'neon', 'classic', 'modern']);
     const allowedFonts  = new Set(['Inter', 'Poppins', 'Montserrat', 'Outfit', 'SpaceGrotesk', 'JetBrainsMono', 'Comfortaa', 'Orbitron', 'Rajdhani']);
     const allowedBadge  = new Set(['default', 'minimal', 'compact']);
