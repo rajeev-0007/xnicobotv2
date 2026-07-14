@@ -396,7 +396,9 @@ function _renderWelcomerBody(g, w, hasDraft) {
                     </div>
                     <div id="canvas-preview-welcome" style="display:none; margin-top:1rem; border:1px solid var(--border); border-radius:8px; padding:2rem; overflow:hidden; position:relative; min-height:180px; align-items:center; justify-content:center; flex-direction:column; background:#23272a;">
                         <div style="z-index:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
-                            <div style="width:80px; height:80px; border-radius:50%; background:#4f545c; border:4px solid #bcf1e4;" id="cp-avatar-welcome"></div>
+                            <div style="width:80px; height:80px; border-radius:50%; background:#4f545c; border:4px solid #bcf1e4; overflow:hidden; position:relative; z-index:1;" id="cp-avatar-welcome">
+                                <img src="${esc(state.bot?.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png')}" alt="avatar" style="width:100%; height:100%; object-fit:cover; display:block;">
+                            </div>
                             <h3 style="margin:0; color:#ffffff;" id="cp-title-welcome">Welcome to Server!</h3>
                             <p style="margin:0; color:#ffffff; opacity:0.8;" id="cp-msg-welcome">Member #123</p>
                         </div>
@@ -474,7 +476,9 @@ function _renderWelcomerBody(g, w, hasDraft) {
                     </div>
                     <div id="canvas-preview-leave" style="display:none; margin-top:1rem; border:1px solid var(--border); border-radius:8px; padding:2rem; overflow:hidden; position:relative; min-height:180px; align-items:center; justify-content:center; flex-direction:column; background:#23272a;">
                         <div style="z-index:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
-                            <div style="width:80px; height:80px; border-radius:50%; background:#4f545c; border:4px solid #ed4245;" id="cp-avatar-leave"></div>
+                            <div style="width:80px; height:80px; border-radius:50%; background:#4f545c; border:4px solid #ed4245; overflow:hidden; position:relative; z-index:1;" id="cp-avatar-leave">
+                                <img src="${esc(state.bot?.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png')}" alt="avatar" style="width:100%; height:100%; object-fit:cover; display:block;">
+                            </div>
                             <h3 style="margin:0; color:#ffffff;" id="cp-title-leave">Goodbye from Server!</h3>
                             <p style="margin:0; color:#ffffff; opacity:0.8;" id="cp-msg-leave">User left the server.</p>
                         </div>

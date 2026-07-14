@@ -1636,7 +1636,7 @@ async function pageProfile() { // nosonar
                 </div>
                 <div class="row" style="gap:.5rem">
                     <button class="btn" onclick="window.__profileEditBio()">${icon('user')} Edit Bio</button>
-                    <button class="btn primary" onclick="window.__profileEditCard()">${icon('image')} Rank Card</button>
+                    <button class="btn primary" onclick="window.__profileEditCard()">${icon('image')} Profile & Rank Cards</button>
                 </div>
             </div>
         </div>
@@ -1801,6 +1801,25 @@ window.__profileEditBio = () => {
 // Edit rank + profile card modal
 window.__profileEditCard = () => {
     const d = window.__profileData;
+    
+    if (!d.user.hasPremium && !d.user.hasVoted && !d.user.isOwner) {
+        const wrap = document.createElement('div');
+        wrap.className = 'modal-wrap';
+        const cid = state.botInfo?.id || '';
+        wrap.innerHTML = `
+            <div class="modal center" style="max-width:400px; padding: 2rem;">
+                <div style="font-size:3rem; margin-bottom:1rem; color:var(--accent);">${icon('lock')}</div>
+                <h3>Premium or Vote Required</h3>
+                <p class="text-mute mt-1 mb-2">Customizing your profile and rank cards requires <strong>xNico Premium</strong> or an active <strong>Top.gg vote</strong>.</p>
+                <div class="row center mt-2" style="gap:1rem;">
+                    <button class="btn" onclick="this.closest('.modal-wrap').remove()">Close</button>
+                    <a class="btn primary" href="https://top.gg/bot/${cid}/vote" target="_blank">Vote Now</a>
+                </div>
+            </div>`;
+        document.body.appendChild(wrap);
+        return;
+    }
+
     const rc = d?.rankCard || {};
     const pc = d?.profileCard || {};
     const styles = ['default', 'minimal', 'neon', 'classic', 'modern'];
