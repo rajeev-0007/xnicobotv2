@@ -583,12 +583,20 @@ async function updateUserStore(userId, mutator) {
     }
     // Legacy fallback (older jsonStore without updateUserEntry).
     const users = readBotStore('users') || [];
-    let rec = users.find(u => u && (u.user_id === userId || u.userId === userId));
-    if (!rec) { rec = { user_id: userId, profile: {}, social: {} }; users.push(rec); }
+    const usersList = Array.isArray(users) ? users : Object.values(users);
+    let rec = usersList.find(u => u && (u.user_id === userId || u.userId === userId));
+    if (!rec) { 
+        rec = { user_id: userId, profile: {}, social: {} }; 
+        if (Array.isArray(users)) users.push(rec); else users[userId] = rec;
+    }
     const after = mutator(rec, users);
     if (after && typeof after === 'object' && after !== rec) {
-        const idx = users.indexOf(rec);
-        if (idx >= 0) users[idx] = after;
+        if (Array.isArray(users)) {
+            const idx = users.indexOf(rec);
+            if (idx >= 0) users[idx] = after;
+        } else {
+            users[userId] = after;
+        }
         rec = after;
     }
     await writeBotStore('users', users);
@@ -4001,14 +4009,16 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
     const socialStore = readBotStore('social') || {};
     const premiumStore = readBotStore('premium') || [];
 
-    const userRec = users.find(u => u.user_id === discordId) || {};
+    const usersList = Array.isArray(users) ? users : Object.values(users || {});
+    const userRec = usersList.find(u => u.user_id === discordId || u.userId === discordId) || users[discordId] || {};
     const profile = userRec.profile || {};
     const economy = userRec.economy || economyStore[discordId] || { balance: 0, bank: 0, inventory: [] };
     const social = userRec.social || socialStore[discordId] || { reputation: 0 };
     const stats = userRec.stats || { commandsUsed: 0, botInteractions: 0 };
     const afk = userRec.afk || { isAfk: false };
 
-    const memberEntries = guildMembers.filter(m => m.user_id === discordId);
+    const membersList = Array.isArray(guildMembers) ? guildMembers : Object.values(guildMembers || {});
+    const memberEntries = membersList.filter(m => m.user_id === discordId);
     let totalMessages = 0, totalVoiceTime = 0, totalXp = 0, highestLevel = 0, totalWarnings = 0, totalInvites = 0;
     const guildStats = [];
 
@@ -4220,7 +4230,8 @@ app.get('/api/users/me/analytics', authMiddleware, (req, res) => {
 
     const guildMembers = readBotStore('guild_members') || [];
     const levelingStore = readBotStore('leveling') || {};
-    const memberEntries = guildMembers.filter(m => m.user_id === discordId);
+    const membersList = Array.isArray(guildMembers) ? guildMembers : Object.values(guildMembers || {});
+    const memberEntries = membersList.filter(m => m.user_id === discordId);
 
     const totalMsgs = memberEntries.reduce((s, m) => s + Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0), 0);
     const totalVoice = memberEntries.reduce((s, m) => s + Number(m.analytics?.voiceTime || 0), 0);
