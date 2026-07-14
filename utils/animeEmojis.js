@@ -76,15 +76,10 @@ const EMOJIS = {
     sandwatch: '<:Sandwatch:1521228272426418367>',
     upload:    '<:Upload:1521228365120405537>',
     download:  '<:Download:1521228191899975810>',
-
-    // Leaderboard rank badges (perfect for top positions 1-7)
-    rank1:     '<:rank1:1522972998569689098>',
-    rank2:     '<:rank2:1522973001849770044>',
-    rank3:     '<:rank3:1522973004378935486>',
-    rank4:     '<:rank4:1522973006874279936>',
-    rank5:     '<:rank5:1522973009525080176>',
-    rank6:     '<:rank6:1522973012385599519>',
-    rank7:     '<:rank7:1522973015002976297>',
+    // NOTE: rank badges are NOT defined here anymore. Leaderboard rank badges
+    // live in utils/rankEmojis.js (rank1–rank10, resolved live by name), and
+    // rarity crystal badges live in utils/rarityBadges.js. Keeping them out of
+    // here avoids stale/duplicate emoji IDs.
 };
 
 /**

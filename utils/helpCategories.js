@@ -193,8 +193,9 @@ const CATEGORY_GROUP_RULES = {
     anime: [
         { name: 'Gacha & Rolls',       emoji: '<:Gamepad:1521228035213230090>',    cmds: ['aroll', 'amulti', 'adaily', 'adroprates', 'aopen'] },
         { name: 'Collection',          emoji: '<:Bookopen:1521227911137595605>',   cmds: ['acollection', 'aprofile', 'afavorites', 'acharinfo', 'acharlist'] },
+        { name: 'Combat & Loadout',    emoji: '<:Fire:1521227907647668374>',       cmds: ['aequip', 'aweapons', 'abattle'] },
         { name: 'Trading & Economy',   emoji: '<:transfer:1521228019824590948>',   cmds: ['atrade', 'asell', 'agift'] },
-        { name: 'Games & Battles',     emoji: '<:Star:1521227981685526568>',       cmds: ['aguess', 'abattle', 'animequiz', 'awishlist', 'aleaderboard'] },
+        { name: 'Games & Battles',     emoji: '<:Star:1521227981685526568>',       cmds: ['aguess', 'animequiz', 'awishlist', 'aleaderboard'] },
         { name: 'Auto Drops',          emoji: '<:Present:1521228115655917659>',    cmds: ['adropsetup'] },
     ],
 

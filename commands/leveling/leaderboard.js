@@ -79,9 +79,6 @@ const E = {
     spark:     '<:Lightning:1521227915537285150>',
     diamond:   '<:Sketch:1521228025365004471>',
     star:      '<:Star:1521227981685526568>',
-    medal1:    '🥇',
-    medal2:    '🥈',
-    medal3:    '🥉',
 
     // UI / controls
     pin:       '<:Pin:1521227932625014916>',

@@ -5,6 +5,7 @@ const { createContainer, addTextDisplay } = require('../../utils/componentHelper
 const animeManager = require('../../utils/animeManager');
 const { EMOJIS: AE } = require('../../utils/animeEmojis');
 const animeCard = require('../../utils/animeCardCanvas');
+const combat = require('../../utils/animeCombat');
 
 async function handleCharInfo(reply, user, guildId, characterName) {
     await animeManager.ensurePool();
@@ -27,6 +28,12 @@ async function handleCharInfo(reply, user, guildId, characterName) {
     const owned = animeManager.getCharacterCount(playerData, char.id);
     const sellValue = animeManager.getSellValue(char.id);
 
+    // Combat stats & signature ability
+    const equippedWeapon = combat.getEquippedWeapon(playerData, char.id);
+    const stats = combat.effectiveStats(char, equippedWeapon);
+    const ability = combat.getAbility(char);
+    const power = combat.battlePower(char, equippedWeapon);
+
     let globalOwners = 0;
     for (const [, pd] of Object.entries(animeData)) {
         if (pd.collection && pd.collection.some(c => c.charId === char.id)) globalOwners++;
@@ -37,10 +44,16 @@ async function handleCharInfo(reply, user, guildId, characterName) {
     addTextDisplay(c, [
         `## ${rarity.emoji} ${char.name}`,
         `> **Anime:** ${char.anime}`,
-        `> **Rarity:** ${rarity.emoji} ${rarity.name}`,
-        `> **Value:** ${AE.money} ${rarity.value.toLocaleString()} • **Sell:** ${AE.money} ${sellValue.toLocaleString()}`,
-        `> **Drop Rate:** ${rarity.weight}%`,
+        `> **Rarity:** ${rarity.emoji} ${rarity.name}  ·  **Drop Rate:** ${rarity.weight}%`,
+        `> **Value:** ${AE.money} ${rarity.value.toLocaleString()}  ·  **Sell:** ${AE.money} ${sellValue.toLocaleString()}`,
         char.favourites ? `> **AniList Favourites:** ${char.favourites.toLocaleString()}` : '',
+        '',
+        `### ${ability.emoji} Signature Ability — ${ability.name}`,
+        `> ${ability.desc}`,
+        '',
+        `### ⚔️ Combat Stats (Power: **${power}**)`,
+        `> ⚔️ ATK **${stats.atk}**  ·  ❤️ HP **${stats.hp}**  ·  💨 SPD **${stats.spd}**`,
+        equippedWeapon ? `> 🛠️ Equipped: ${equippedWeapon.emoji} **${equippedWeapon.name}** (+${equippedWeapon.atk} ATK)` : `> 🛠️ No weapon — use \`aequip\` to equip one`,
         '',
         `> ${AE.cards} **You Own:** ${owned > 0 ? `${owned} cop${owned > 1 ? 'ies' : 'y'}` : 'Not owned'}`,
         `> ${AE.server} **Global Owners:** ${globalOwners}`,

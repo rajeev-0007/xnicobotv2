@@ -587,15 +587,15 @@ function getFusionCost(charId1, charId2) {
 
 const MYSTERY_BOXES = {
     bronze: {
-        name: 'Bronze Box', emoji: AE.rank3, cost: 500, cards: 3,
+        name: 'Bronze Box', emoji: AE.box, cost: 500, cards: 3,
         weights: { common: 45, uncommon: 30, rare: 15, epic: 7, legendary: 2.5, mythic: 0.5 },
     },
     silver: {
-        name: 'Silver Box', emoji: AE.rank2, cost: 1500, cards: 3,
+        name: 'Silver Box', emoji: AE.present, cost: 1500, cards: 3,
         weights: { common: 15, uncommon: 30, rare: 30, epic: 18, legendary: 6, mythic: 1 },
     },
     gold: {
-        name: 'Gold Box', emoji: AE.rank1, cost: 5000, cards: 3,
+        name: 'Gold Box', emoji: AE.crown, cost: 5000, cards: 3,
         weights: { common: 0, uncommon: 0, rare: 10, epic: 50, legendary: 30, mythic: 10 },
     },
 };
@@ -639,9 +639,9 @@ const ACHIEVEMENTS = [
     { id: 'unique_25', name: 'Card Enthusiast', desc: 'Collect 25 unique characters', emoji: AE.collection, reward: 500, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 25 },
     { id: 'unique_50', name: 'Serious Collector', desc: 'Collect 50 unique characters', emoji: AE.award, reward: 1000, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 50 },
     { id: 'unique_100', name: 'Master Collector', desc: 'Collect 100 unique characters', emoji: AE.crown, reward: 3000, check: pd => new Set(pd.collection.map(c => c.charId)).size >= 100 },
-    { id: 'rarity_epic', name: 'Epic Find', desc: 'Own an Epic rarity card', emoji: '🟣', reward: 200, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'epic'; }) },
-    { id: 'rarity_legendary', name: 'Legendary Pull', desc: 'Own a Legendary rarity card', emoji: '🟡', reward: 500, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'legendary'; }) },
-    { id: 'rarity_mythic', name: 'Mythic Discovery', desc: 'Own a Mythic rarity card', emoji: '🔴', reward: 2000, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'mythic'; }) },
+    { id: 'rarity_epic', name: 'Epic Find', desc: 'Own an Epic rarity card', get emoji() { return getRarityEmoji('epic'); }, reward: 200, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'epic'; }) },
+    { id: 'rarity_legendary', name: 'Legendary Pull', desc: 'Own a Legendary rarity card', get emoji() { return getRarityEmoji('legendary'); }, reward: 500, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'legendary'; }) },
+    { id: 'rarity_mythic', name: 'Mythic Discovery', desc: 'Own a Mythic rarity card', get emoji() { return getRarityEmoji('mythic'); }, reward: 2000, check: pd => pd.collection.some(e => { const c = getCharacters().find(ch => ch.id === e.charId); return c && c.rarity === 'mythic'; }) },
     { id: 'first_trade', name: 'First Trade', desc: 'Complete your first trade', emoji: AE.trade, reward: 100, check: pd => pd.trades >= 1 },
     { id: 'trades_10', name: 'Trader', desc: 'Complete 10 trades', emoji: AE.stats, reward: 500, check: pd => pd.trades >= 10 },
     { id: 'spent_1000', name: 'Big Spender', desc: 'Spend 1,000 coins on rolls', emoji: AE.money, reward: 200, check: pd => pd.totalSpent >= 1000 },
