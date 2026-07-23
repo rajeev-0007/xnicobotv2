@@ -1519,7 +1519,8 @@ app.post('/api/guild/:guildId/leveling/user/:userId/set-level', authMiddleware, 
     xpData[req.params.guildId][req.params.userId] = {
         ...xpData[req.params.guildId][req.params.userId],
         xp, level, lastXpGain: 0,
-        messages: xpData[req.params.guildId][req.params.userId]?.messages || 0
+        messages: xpData[req.params.guildId][req.params.userId]?.messages || 0,
+        forceRoleSync: true
     };
     writeBotStore('leveling', xpData);
     res.json({ success: true, xp, level });

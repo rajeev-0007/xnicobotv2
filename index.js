@@ -10199,8 +10199,9 @@ client.on('messageCreate', async (message) => {
                                 const oldLevel = Math.floor(0.1 * Math.sqrt(userData.xp - xpGain));
                                 const newLevel = Math.floor(0.1 * Math.sqrt(userData.xp));
 
-                                if (newLevel > oldLevel) {
+                                if (newLevel > oldLevel || userData.forceRoleSync) {
                                     userData.level = newLevel;
+                                    userData.forceRoleSync = false;
 
                                     // Handle roles - check database first, then fall back to levelroles store
                                     let rolesConfig = levelingConfig.roles;
