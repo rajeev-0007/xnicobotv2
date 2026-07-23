@@ -3980,6 +3980,7 @@ app.get('/api/users', authMiddleware, (req, res) => {
 
 // â”€â”€ User Profile (comprehensive, reads from bot's actual stores) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
+    try {
     const discordId = req.user.discordId;
 
     // For non-Discord users (like built-in admin), return minimal profile without bot data
@@ -4122,6 +4123,10 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
         guilds: guildStats.slice(0, 25),
         afk: { isAfk: !!afk.isAfk, reason: afk.reason || '', since: afk.since || null }
     });
+    } catch (e) {
+        console.error('[Profile API Error]', e);
+        res.status(500).json({ error: 'Server Error: ' + e.message, stack: e.stack });
+    }
 });
 
 // â”€â”€ Update user profile (bio, rank card, profile card, afk) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
