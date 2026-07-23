@@ -675,11 +675,7 @@ app.get('/api/bot-info', async (req, res) => {
     } catch (error) { /* Failed to fetch bot info from Discord, return default data */ res.json({ id: DISCORD_CLIENT_ID, username: 'xNico', avatar: '', banner_color: null }); } // nosonar
 });
 
-app.get('/api/stats', (req, res) => {
-    // Attempt to read live analytics if available, fallback to defaults
-    const stats = readJSON('analytics.json', { totalCommands: 591, totalGuilds: 5, uptime: 99.9 });
-    res.json(stats);
-});
+
 
 // â”€â”€ Discord OAuth2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/auth/discord', (req, res) => {
@@ -3613,13 +3609,13 @@ app.put('/api/guild/:guildId/:module', authMiddleware, async (req, res) => {
 // bot's actual stores (guild_members, economy, leveling) rather than
 // the seed file. Falls back to the seed file only if the bot stores
 // haven't been initialized yet.
-app.get('/api/stats', authMiddleware, (req, res) => {
+app.get('/api/stats', (req, res) => {
     try {
+        const botGuilds    = readBotStore('bot_guilds')    || [];
         const guildMembers = readBotStore('guild_members') || [];
         const leveling     = readBotStore('leveling')      || {};
 
-        // Distinct guilds the bot has ever seen members for.
-        const guildSet = new Set();
+        const guildSet = new Set(botGuilds);
         let totalMessages = 0;
         for (const m of guildMembers) {
             if (m.guild_id) guildSet.add(m.guild_id);
@@ -3628,25 +3624,21 @@ app.get('/api/stats', authMiddleware, (req, res) => {
         for (const gid of Object.keys(leveling)) guildSet.add(gid);
 
         const totalMembers = guildMembers.length || Object.values(leveling).reduce((s, g) => s + Object.keys(g).length, 0);
-        const totalCommands = guildMembers.reduce((s, m) => s + Number(m.analytics?.commandsUsed || 0), 0)
-            || Math.floor(totalMessages * 0.05);
-
+        const totalCommands = guildMembers.reduce((s, m) => s + Number(m.analytics?.commandsUsed || 0), 0) || Math.floor(totalMessages * 0.05);
         const uptime = process.uptime ? Math.min(99.99, 99 + (process.uptime() / 86400) * 0.1) : 99.9;
 
-        // If everything is zero (cold serverless boot before bot has run), fall back to seed.
         if (!guildSet.size && !totalMembers && !totalMessages) {
             return res.json(readJSON('analytics.json', { totalGuilds: 0, totalMembers: 0, totalCommands: 0, uptime: 99.9, avgResponseTime: 42 }));
         }
 
         res.json({
             totalGuilds: guildSet.size,
-            totalMembers,
-            totalMessages,
-            totalCommands,
-            uptime,
+            totalMembers: totalMembers,
+            totalCommands: totalCommands,
+            uptime: uptime,
             avgResponseTime: 42
         });
-    } catch (error) { /* Error reading bot data, return seed data */ // nosonar
+    } catch (e) {
         res.json(readJSON('analytics.json', { totalGuilds: 0, totalMembers: 0, totalCommands: 0, uptime: 99.9 }));
     }
 });
