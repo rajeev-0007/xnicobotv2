@@ -3658,8 +3658,10 @@ app.get('/api/stats', (req, res) => {
             return res.json(readJSON('analytics.json', { totalGuilds: 174, totalMembers: 0, totalCommands: 721, uptime: 99.9, avgResponseTime: 42 }));
         }
 
+        const totalGuilds = botGuilds.length > 0 ? botGuilds.length : (guildSet.size > 0 ? guildSet.size : 174);
+
         res.json({
-            totalGuilds: guildSet.size > 0 ? guildSet.size : 174,
+            totalGuilds: totalGuilds,
             totalMembers: totalMembers,
             totalCommands: 721,
             uptime: uptime,
