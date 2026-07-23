@@ -147,6 +147,13 @@ const jsonStore = require('../utils/jsonStore');
 const botCustomize = require('../utils/botCustomize');
 const { notifyStoreUpdate } = require('../utils/storeSync');
 
+// Static requires to ensure Vercel Node File Trace bundles them and their dependencies (e.g. discord.js)
+const premiumManager = require('../utils/premiumManager');
+const join2createManager = require('../utils/join2createManager');
+const database = require('../utils/database');
+const pgPool = require('../utils/pgPool');
+const voteLock = require('../utils/voteLock');
+
 /*
  * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Dashboard <-> Bot sync model
