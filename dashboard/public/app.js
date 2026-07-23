@@ -333,10 +333,10 @@ async function loadAuthStats() {
 // appeared. It looked exactly like "login didn't work".
 //
 // Now we decide the auth state FIRST:
-//   â€¢ If a token exists, show the connecting loader immediately and
+//   • If a token exists, show the connecting loader immediately and
 //     verify it. On success we go straight to the dashboard and let
 //     the public stats load in the background (non-blocking).
-//   â€¢ Only when there's no token (or it's invalid) do we render the
+//   • Only when there's no token (or it's invalid) do we render the
 //     landing page, and only then do we await the public stats that
 //     populate it.
 async function bootstrap() {
@@ -1423,7 +1423,7 @@ function renderMultiSelect(key, val, items, kind) {
 }
 
 function renderTags(key, list) {
-    const chips = list.map((t, i) => `<span class="chip" data-idx="${i}">${esc(t)}<button onclick="window.__rmTag('${esc(key)}', ${i})">Ã—</button></span>`).join('');
+    const chips = list.map((t, i) => `<span class="chip" data-idx="${i}">${esc(t)}<button onclick="window.__rmTag('${esc(key)}', ${i})">×</button></span>`).join('');
     return `<div class="chips" id="chips-${cssKey(key)}">${chips}</div>
         <input class="mt-1" type="text" placeholder="Type and press Enter" data-tag-input="${esc(key)}">`;
 }
@@ -1471,7 +1471,7 @@ function refreshTags(key) {
     const arr = getDeep(window.__working, key) || [];
     const node = $('#chips-' + cssKey(key));
     if (!node) return;
-    node.innerHTML = arr.map((t, i) => `<span class="chip">${esc(t)}<button onclick="window.__rmTag('${esc(key)}', ${i})">Ã—</button></span>`).join('');
+    node.innerHTML = arr.map((t, i) => `<span class="chip">${esc(t)}<button onclick="window.__rmTag('${esc(key)}', ${i})">×</button></span>`).join('');
 }
 
 function bindFormInputs(working) {
@@ -1630,7 +1630,7 @@ async function pageProfile() { // nosonar
                     </div>
                     <div class="text-sm text-mute mono">${esc(d.user.discordId || '—')}</div>
                     <div class="text-xs text-mute mt-1">
-                        Member since ${since(d.user.memberSince)} â€¢ ${fmtNum(d.stats.serversWithData)} server${d.stats.serversWithData !== 1 ? 's' : ''} tracked
+                        Member since ${since(d.user.memberSince)} • ${fmtNum(d.stats.serversWithData)} server${d.stats.serversWithData !== 1 ? 's' : ''} tracked
                     </div>
                     ${d.social.bio ? `<p class="mt-2" style="max-width:600px">${esc(d.social.bio)}</p>` : ''}
                 </div>

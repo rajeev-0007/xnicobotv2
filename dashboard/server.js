@@ -3884,9 +3884,9 @@ app.get('/api/commands', authMiddleware, (req, res) => {
 // â”€â”€ Premium â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Premium key generation now writes to BOTH:
-//   â€¢ dashboard `premium.json` (kept for backwards-compat with the
+//   • dashboard `premium.json` (kept for backwards-compat with the
 //     dashboard's own "view all keys" UI)
-//   â€¢ the bot's `premium-keys` store, which `redeemkey.js` reads.
+//   • the bot's `premium-keys` store, which `redeemkey.js` reads.
 // Without the second write, keys generated here would never be
 // redeemable on Discord.
 //
@@ -3905,9 +3905,9 @@ app.get('/api/commands', authMiddleware, (req, res) => {
 // could log in with the default credentials and mint premium keys.
 //
 // A user is an owner when their resolved Discord ID is any of:
-//   â€¢ OWNER_ID / OWNER_IDS / OWNERS env (comma-separated), OR
-//   â€¢ one of EXTRA_OWNERS (kept in lock-step with utils/helpers.js), OR
-//   â€¢ present in the bot's `owners` store (managed via /addowner).
+//   • OWNER_ID / OWNER_IDS / OWNERS env (comma-separated), OR
+//   • one of EXTRA_OWNERS (kept in lock-step with utils/helpers.js), OR
+//   • present in the bot's `owners` store (managed via /addowner).
 const EXTRA_OWNERS = new Set(['699163868269641789']);
 
 function ownerIdList() {
@@ -4345,8 +4345,8 @@ app.get('/api/discord-config', (req, res) => {
 // dashboard and the bot are NOT sharing the same datastore. The dashboard
 // writes via jsonStore; the bot reads via jsonStore. They only stay in sync
 // when BOTH point at the SAME backend:
-//   â€¢ the SAME PostgreSQL `DATABASE_URL` (recommended for split hosting), OR
-//   â€¢ the SAME local `json_stores/` directory (only possible when the bot and
+//   • the SAME PostgreSQL `DATABASE_URL` (recommended for split hosting), OR
+//   • the SAME local `json_stores/` directory (only possible when the bot and
 //     dashboard run on the same host/filesystem).
 //
 // This endpoint reports which backend the dashboard is using so operators can
