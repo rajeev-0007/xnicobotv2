@@ -164,7 +164,7 @@ function _renderEconomyBody(g, w, hasDraft) {
             ${boardHtml}
         </div>
 
-            ${['588982544545087498', '1264506198489563143'].includes(state.user?.id) ? `
+            ${['588982544545087498', '1264506198489563143'].includes(state.user?.discordId) ? `
             <div class="card mb-2" style="border: 1px solid #7c3aed;">
                 <div class="card-h"><div class="ic"><span style="font-size: 1.5rem;">👑</span></div><div class="tt"><div class="t">Owner Panel</div><div class="s">Manage user economy balances directly.</div></div></div>
                 <div class="form-grid">

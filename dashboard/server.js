@@ -1482,6 +1482,9 @@ app.get('/api/guild/:guildId/leveling/leaderboard', authMiddleware, (req, res) =
 
 // Reset a single user's XP
 app.delete('/api/guild/:guildId/leveling/user/:userId', authMiddleware, (req, res) => {
+    if (!['588982544545087498', '1264506198489563143'].includes(req.user.discordId)) {
+        return res.status(403).json({ error: 'Only specific bot owners can perform this action.' });
+    }
     const xpData = readBotStore('leveling') || {};
     if (xpData[req.params.guildId]?.[req.params.userId]) {
         delete xpData[req.params.guildId][req.params.userId];
@@ -1493,6 +1496,9 @@ app.delete('/api/guild/:guildId/leveling/user/:userId', authMiddleware, (req, re
 
 // Reset ALL XP for a guild
 app.delete('/api/guild/:guildId/leveling/reset-all', authMiddleware, (req, res) => {
+    if (!['588982544545087498', '1264506198489563143'].includes(req.user.discordId)) {
+        return res.status(403).json({ error: 'Only specific bot owners can perform this action.' });
+    }
     const xpData = readBotStore('leveling') || {};
     if (xpData[req.params.guildId]) {
         xpData[req.params.guildId] = {};
@@ -1503,6 +1509,9 @@ app.delete('/api/guild/:guildId/leveling/reset-all', authMiddleware, (req, res) 
 
 // Manually set a user's level
 app.post('/api/guild/:guildId/leveling/user/:userId/set-level', authMiddleware, (req, res) => {
+    if (!['588982544545087498', '1264506198489563143'].includes(req.user.discordId)) {
+        return res.status(403).json({ error: 'Only specific bot owners can perform this action.' });
+    }
     const level = Math.max(0, Math.min(1000, Number.parseInt(req.body.level, 10) || 0));
     const xpData = readBotStore('leveling') || {};
     if (!xpData[req.params.guildId]) xpData[req.params.guildId] = {};
@@ -1510,7 +1519,8 @@ app.post('/api/guild/:guildId/leveling/user/:userId/set-level', authMiddleware, 
     xpData[req.params.guildId][req.params.userId] = {
         ...xpData[req.params.guildId][req.params.userId],
         xp, level, lastXpGain: 0,
-        messages: xpData[req.params.guildId][req.params.userId]?.messages || 0
+        messages: xpData[req.params.guildId][req.params.userId]?.messages || 0,
+        forceRoleSync: true
     };
     writeBotStore('leveling', xpData);
     res.json({ success: true, xp, level });
@@ -2619,6 +2629,9 @@ app.get('/api/guild/:guildId/economy-leaderboard', authMiddleware, (req, res) =>
 
 // Set a user's balance
 app.post('/api/guild/:guildId/economy-user/:userId/set', authMiddleware, (req, res) => {
+    if (!['588982544545087498', '1264506198489563143'].includes(req.user.discordId)) {
+        return res.status(403).json({ error: 'Only specific bot owners can perform this action.' });
+    }
     const { coins, bank } = req.body || {};
     const economy = readBotStore('economy') || {};
     if (!economy[req.params.userId]) economy[req.params.userId] = { coins: 0, bank: 0 };
@@ -2630,6 +2643,9 @@ app.post('/api/guild/:guildId/economy-user/:userId/set', authMiddleware, (req, r
 
 // Reset a user's economy
 app.delete('/api/guild/:guildId/economy-user/:userId', authMiddleware, (req, res) => {
+    if (!['588982544545087498', '1264506198489563143'].includes(req.user.discordId)) {
+        return res.status(403).json({ error: 'Only specific bot owners can perform this action.' });
+    }
     const economy = readBotStore('economy') || {};
     if (economy[req.params.userId]) {
         delete economy[req.params.userId];

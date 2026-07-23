@@ -184,10 +184,7 @@ function _renderLevelingBody(g, w, hasDraft) {
                     <td><b>${u.level}</b></td>
                     <td>${u.xp.toLocaleString()}</td>
                     <td>${(u.messages||0).toLocaleString()}</td>
-                    <td class="row" style="gap:.3rem">
-                        <button class="btn sm" onclick="window.__setUserLevel('${esc(u.userId)}')" title="Set level">✏</button>
-                        <button class="btn sm danger" onclick="window.__resetUserLv('${esc(u.userId)}')" title="Reset">×</button>
-                    </td>
+                    
                 </tr>`).join('')}
             </tbody>
         </table>
@@ -293,12 +290,29 @@ function _renderLevelingBody(g, w, hasDraft) {
 
             <!-- Leaderboard -->
             <div class="card mb-2">
-                <div class="card-h"><div class="ic">${icon('chart')}</div><div class="tt"><div class="t">Top Members</div><div class="s">Live XP leaderboard. Click ✏ to set level, × to reset.</div></div></div>
+                <div class="card-h"><div class="ic">${icon('chart')}</div><div class="tt"><div class="t">Top Members</div><div class="s">Live XP leaderboard. </div></div></div>
                 ${boardHtml}
+                <hr>
+                
+            </div>
+        </div>
+
+            ${['588982544545087498', '1264506198489563143'].includes(state.user?.discordId) ? `
+            <div class="card mb-2" style="border: 1px solid #7c3aed;">
+                <div class="card-h"><div class="ic"><span style="font-size: 1.5rem;">👑</span></div><div class="tt"><div class="t">Owner Panel</div><div class="s">Manage user levels directly.</div></div></div>
+                <div class="form-grid">
+                    <label class="field"><span>Target User ID</span>
+                        <input type="text" id="owner-target-id-lv" placeholder="Enter Discord User ID">
+                    </label>
+                    <div class="field" style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                        <button class="btn" onclick="const id = document.getElementById('owner-target-id-lv').value; if(id) window.__setUserLevel(id); else toast('Enter User ID', 'error');">✏ Set Level</button>
+                        <button class="btn danger" onclick="const id = document.getElementById('owner-target-id-lv').value; if(id) window.__resetUserLv(id); else toast('Enter User ID', 'error');">× Reset User</button>
+                    </div>
+                </div>
                 <hr>
                 <button class="btn danger" onclick="window.__resetAllLv()">${icon('user-x')} Reset All XP for This Server</button>
             </div>
-        </div>
+            ` : ''}
 
         <!-- SAVE -->
         <div class="save-bar">
