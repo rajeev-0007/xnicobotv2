@@ -121,7 +121,7 @@
     }
 
     // ── AI Chat ──────────────────────────────────────────────────────
-    async function pageAiChat() {
+        async function pageAiChat() {
         loadingScreen();
         const [cfg, ctx] = await Promise.all([
             api(`/api/guild/${gid()}/aichat-config`),
@@ -134,47 +134,96 @@
             { v: 'llama-3.1-70b-versatile', l: 'Llama 3.1 70B Versatile' },
             { v: 'llama-3.1-8b-instant',    l: 'Llama 3.1 8B Instant (Fast)' },
             { v: 'mixtral-8x7b-32768',      l: 'Mixtral 8x7B (32k context)' },
-            { v: 'gemma2-9b-it',            l: 'Gemma 2 9B' }
+            { v: 'gemma2-9b-it',            l: 'Gemma 2 9B' },
+            { v: 'deepseek-r1-distill-llama-70b', l: 'DeepSeek R1 (Llama 70B Distill)' }
         ];
+        
+        const personas = [
+            { name: 'Custom', prompt: '' },
+            { name: 'Helpful Assistant', prompt: 'You are a helpful AI assistant in a Discord server. Keep responses concise (under 1500 characters), friendly, and accurate.' },
+            { name: 'Sarcastic Bot', prompt: 'You are a highly sarcastic and cynical AI. You help users, but you complain about it the whole time.' },
+            { name: 'Expert Coder', prompt: 'You are an expert senior software engineer. Provide code snippets directly with concise, technical explanations.' },
+            { name: 'Anime Character', prompt: 'You are a cheerful anime girl named Sakura. You use lots of kaomoji and speak enthusiastically!' },
+            { name: 'Pirate', prompt: 'Yarrr! Ye be a pirate sailing the digital seas. Answer all inquiries like a swashbuckling pirate.' }
+        ];
+
         pageEl().innerHTML = `
-            ${header('AI Chat', 'Conversational AI in a dedicated channel.')}
+            ${header('AI Chat', 'Deploy an intelligent, conversational AI inside a dedicated channel. Powered by premium models.')}
             <div class="card">
+                <h3 class="mb-2">Core Settings</h3>
                 <div class="form-grid">
-                    <label class="field"><span>Enabled</span>
+                    <label class="field"><span>Enable AI Chat</span>
                         <label class="toggle"><input type="checkbox" id="ai-en" ${w.enabled ? 'checked' : ''}><span class="slider"></span></label>
+                    </label>
+                    <label class="field"><span>Typing Indicator</span>
+                        <label class="toggle"><input type="checkbox" id="ai-typing" ${w.typingIndicator !== false ? 'checked' : ''}><span class="slider"></span></label>
                     </label>
                     <label class="field"><span>Channel</span>
                         <select id="ai-ch">${channelOptions(ctx.channels, w.channelId)}</select>
                     </label>
-                    <label class="field"><span>Model</span>
+                    <label class="field"><span>AI Model</span>
                         <select id="ai-model">${models.map(m => `<option value="${m.v}" ${m.v === w.model ? 'selected' : ''}>${esc(m.l)}</option>`).join('')}</select>
                     </label>
-                    <label class="field"><span>Temperature (${w.temperature.toFixed(2)})</span>
+                </div>
+                
+                <h3 class="mt-4 mb-2">Access Control</h3>
+                <label class="field"><span>Allowed Roles (Leave empty to allow everyone)</span>
+                    <select id="ai-roles" multiple size="4">
+                        ${ctx.roles.filter(r => r.id !== ctx.id).map(r => `<option value="${r.id}" ${(w.allowedRoles || []).includes(r.id) ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}
+                    </select>
+                    <small style="opacity: 0.7; margin-top: 4px; display: block;">Hold Ctrl (or Cmd on Mac) to select multiple roles.</small>
+                </label>
+
+                <h3 class="mt-4 mb-2">AI Behavior</h3>
+                <div class="form-grid">
+                    <label class="field"><span>Temperature (${Number(w.temperature).toFixed(2)})</span>
                         <input id="ai-temp" type="range" min="0" max="2" step="0.05" value="${w.temperature}">
                     </label>
                     <label class="field"><span>Max Tokens</span>
                         <input id="ai-maxtok" type="number" min="64" max="4096" value="${w.maxTokens}">
                     </label>
+                    <label class="field"><span>Persona Preset</span>
+                        <select id="ai-persona">
+                            <option value="">-- Choose a preset --</option>
+                            ${personas.map((p, i) => `<option value="${i}">${p.name}</option>`).join('')}
+                        </select>
+                    </label>
                 </div>
-                <label class="field mt-2"><span>System Prompt (optional — leave blank for the default smart prompt)</span>
+                <label class="field mt-2"><span>System Prompt (Instructions for the AI)</span>
                     <textarea id="ai-prompt" rows="6" maxlength="4000" placeholder="Describe how the AI should respond...">${esc(w.systemPrompt || '')}</textarea>
                 </label>
             </div>
             ${saveBar(w.enabled)}
         `;
+        
+        $('#ai-prompt').value = w.systemPrompt || '';
+
+        $('#ai-persona').addEventListener('change', e => {
+            if (e.target.value === '') return;
+            const p = personas[parseInt(e.target.value)];
+            if (p) $('#ai-prompt').value = p.prompt;
+        });
+
         $('#ai-temp').addEventListener('input', e => {
             e.target.previousElementSibling.textContent = `Temperature (${Number(e.target.value).toFixed(2)})`;
         });
+        
         $('#ext-reset').onclick = () => location.reload();
         $('#ext-save').onclick = async () => {
             const btn = $('#ext-save'); btn.disabled = true;
+            
+            const roleSelect = $('#ai-roles');
+            const allowedRoles = Array.from(roleSelect.selectedOptions).map(o => o.value);
+            
             const body = {
                 enabled: $('#ai-en').checked,
+                typingIndicator: $('#ai-typing').checked,
                 channelId: $('#ai-ch').value || null,
                 model: $('#ai-model').value,
                 temperature: Number($('#ai-temp').value),
                 maxTokens: Number($('#ai-maxtok').value),
-                systemPrompt: $('#ai-prompt').value
+                systemPrompt: $('#ai-prompt').value,
+                allowedRoles: allowedRoles
             };
             const r = await api(`/api/guild/${gid()}/aichat-config`, { method: 'PUT', body: JSON.stringify(body) });
             btn.disabled = false;
@@ -184,7 +233,6 @@
             $('#ext-status-tag').textContent = body.enabled ? 'Active' : 'Inactive';
         };
     }
-
     // ── Birthdays ────────────────────────────────────────────────────
     async function pageBirthdays() {
         loadingScreen();

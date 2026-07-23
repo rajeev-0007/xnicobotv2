@@ -18,6 +18,7 @@ const VALID_MODELS = new Set([
     'mixtral-8x7b-32768',
     'gemma2-9b-it',
     'meta-llama/llama-4-scout-17b-16e-instruct',
+    'deepseek-r1-distill-llama-70b',
 ]);
 
 /**

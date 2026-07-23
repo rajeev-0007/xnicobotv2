@@ -8953,13 +8953,23 @@ client.on('messageCreate', async (message) => {
                 return;
             }
 
+            // ── Allowed Roles validation ──────────────────────────────
+            if (aiChatConfig.allowedRoles && aiChatConfig.allowedRoles.length > 0) {
+                const hasRole = message.member && message.member.roles.cache.some(r => aiChatConfig.allowedRoles.includes(r.id));
+                if (!hasRole) {
+                    return; // Ignore if user doesn't have an allowed role
+                }
+            }
+
             // Only process AI chat if it's NOT a prefix command
             const aiChatPrefix = getGuildPrefix(guildId);
             const isAiChatPrefixCommand = message.content.startsWith(aiChatPrefix);
 
             if (!isAiChatPrefixCommand && message.content.trim().length > 0) {
                 try {
-                    await message.channel.sendTyping();
+                    if (aiChatConfig.typingIndicator !== false) {
+                        await message.channel.sendTyping();
+                    }
 
                     const response = await generateAIResponse(message.content, message.channel.id, {
                         model: aiChatConfig.model || 'llama-3.3-70b-versatile',

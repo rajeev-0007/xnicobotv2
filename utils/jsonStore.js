@@ -71,7 +71,7 @@ const CRITICAL_STORES = new Set([
     // Automation config
     'autoresponder', 'autoreact', 'autorole', 'autonick', 'voiceautorole',
     'reactionroles', 'starboard', 'suggestions', 'feedback', 'giveaways', 'giveaway-settings',
-    'media-only', 'sticky', 'simple-sticky', 'booster-notify', 'social-notify',
+    'media-only', 'sticky', 'simple-sticky', 'booster-notify', 'social-notify', 'social-notify-cache',
     'button-commands', 'select-menus', 'customcmds', 'welcomer', 'welcomer-templates',
     // Games / submissions config that must survive restarts
     'counting', 'screenshot-verify', 'screenshot-verify-submissions',
