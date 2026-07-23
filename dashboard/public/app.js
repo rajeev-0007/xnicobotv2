@@ -1558,7 +1558,7 @@ async function pageProfile() { // nosonar
     ]);
 
     if (!profileData || profileData._error || profileData._unauth) {
-        page.innerHTML = `<div class="empty"><h3>Could not load profile</h3><p>${esc(profileData?.error || 'No Discord ID linked to your session.')}</p></div>`;
+        page.innerHTML = `<div class="empty"><h3>Could not load profile</h3><p>${esc(profileData?.error || 'Server Error: Could not fetch profile data.')}</p></div>`;
         return;
     }
 

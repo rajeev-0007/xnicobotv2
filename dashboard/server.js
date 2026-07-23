@@ -4010,7 +4010,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
     const premiumStore = readBotStore('premium') || [];
 
     const usersList = Array.isArray(users) ? users : Object.values(users || {});
-    const userRec = usersList.find(u => u.user_id === discordId || u.userId === discordId) || users[discordId] || {};
+    const userRec = usersList.find(u => u && (u.user_id === discordId || u.userId === discordId)) || users[discordId] || {};
     const profile = userRec.profile || {};
     const economy = userRec.economy || economyStore[discordId] || { balance: 0, bank: 0, inventory: [] };
     const social = userRec.social || socialStore[discordId] || { reputation: 0 };
@@ -4018,7 +4018,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
     const afk = userRec.afk || { isAfk: false };
 
     const membersList = Array.isArray(guildMembers) ? guildMembers : Object.values(guildMembers || {});
-    const memberEntries = membersList.filter(m => m.user_id === discordId);
+    const memberEntries = membersList.filter(m => m && m.user_id === discordId);
     let totalMessages = 0, totalVoiceTime = 0, totalXp = 0, highestLevel = 0, totalWarnings = 0, totalInvites = 0;
     const guildStats = [];
 
@@ -4036,7 +4036,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
     }
 
     for (const [guildId, guildUsers] of Object.entries(levelingStore)) {
-        const userLv = guildUsers[discordId];
+        const userLv = guildUsers ? guildUsers[discordId] : null;
         if (!userLv) continue;
         const existing = guildStats.find(g => g.guildId === guildId);
         const xp = Number(userLv.xp || 0);
@@ -4055,7 +4055,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
     guildStats.sort((a, b) => b.xp - a.xp);
 
     const now = new Date();
-    const premiumEntry = Array.isArray(premiumStore) ? premiumStore.find(p => p.userId === discordId) : null;
+    const premiumEntry = Array.isArray(premiumStore) ? premiumStore.find(p => p && p.userId === discordId) : null;
     const hasPremium = !!(premiumEntry && (!premiumEntry.expiresAt || new Date(premiumEntry.expiresAt) > now));
     const isOwner = isBotOwner(req);
     const voteLock = require('../utils/voteLock');
@@ -4138,7 +4138,7 @@ app.put('/api/users/me/profile', authMiddleware, async (req, res) => {
     
     if (body.card || body.profileCard) {
         const premiumStore = readBotStore('premium') || [];
-        const premiumEntry = Array.isArray(premiumStore) ? premiumStore.find(p => p.userId === discordId) : null;
+        const premiumEntry = Array.isArray(premiumStore) ? premiumStore.find(p => p && p.userId === discordId) : null;
         const hasPremium = !!(premiumEntry && (!premiumEntry.expiresAt || new Date(premiumEntry.expiresAt) > new Date()));
         const voteLock = require('../utils/voteLock');
         const hasVoted = voteLock.hasActiveVote(discordId);
