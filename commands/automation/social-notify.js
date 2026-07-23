@@ -461,7 +461,15 @@ async function handleInteraction(interaction) {
     }
 
     if (id === 'social_test_all') {
-        await interaction.reply({ content: '<:Cursor:1521228147071127732> Testing all configured platforms… This feature requires API keys to be configured via `/apikeys`.', flags: MessageFlags.Ephemeral });
+        let tested = 0;
+        if ((gc.youtube?.enabled || gc.enabled) && gc.youtube?.notifyChannel) {
+            const channel = interaction.guild.channels.cache.get(gc.youtube.notifyChannel);
+            if (channel) {
+                await channel.send('🔔 **[Test]** This is a test notification for YouTube alerts!').catch(() => {});
+                tested++;
+            }
+        }
+        await interaction.reply({ content: `<:Cursor:1521228147071127732> Sent test notifications to ${tested} configured channels. (Note: Only YouTube is currently automated).`, flags: MessageFlags.Ephemeral });
         return true;
     }
 
