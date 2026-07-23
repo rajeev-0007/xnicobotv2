@@ -384,6 +384,10 @@ function readBotStore(storeName) {
     if (!jsonStore.initialized) return null;
     return jsonStore.read(storeName);
 }
+function peekBotStore(storeName) {
+    if (!jsonStore.initialized) return null;
+    return jsonStore.peek(storeName);
+}
 
 // â”€â”€ Bot guild membership resolver â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Discord's GET /users/@me/guilds caps results at 200 per page, so a bot
@@ -4003,23 +4007,40 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
         });
     }
 
-    const users = readBotStore('users') || [];
-    const guildMembers = readBotStore('guild_members') || [];
-    const levelingStore = readBotStore('leveling') || {};
-    const economyStore = readBotStore('economy') || {};
-    const socialStore = readBotStore('social') || {};
-    const premiumStore = readBotStore('premium') || [];
+    const users = peekBotStore('users') || {};
+    const guildMembers = peekBotStore('guild_members') || {};
+    const levelingStore = peekBotStore('leveling') || {};
+    const economyStore = peekBotStore('economy') || {};
+    const socialStore = peekBotStore('social') || {};
+    const premiumStore = peekBotStore('premium') || [];
 
-    const usersList = Array.isArray(users) ? users : Object.values(users || {});
-    const userRec = usersList.find(u => u && (u.user_id === discordId || u.userId === discordId)) || users[discordId] || {};
+    let userRec = users[discordId];
+    if (!userRec) {
+        if (Array.isArray(users)) userRec = users.find(u => u && (u.user_id === discordId || u.userId === discordId));
+        else {
+            for (const key in users) {
+                const u = users[key];
+                if (u && (u.user_id === discordId || u.userId === discordId)) { userRec = u; break; }
+            }
+        }
+    }
+    userRec = userRec || {};
+    
     const profile = userRec.profile || {};
     const economy = userRec.economy || economyStore[discordId] || { balance: 0, bank: 0, inventory: [] };
     const social = userRec.social || socialStore[discordId] || { reputation: 0 };
     const stats = userRec.stats || { commandsUsed: 0, botInteractions: 0 };
     const afk = userRec.afk || { isAfk: false };
 
-    const membersList = Array.isArray(guildMembers) ? guildMembers : Object.values(guildMembers || {});
-    const memberEntries = membersList.filter(m => m && m.user_id === discordId);
+    const memberEntries = [];
+    if (Array.isArray(guildMembers)) {
+        for (const m of guildMembers) { if (m && m.user_id === discordId) memberEntries.push(m); }
+    } else {
+        for (const key in guildMembers) {
+            const m = guildMembers[key];
+            if (m && m.user_id === discordId) memberEntries.push(m);
+        }
+    }
     let totalMessages = 0, totalVoiceTime = 0, totalXp = 0, highestLevel = 0, totalWarnings = 0, totalInvites = 0;
     const guildStats = [];
 
@@ -4233,10 +4254,17 @@ app.get('/api/users/me/analytics', authMiddleware, (req, res) => {
     const discordId = req.user.discordId;
     if (!discordId) return res.json({ summary: { totalMessages: 0, totalVoiceSeconds: 0, totalVoiceHours: 0, serversActive: 0, topGuildRank: null }, topGuilds: [], daily: [] });
 
-    const guildMembers = readBotStore('guild_members') || [];
-    const levelingStore = readBotStore('leveling') || {};
-    const membersList = Array.isArray(guildMembers) ? guildMembers : Object.values(guildMembers || {});
-    const memberEntries = membersList.filter(m => m.user_id === discordId);
+    const guildMembers = peekBotStore('guild_members') || {};
+    const levelingStore = peekBotStore('leveling') || {};
+    const memberEntries = [];
+    if (Array.isArray(guildMembers)) {
+        for (const m of guildMembers) { if (m && m.user_id === discordId) memberEntries.push(m); }
+    } else {
+        for (const key in guildMembers) {
+            const m = guildMembers[key];
+            if (m && m.user_id === discordId) memberEntries.push(m);
+        }
+    }
 
     const totalMsgs = memberEntries.reduce((s, m) => s + Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0), 0);
     const totalVoice = memberEntries.reduce((s, m) => s + Number(m.analytics?.voiceTime || 0), 0);
