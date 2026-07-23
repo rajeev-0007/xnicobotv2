@@ -8,7 +8,20 @@
  * Premium users always bypass.
  */
 
-const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+let ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags;
+try {
+    const djs = require('discord.js');
+    ContainerBuilder = djs.ContainerBuilder;
+    TextDisplayBuilder = djs.TextDisplayBuilder;
+    SeparatorBuilder = djs.SeparatorBuilder;
+    SeparatorSpacingSize = djs.SeparatorSpacingSize;
+    ActionRowBuilder = djs.ActionRowBuilder;
+    ButtonBuilder = djs.ButtonBuilder;
+    ButtonStyle = djs.ButtonStyle;
+    MessageFlags = djs.MessageFlags;
+} catch (e) {
+    // Ignore: Running in dashboard environment where discord.js is not installed
+}
 const jsonStore = require('./jsonStore');
 
 /* ─────────────────────────────────────────────────────────────
