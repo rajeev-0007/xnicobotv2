@@ -1054,7 +1054,14 @@ app.use((req, res, next) => {
     if (!rawModule || rawModule === 'broadcaster') return next();
 
     const storeName = MODULE_TO_STORE[rawModule] || rawModule;
-    const oldData = readBotStore(storeName)?.[guildId] || {};
+    let oldData = readBotStore(storeName)?.[guildId] || {};
+    
+    // Fix split-config architecture for economy and leveling broadcaster checks
+    if (rawModule === 'economy') {
+        oldData = readBotStore('economy-settings')?.[guildId] || {};
+    } else if (rawModule === 'leveling') {
+        oldData = readBotStore('levelingtoggle')?.[guildId] || {};
+    }
 
     const newState = req.body.enabled;
     const oldState = !!oldData.enabled;
