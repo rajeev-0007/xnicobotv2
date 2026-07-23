@@ -1063,7 +1063,12 @@ app.use((req, res, next) => {
     }
 
     const newState = req.body.enabled;
-    const oldState = !!oldData.enabled;
+    let oldState = !!oldData.enabled;
+    
+    // Custom implicit state logic to match GET endpoints
+    if (rawModule === 'economy') oldState = oldData.enabled !== false;
+    else if (rawModule === 'leveling') oldState = oldData.enabled === true || (readBotStore('leveling')?.[guildId]?.enabled === true);
+    else if (rawModule === 'tickets' || rawModule === 'starboard' || rawModule === 'counting') oldState = !!oldData.channelId;
 
     let action = null;
     if (newState && !oldState) action = 'activated';
