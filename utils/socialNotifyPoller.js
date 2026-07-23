@@ -305,7 +305,7 @@ async function pollYouTube(client, log) {
     // Check each guild's YouTube config for new videos
     for (const [guildId, guildConfig] of Object.entries(config)) {
         const ytConfig = guildConfig?.youtube;
-        if (!ytConfig?.enabled || !ytConfig?.notifyChannel || !ytConfig?.channels?.length) continue;
+        if (!(ytConfig?.enabled || guildConfig?.enabled) || !ytConfig?.notifyChannel || !ytConfig?.channels?.length) continue;
 
         const guild = client.guilds.cache.get(guildId);
         if (!guild) continue;

@@ -1018,15 +1018,14 @@ function getAutomodDefaults() {
 }
 
 // --- Broadcaster interceptor ---
-async function sendBroadcasterMessage(guildId, moduleName, activated) {
+async function sendBroadcasterMessage(guildId, moduleName, action) {
     if (!BOT_TOKEN) return;
     const bcData = readBotStore('broadcaster') || {};
     const cfg = bcData[guildId];
     if (!cfg || !cfg.enabled || !cfg.channelId) return;
 
-    const prettyName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
-    const actionText = activated ? 'activated' : 'deactivated';
-    const content = `📢 The **${prettyName}** feature was just ${actionText} via the dashboard!`;
+    const prettyName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1).replace(/-/g, ' ');
+    const content = `📢 The **${prettyName}** feature was just **${action}** via the dashboard!`;
 
     try {
         await fetch(`https://discord.com/api/channels/${cfg.channelId}/messages`, {
@@ -1054,16 +1053,33 @@ app.use((req, res, next) => {
     if (!rawModule || rawModule === 'broadcaster') return next();
 
     const storeName = MODULE_TO_STORE[rawModule] || rawModule;
-    const oldData = readBotStore(storeName)?.[guildId] || {};
+    let oldData = readBotStore(storeName)?.[guildId] || {};
+    
+    // Fix split-config architecture for economy and leveling broadcaster checks
+    if (rawModule === 'economy') {
+        oldData = readBotStore('economy-settings')?.[guildId] || {};
+    } else if (rawModule === 'leveling') {
+        oldData = readBotStore('levelingtoggle')?.[guildId] || {};
+    }
 
     const newState = req.body.enabled;
-    const oldState = !!oldData.enabled;
+    let oldState = !!oldData.enabled;
+    
+    // Custom implicit state logic to match GET endpoints
+    if (rawModule === 'economy') oldState = oldData.enabled !== false;
+    else if (rawModule === 'leveling') oldState = oldData.enabled === true || (readBotStore('leveling')?.[guildId]?.enabled === true);
+    else if (rawModule === 'tickets' || rawModule === 'starboard' || rawModule === 'counting') oldState = !!oldData.channelId;
 
-    if (newState !== oldState) {
+    let action = null;
+    if (newState && !oldState) action = 'activated';
+    else if (!newState && oldState) action = 'deactivated';
+    else if (newState && oldState) action = 'updated';
+
+    if (action) {
         const originalJson = res.json;
         res.json = function(body) {
             if (body && !body.error && !body._error) {
-                sendBroadcasterMessage(guildId, rawModule, newState);
+                sendBroadcasterMessage(guildId, rawModule, action);
             }
             return originalJson.call(this, body);
         };
@@ -3647,8 +3663,10 @@ app.get('/api/stats', (req, res) => {
             return res.json(readJSON('analytics.json', { totalGuilds: 174, totalMembers: 0, totalCommands: 721, uptime: 99.9, avgResponseTime: 42 }));
         }
 
+        const totalGuilds = botGuilds.length > 0 ? botGuilds.length : (guildSet.size > 0 ? guildSet.size : 174);
+
         res.json({
-            totalGuilds: guildSet.size > 0 ? guildSet.size : 174,
+            totalGuilds: totalGuilds,
             totalMembers: totalMembers,
             totalCommands: 721,
             uptime: uptime,
@@ -3871,9 +3889,9 @@ app.get('/api/commands', authMiddleware, (req, res) => {
 // â”€â”€ Premium â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Premium key generation now writes to BOTH:
-//   â€¢ dashboard `premium.json` (kept for backwards-compat with the
+//   • dashboard `premium.json` (kept for backwards-compat with the
 //     dashboard's own "view all keys" UI)
-//   â€¢ the bot's `premium-keys` store, which `redeemkey.js` reads.
+//   • the bot's `premium-keys` store, which `redeemkey.js` reads.
 // Without the second write, keys generated here would never be
 // redeemable on Discord.
 //
@@ -3892,9 +3910,9 @@ app.get('/api/commands', authMiddleware, (req, res) => {
 // could log in with the default credentials and mint premium keys.
 //
 // A user is an owner when their resolved Discord ID is any of:
-//   â€¢ OWNER_ID / OWNER_IDS / OWNERS env (comma-separated), OR
-//   â€¢ one of EXTRA_OWNERS (kept in lock-step with utils/helpers.js), OR
-//   â€¢ present in the bot's `owners` store (managed via /addowner).
+//   • OWNER_ID / OWNER_IDS / OWNERS env (comma-separated), OR
+//   • one of EXTRA_OWNERS (kept in lock-step with utils/helpers.js), OR
+//   • present in the bot's `owners` store (managed via /addowner).
 const EXTRA_OWNERS = new Set(['699163868269641789']);
 
 function ownerIdList() {
@@ -4332,8 +4350,8 @@ app.get('/api/discord-config', (req, res) => {
 // dashboard and the bot are NOT sharing the same datastore. The dashboard
 // writes via jsonStore; the bot reads via jsonStore. They only stay in sync
 // when BOTH point at the SAME backend:
-//   â€¢ the SAME PostgreSQL `DATABASE_URL` (recommended for split hosting), OR
-//   â€¢ the SAME local `json_stores/` directory (only possible when the bot and
+//   • the SAME PostgreSQL `DATABASE_URL` (recommended for split hosting), OR
+//   • the SAME local `json_stores/` directory (only possible when the bot and
 //     dashboard run on the same host/filesystem).
 //
 // This endpoint reports which backend the dashboard is using so operators can
