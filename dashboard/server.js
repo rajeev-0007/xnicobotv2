@@ -1018,15 +1018,14 @@ function getAutomodDefaults() {
 }
 
 // --- Broadcaster interceptor ---
-async function sendBroadcasterMessage(guildId, moduleName, activated) {
+async function sendBroadcasterMessage(guildId, moduleName, action) {
     if (!BOT_TOKEN) return;
     const bcData = readBotStore('broadcaster') || {};
     const cfg = bcData[guildId];
     if (!cfg || !cfg.enabled || !cfg.channelId) return;
 
-    const prettyName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
-    const actionText = activated ? 'activated' : 'deactivated';
-    const content = `📢 The **${prettyName}** feature was just ${actionText} via the dashboard!`;
+    const prettyName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1).replace(/-/g, ' ');
+    const content = `📢 The **${prettyName}** feature was just **${action}** via the dashboard!`;
 
     try {
         await fetch(`https://discord.com/api/channels/${cfg.channelId}/messages`, {
@@ -1066,11 +1065,16 @@ app.use((req, res, next) => {
     const newState = req.body.enabled;
     const oldState = !!oldData.enabled;
 
-    if (newState !== oldState) {
+    let action = null;
+    if (newState && !oldState) action = 'activated';
+    else if (!newState && oldState) action = 'deactivated';
+    else if (newState && oldState) action = 'updated';
+
+    if (action) {
         const originalJson = res.json;
         res.json = function(body) {
             if (body && !body.error && !body._error) {
-                sendBroadcasterMessage(guildId, rawModule, newState);
+                sendBroadcasterMessage(guildId, rawModule, action);
             }
             return originalJson.call(this, body);
         };
