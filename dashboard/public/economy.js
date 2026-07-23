@@ -160,7 +160,7 @@ function _renderEconomyBody(g, w, hasDraft) {
 
         <!-- LEADERBOARD -->
         <div class="card mb-2">
-            <div class="card-h"><div class="ic">${icon('chart')}</div><div class="tt"><div class="t">Richest Members</div><div class="s">Top 15 by total wealth. Click ✏ to set balance, × to reset.</div></div></div>
+            <div class="card-h"><div class="ic">${icon('chart')}</div><div class="tt"><div class="t">Richest Members</div><div class="s">Top 15 by total wealth.</div></div></div>
             ${boardHtml}
         </div>
 
