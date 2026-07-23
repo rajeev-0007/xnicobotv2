@@ -176,7 +176,7 @@ function _renderLevelingBody(g, w, hasDraft) {
     const board = (state.lvBoard || []).slice(0, 10);
     const boardHtml = board.length ? `
         <table class="tbl">
-            <thead><tr><th>#</th><th>User ID</th><th>Level</th><th>XP</th><th>Messages</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>User ID</th><th>Level</th><th>XP</th><th>Messages</th></tr></thead>
             <tbody>
                 ${board.map((u, i) => `<tr>
                     <td><span class="tag">${i+1}</span></td>
