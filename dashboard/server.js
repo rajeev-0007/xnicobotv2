@@ -2392,7 +2392,9 @@ app.get('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
         categories: Array.isArray(cfg.categories) ? cfg.categories : [],
         openTickets: Object.keys(cfg.tickets || {}).length,
         hasCustomPanel: !!cfg.panelMessage,
-        hasCustomWelcome: !!cfg.welcomeMessage
+        hasCustomWelcome: !!cfg.welcomeMessage,
+        panelMessage: cfg.panelMessage || null,
+        welcomeMessage: cfg.welcomeMessage || null
     });
 });
 
@@ -2419,6 +2421,46 @@ app.put('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
         // (Empty array means "expose entire pool" in ticket-setup.js)
         if (cfg.panels && cfg.panels.default) {
             cfg.panels.default.categoryIds = [];
+        }
+    }
+
+    if (body.panelMessage !== undefined) {
+        if (!body.panelMessage) {
+            delete cfg.panelMessage;
+        } else {
+            cfg.panelMessage = {
+                mode: String(body.panelMessage.mode || 'components'),
+                content: String(body.panelMessage.content || '').slice(0, 2000),
+                title: String(body.panelMessage.title || '').slice(0, 256),
+                description: String(body.panelMessage.description || '').slice(0, 4096),
+                color: String(body.panelMessage.color || '#5865F2').slice(0, 20),
+                image: String(body.panelMessage.image || '').slice(0, 500),
+                thumbnail: String(body.panelMessage.thumbnail || '').slice(0, 500),
+                footer: String(body.panelMessage.footer || '').slice(0, 2048),
+                footerIcon: String(body.panelMessage.footerIcon || '').slice(0, 500),
+                author: String(body.panelMessage.author || '').slice(0, 256),
+                authorIcon: String(body.panelMessage.authorIcon || '').slice(0, 500)
+            };
+        }
+    }
+
+    if (body.welcomeMessage !== undefined) {
+        if (!body.welcomeMessage) {
+            delete cfg.welcomeMessage;
+        } else {
+            cfg.welcomeMessage = {
+                mode: String(body.welcomeMessage.mode || 'components'),
+                content: String(body.welcomeMessage.content || '').slice(0, 2000),
+                title: String(body.welcomeMessage.title || '').slice(0, 256),
+                description: String(body.welcomeMessage.description || '').slice(0, 4096),
+                color: String(body.welcomeMessage.color || '#5865F2').slice(0, 20),
+                image: String(body.welcomeMessage.image || '').slice(0, 500),
+                thumbnail: String(body.welcomeMessage.thumbnail || '').slice(0, 500),
+                footer: String(body.welcomeMessage.footer || '').slice(0, 2048),
+                footerIcon: String(body.welcomeMessage.footerIcon || '').slice(0, 500),
+                author: String(body.welcomeMessage.author || '').slice(0, 256),
+                authorIcon: String(body.welcomeMessage.authorIcon || '').slice(0, 500)
+            };
         }
     }
 
