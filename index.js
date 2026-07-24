@@ -7052,11 +7052,7 @@ client.on('interactionCreate', async (interaction) => {
                     }
 
                     if (effectiveCategoryId && !category) {
-                        ticketUI.unlockCreation(interaction.guild.id, interaction.user.id);
-                        return interaction.editReply({
-                            components: [ticketUI.errorContainer('Ticket category not found — the Discord category may have been deleted. Ask an admin to re-run `/ticket-setup create` or update it in the dashboard.')],
-                            flags: MessageFlags.IsComponentsV2,
-                        });
+                        // Ticket category not found, fallback to no category (null parent)
                     }
 
                     const overwrites = [
