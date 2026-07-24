@@ -2415,9 +2415,10 @@ app.put('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
                 emoji: String(c.emoji || '🎫').slice(0, 32),
                 description: String(c.description || '').slice(0, 100)
             }));
-        // Ensure the default panel stays in sync with the category pool
+        // Ensure the default panel exposes all categories by setting it to empty array
+        // (Empty array means "expose entire pool" in ticket-setup.js)
         if (cfg.panels && cfg.panels.default) {
-            cfg.panels.default.categoryIds = cfg.categories.map(c => c.id);
+            cfg.panels.default.categoryIds = [];
         }
     }
 
