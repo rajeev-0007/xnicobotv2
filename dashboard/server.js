@@ -2415,6 +2415,10 @@ app.put('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
                 emoji: String(c.emoji || '🎫').slice(0, 32),
                 description: String(c.description || '').slice(0, 100)
             }));
+        // Ensure the default panel stays in sync with the category pool
+        if (cfg.panels && cfg.panels.default) {
+            cfg.panels.default.categoryIds = cfg.categories.map(c => c.id);
+        }
     }
 
     writeBotStore('tickets', data);
@@ -2433,6 +2437,41 @@ app.get('/api/guild/:guildId/tickets-open', authMiddleware, (req, res) => {
         createdAt: t.createdAt
     }));
     res.json(list);
+});
+
+// Ticket History
+app.get('/api/guild/:guildId/tickets-history', authMiddleware, (req, res) => {
+    const data = readBotStore('ticket-history') || {};
+    const history = data[req.params.guildId] || [];
+    res.json(history);
+});
+
+// Transcript Proxy
+app.get('/api/guild/:guildId/transcript/:channelId/:messageId', authMiddleware, async (req, res) => {
+    try {
+        const { channelId, messageId } = req.params;
+        const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
+            headers: { Authorization: `Bot ${BOT_TOKEN}` }
+        });
+        if (!response.ok) {
+            return res.status(404).send('Transcript log message not found or expired.');
+        }
+        const messageData = await response.json();
+        const htmlAttachment = messageData.attachments?.find(a => a.filename?.endsWith('.html'));
+        if (!htmlAttachment) {
+            return res.status(404).send('No HTML transcript attachment found on this message.');
+        }
+        const htmlResponse = await fetch(htmlAttachment.url);
+        if (!htmlResponse.ok) {
+            return res.status(500).send('Failed to download transcript from Discord CDN.');
+        }
+        const html = await htmlResponse.text();
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+    } catch (err) {
+        console.error(`[Dashboard] Transcript proxy failed:`, err);
+        res.status(500).send('An error occurred while fetching the transcript.');
+    }
 });
 
 // â”€â”€ Starboard CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

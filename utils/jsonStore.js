@@ -67,7 +67,7 @@ const CRITICAL_STORES = new Set([
     // Trap (honeypot) system
     'trap',
     // Tickets
-    'tickets',
+    'tickets', 'ticket-history',
     // Automation config
     'autoresponder', 'autoreact', 'autorole', 'autonick', 'voiceautorole',
     'reactionroles', 'starboard', 'suggestions', 'feedback', 'giveaways', 'giveaway-settings',

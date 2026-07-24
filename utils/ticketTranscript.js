@@ -16,6 +16,7 @@
  */
 
 const { AttachmentBuilder, EmbedBuilder } = require('discord.js');
+const jsonStore = require('./jsonStore');
 
 /* ────────────────────────────── helpers ─────────────────────────────── */
 
@@ -322,7 +323,34 @@ async function postTranscriptToLogChannel(guild, logChannelId, attachments, meta
         .setFooter({ text: `Files: ${attachments.map(a => a.name).join(', ')}` })
         .setTimestamp();
 
-    return logChannel.send({ embeds: [embed], files: attachments }).catch(err => {
+    return logChannel.send({ embeds: [embed], files: attachments }).then(msg => {
+        // Record to history
+        try {
+            const histStore = jsonStore.read('ticket-history') || {};
+            const gHist = histStore[guild.id] || [];
+            gHist.push({
+                channelId: meta.channelId || 'unknown',
+                channelName: meta.channelName,
+                openerId: meta.openerId,
+                openerTag: meta.openerTag,
+                categoryLabel: meta.categoryLabel,
+                createdAt: meta.createdAt,
+                closedAt: meta.closedAt,
+                closedBy: meta.closedBy,
+                claimedByTag: meta.claimedByTag,
+                messageCount: meta.messageCount ?? attachments.length,
+                logChannelId: logChannelId,
+                logMessageId: msg.id
+            });
+            // Keep last 100 history items per guild
+            if (gHist.length > 100) gHist.splice(0, gHist.length - 100);
+            histStore[guild.id] = gHist;
+            jsonStore.write('ticket-history', histStore);
+        } catch (err) {
+            console.error(`[ticketTranscript] Failed to save history: ${err.message}`);
+        }
+        return msg;
+    }).catch(err => {
         // Can happen if files exceed channel upload limit (boost tier dependent)
         // Fall back to embed-only so the close event is at least logged.
         return logChannel.send({ embeds: [embed.setFooter({ text: `⚠️ Upload failed: ${err.message}` })] }).catch(() => null);

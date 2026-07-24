@@ -5229,6 +5229,7 @@ client.on('interactionCreate', async (interaction) => {
                         const claimer = ticket.claimedBy ? await interaction.client.users.fetch(ticket.claimedBy).catch(() => null) : null;
 
                         const meta = {
+                            channelId: interaction.channel.id,
                             channelName: interaction.channel.name,
                             guildName: interaction.guild.name,
                             openerTag: opener?.tag || ticket.userId,
