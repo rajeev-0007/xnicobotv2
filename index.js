@@ -5314,8 +5314,12 @@ client.on('interactionCreate', async (interaction) => {
                     const { buildTicketChannelName: buildLegacyName } = require('./utils/ticketTranscript');
                     const ticketChannelName = buildLegacyName('ticket', interaction.user.username, ticketNumber);
 
-                    const category = interaction.guild.channels.cache.get(liveGuildConfig.categoryId);
-                    if (!category) {
+                    let category = liveGuildConfig.categoryId ? interaction.guild.channels.cache.get(liveGuildConfig.categoryId) : null;
+                    if (liveGuildConfig.categoryId && !category) {
+                        category = await interaction.guild.channels.fetch(liveGuildConfig.categoryId).catch(() => null);
+                    }
+
+                    if (liveGuildConfig.categoryId && !category) {
                         // Roll back the number bump so the next user
                         // doesn't see a phantom gap.
                         const rollback = readTicketsConfig();
@@ -5331,7 +5335,7 @@ client.on('interactionCreate', async (interaction) => {
                     try {
                         ticketChannel = await interaction.guild.channels.create({
                             name: ticketChannelName,
-                            parent: category.id,
+                            parent: category?.id || null,
                             topic: `🎫 Support Ticket • Opened by ${interaction.user.tag} • #${ticketNumber}`,
                             permissionOverwrites: [
                                 { id: interaction.guild.id, deny: ['ViewChannel'] },
@@ -7042,11 +7046,15 @@ client.on('interactionCreate', async (interaction) => {
                     const effectiveCategoryId = resolveChannelCategoryId(liveGuildConfig, panel);
                     const effectiveSupportRole = resolveSupportRoleId(liveGuildConfig, panel);
 
-                    const category = effectiveCategoryId ? interaction.guild.channels.cache.get(effectiveCategoryId) : null;
-                    if (!category) {
+                    let category = effectiveCategoryId ? interaction.guild.channels.cache.get(effectiveCategoryId) : null;
+                    if (effectiveCategoryId && !category) {
+                        category = await interaction.guild.channels.fetch(effectiveCategoryId).catch(() => null);
+                    }
+
+                    if (effectiveCategoryId && !category) {
                         ticketUI.unlockCreation(interaction.guild.id, interaction.user.id);
                         return interaction.editReply({
-                            components: [ticketUI.errorContainer('Ticket category not found — the Discord category may have been deleted. Ask an admin to re-run `/ticket-setup create`.')],
+                            components: [ticketUI.errorContainer('Ticket category not found — the Discord category may have been deleted. Ask an admin to re-run `/ticket-setup create` or update it in the dashboard.')],
                             flags: MessageFlags.IsComponentsV2,
                         });
                     }
@@ -7067,7 +7075,7 @@ client.on('interactionCreate', async (interaction) => {
                     try {
                         ticketChannel = await interaction.guild.channels.create({
                             name: ticketChannelName,
-                            parent: category.id,
+                            parent: category?.id || null,
                             topic: `${categoryInfo.label} • Opened by ${interaction.user.tag} • #${ticketNumber}${panel ? ` • Panel: ${panel.label}` : ''}`,
                             permissionOverwrites: overwrites,
                         });
