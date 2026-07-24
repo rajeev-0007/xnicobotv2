@@ -49,6 +49,7 @@ async function autoSaveTranscript({ client, guild, channel, ticket, closedByTag,
         const claimer = ticket?.claimedBy ? await client.users.fetch(ticket.claimedBy).catch(() => null) : null;
 
         const meta = {
+            channelId:     channel.id,
             channelName:   channel.name,
             guildName:     guild.name,
             openerTag:     opener?.tag || ticket?.userId,

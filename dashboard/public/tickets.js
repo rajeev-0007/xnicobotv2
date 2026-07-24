@@ -47,30 +47,33 @@ window.__delTicketPanel = function(idx) {
 
 async function pageTickets() {
     const g = state.currentGuild;
-    const [cfg, channels, roles, openTickets] = await Promise.all([
+    const [cfg, channels, roles, openTickets, historyTickets] = await Promise.all([
         api(`/api/guild/${g.id}/tickets-config`),
         api(`/api/guild/${g.id}/channels`),
         api(`/api/guild/${g.id}/roles`),
         api(`/api/guild/${g.id}/tickets-open`),
+        api(`/api/guild/${g.id}/tickets-history`),
     ]);
     state.channels = Array.isArray(channels) ? channels : [];
     state.roles    = Array.isArray(roles) ? roles.filter(r => r.name !== '@everyone') : [];
 
     const w = cfg && !cfg._error ? cfg : { configured: false, channelId: null, categoryId: null, supportRoleId: null, categories: [], openTickets: 0 };
     const tickets = Array.isArray(openTickets) ? openTickets : [];
+    const history = Array.isArray(historyTickets) ? historyTickets : [];
 
     window.__ticketWorking = structuredClone(w);
-    _renderTicketsBody(g, window.__ticketWorking, tickets);
+    window.__ticketHistory = history;
+    _renderTicketsBody(g, window.__ticketWorking, tickets, history);
 }
 
 function _rerenderTicketsKeepScroll() {
     const y = window.scrollY;
     const g = state.currentGuild;
-    _renderTicketsBody(g, window.__ticketWorking, []);
+    _renderTicketsBody(g, window.__ticketWorking, [], window.__ticketHistory || []);
     requestAnimationFrame(() => window.scrollTo(0, y));
 }
 
-function _renderTicketsBody(g, w, tickets) {
+function _renderTicketsBody(g, w, tickets, history) {
     const textChannels = state.channels.filter(c => c.type === 0 || c.type === 5);
     const categories = state.channels.filter(c => c.type === 4);
 
@@ -116,6 +119,26 @@ function _renderTicketsBody(g, w, tickets) {
         </table>
     ` : '<div class="text-sm text-mute">No open tickets right now.</div>';
 
+    // History tickets table
+    const historyHtml = history.length ? `
+        <table class="tbl">
+            <thead><tr><th>Channel</th><th>Opener</th><th>Category</th><th>Closed By</th><th>Closed</th><th>Transcript</th></tr></thead>
+            <tbody>${[...history].reverse().slice(0, 50).map(t => {
+                const transcriptBtn = (t.logChannelId && t.logMessageId)
+                    ? `<a href="/api/guild/${g.id}/transcript/${t.logChannelId}/${t.logMessageId}" target="_blank" class="btn sm primary">${icon('link')} View</a>`
+                    : `<span class="text-xs text-mute">N/A</span>`;
+                return `<tr>
+                    <td>#${esc(t.channelName || t.channelId)}</td>
+                    <td class="mono text-xs">${esc(t.openerTag || t.openerId)}</td>
+                    <td><span class="tag">${esc(t.categoryLabel || 'General')}</span></td>
+                    <td class="text-xs">${esc(t.closedBy || 'Unknown')}</td>
+                    <td class="text-xs">${t.closedAt ? new Date(t.closedAt).toLocaleString() : '—'}</td>
+                    <td>${transcriptBtn}</td>
+                </tr>`;
+            }).join('')}</tbody>
+        </table>
+    ` : '<div class="text-sm text-mute">No closed tickets in history yet.</div>';
+
     const html = `
         <div class="page-h">
             <div><h1>Tickets</h1><p>Support ticket system for ${esc(g.name)}.</p></div>
@@ -159,6 +182,12 @@ function _renderTicketsBody(g, w, tickets) {
             <div class="card-h"><div class="ic">${icon('chat')}</div><div class="tt"><div class="t">Open Tickets (${tickets.length})</div><div class="s">Currently active ticket channels.</div></div></div>
             ${ticketsHtml}
             <div class="hint mt-2">Close tickets via the Close button inside each ticket channel in Discord.</div>
+        </div>
+
+        <!-- TICKET HISTORY -->
+        <div class="card mb-2">
+            <div class="card-h"><div class="ic">${icon('clock')}</div><div class="tt"><div class="t">Ticket History (${history.length})</div><div class="s">Recently closed tickets.</div></div></div>
+            ${historyHtml}
         </div>
 
         <!-- INFO -->
