@@ -3693,6 +3693,21 @@ app.put('/api/guild/:guildId/:module', authMiddleware, async (req, res) => {
         // load and write) silently overwrite each other.
         const updated = await updateGuildStore(storeName, guildId, (current) => {
             const base = (current && Object.keys(current).length) ? current : defaults();
+            if (!checkPremiumStatus(req, guildId).hasPremium) {
+                if (module === 'welcomer' && req.body.join) {
+                    req.body.join.mode = base.join?.mode || 'text';
+                    req.body.leave = base.leave || { enabled: false };
+                }
+                if (module === 'actions' && req.body) {
+                    req.body.hug = base.hug || {};
+                    req.body.pat = base.pat || {};
+                    req.body.kiss = base.kiss || {};
+                    req.body.slap = base.slap || {};
+                    req.body.bite = base.bite || {};
+                    req.body.cuddle = base.cuddle || {};
+                    req.body.tickle = base.tickle || {};
+                }
+            }
             // Logging schema is dashboard-specific, translate first.
             if (module === 'logging') {
                 const merged = deepMerge(botLoggingToDashboard(base), req.body);

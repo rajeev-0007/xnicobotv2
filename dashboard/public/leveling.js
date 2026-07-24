@@ -233,15 +233,15 @@ function _renderLevelingBody(g, w, hasDraft) {
                         <label>Custom Channel</label>
                         ${chSel('announcements.customChannelId', ann.customChannelId)}
                     </div>
-                    <div class="form-row"><label>Fallback Message (used only if canvas fails)</label>
+                    ${window.premLock(`<div class="form-row"><label>Fallback Message (used only if canvas fails)</label>
                         <textarea data-key="announcements.message" rows="2" placeholder="GG {user}, you just advanced to **Level {level}**!">${esc(ann.message || '')}</textarea>
                         <div class="hint">Variables: {user}, {level}, {xp}. The bot normally sends a PNG card; this text is only a fallback.</div>
-                    </div>
+                    </div>`, 'Premium Required (Custom Messages)')}
                 </div>
             </div>
 
             <!-- Level Roles -->
-            <div class="card mb-2">
+            ${window.premLock(`<div class="card mb-2">
                 <div class="card-h"><div class="ic">${icon('crown')}</div><div class="tt"><div class="t">Level Roles</div><div class="s">Auto-assign roles at specific levels.</div></div></div>
                 ${tog('stackRoles', w.stackRoles, 'Stack Roles', 'On: keep every earned role. Off: keep only the highest.')}
                 <hr>
@@ -253,10 +253,10 @@ function _renderLevelingBody(g, w, hasDraft) {
                     <div class="form-row"><label>Role</label><select id="lv-add-role"><option value="">— Pick —</option>${state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></div>
                 </div>
                 <button class="btn sm" onclick="window.__addLvRole()">${icon('user-plus')} Add</button>
-            </div>
+            </div>`, 'Premium Required (Level Roles)')}
 
             <!-- Role Multipliers -->
-            <div class="card mb-2">
+            ${window.premLock(`<div class="card mb-2">
                 <div class="card-h"><div class="ic">${icon('coin')}</div><div class="tt"><div class="t">Role XP Multipliers</div><div class="s">Give specific roles boosted XP (e.g. VIP, Booster).</div></div></div>
                 ${multsHtml}
                 <hr>
@@ -266,7 +266,7 @@ function _renderLevelingBody(g, w, hasDraft) {
                     <div class="form-row"><label>Multiplier (0.1 – 10)</label><input type="number" step="0.1" id="lv-add-mult-value" value="1.5" min="0.1" max="10"></div>
                 </div>
                 <button class="btn sm" onclick="window.__addLvMult()">${icon('user-plus')} Add</button>
-            </div>
+            </div>`, 'Premium Required (Role XP Multipliers)')}
 
             <!-- Ignore Lists -->
             <div class="card mb-2">
