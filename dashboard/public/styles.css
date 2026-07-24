@@ -2017,6 +2017,44 @@ input[type="color"] {
     }
 }
 
+/* Premium Lock UI for individual fields */
+.premium-lock-container {
+    position: relative;
+    border-radius: 8px;
+}
+.premium-lock-container.is-locked {
+    pointer-events: none;
+    opacity: 0.6;
+    filter: grayscale(0.5);
+    padding-bottom: 24px;
+}
+.premium-lock-overlay {
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 2px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    pointer-events: auto;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+.premium-lock-overlay:hover {
+    background: var(--amber);
+    color: #fff;
+}
+
 
 /* ── Emoji picker ───────────────────────────────────────────────────────── */
 .emoji-btn {

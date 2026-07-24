@@ -126,14 +126,16 @@ function _renderEconomyBody(g, w, hasDraft) {
         <!-- CURRENCY STYLE -->
         <div class="card mb-2">
             <div class="card-h"><div class="ic">${icon('coin')}</div><div class="tt"><div class="t">Currency Style</div><div class="s">Customize how currency appears in all economy commands.</div></div></div>
-            <div class="grid g-2">
-                <div class="form-row"><label>Currency Symbol</label><input type="text" data-key="currency" value="${esc(w.currency || '💰')}" placeholder="💰"><div class="hint">Emoji or text (e.g. <:Sketch:1521228025365004471>, 🪙, $, ⛃)</div></div>
-                <div class="form-row"><label>Currency Name</label><input type="text" data-key="currencyName" value="${esc(w.currencyName || 'coins')}" placeholder="coins"><div class="hint">Plural name (e.g. gems, gold, credits)</div></div>
-            </div>
-            <div class="mt-2" style="padding:.75rem 1rem;background:var(--bg-hover);border-radius:10px;border:1px solid var(--border)">
-                <span class="text-sm text-mute">Preview:</span>
-                <span class="bold" id="econ-preview">${currPreview}</span>
-            </div>
+            ${window.premLock(`<div>
+                <div class="grid g-2">
+                    <div class="form-row"><label>Currency Symbol</label><input type="text" data-key="currency" value="${esc(w.currency || '💰')}" placeholder="💰"><div class="hint">Emoji or text (e.g. <:Sketch:1521228025365004471>, 🪙, $, ⛃)</div></div>
+                    <div class="form-row"><label>Currency Name</label><input type="text" data-key="currencyName" value="${esc(w.currencyName || 'coins')}" placeholder="coins"><div class="hint">Plural name (e.g. gems, gold, credits)</div></div>
+                </div>
+                <div class="mt-2" style="padding:.75rem 1rem;background:var(--bg-hover);border-radius:10px;border:1px solid var(--border)">
+                    <span class="text-sm text-mute">Preview:</span>
+                    <span class="bold" id="econ-preview">${currPreview}</span>
+                </div>
+            </div>`, 'Premium Required (Custom Currency)')}
             <div class="hint mt-2">Also configurable via <code>/currency set</code> or <code>-currency set</code> in Discord.</div>
         </div>
 

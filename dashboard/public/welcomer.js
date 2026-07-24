@@ -313,7 +313,7 @@ function _renderWelcomerBody(g, w, hasDraft) {
             <div class="card mb-2">
                 <div class="card-h"><div class="ic">${icon('settings')}</div><div class="tt"><div class="t">Channel & Mode</div><div class="s">Where and how the message appears.</div></div></div>
                 <div class="form-row"><label>Welcome Channel</label>${chSel('channelId', w.channelId)}</div>
-                <div class="form-row"><label>Display Mode</label>${sel('mode', mode, ['components','embed'])}<div class="hint">Components V2 = modern containers. Embed = classic embed.</div></div>
+                ${window.premLock(`<div class="form-row"><label>Display Mode</label>${sel('mode', mode, ['components','embed'])}<div class="hint">Components V2 = modern containers. Embed = classic embed.</div></div>`, 'Premium Required (CV2)')}
             </div>
 
             <!-- Message -->
@@ -408,10 +408,12 @@ function _renderWelcomerBody(g, w, hasDraft) {
         </div>
 
         <!-- ═══ LEAVE TOGGLE ═══ -->
+        ${window.premLock(`
         <div class="card mb-2">
             <div class="card-h"><div class="ic" style="background:rgba(239,68,68,.15);color:#f87171">${icon('user-x')}</div><div class="tt"><div class="t">Leave Messages</div><div class="s">Sent when a member leaves.</div></div></div>
             ${tog('leave.enabled', w.leave?.enabled, 'Enable Leave Messages', '', 'data-vis="leave-all"')}
         </div>
+        `)}
 
         <!-- ═══ LEAVE CONFIG ═══ -->
         <div id="leave-all" ${vis(w.leave?.enabled)}>

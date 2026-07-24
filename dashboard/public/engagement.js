@@ -29,7 +29,7 @@ async function pageStarboard() {
             <div class="switch-row"><div><div class="lbl">Enable Starboard</div></div><label class="switch"><input type="checkbox" id="sb-enabled" ${w.enabled ? 'checked' : ''}><span class="slide"></span></label></div>
             <div class="form-row mt-2"><label>Starboard Channel</label><select id="sb-channel"><option value="">— None —</option>${chSel}</select></div>
             <div class="form-row"><label>Star Threshold</label><input type="number" id="sb-threshold" value="${w.threshold}" min="1" max="100"><div class="hint">How many reactions before a message is posted.</div></div>
-            <div class="form-row"><label>Star Emojis</label><input type="text" id="sb-emojis" value="${esc(currentEmojis)}" placeholder="⭐"><div class="hint">Comma separated emojis (e.g. ⭐, 🔥, or ID like 1521227907647668374).</div></div>
+            ${window.premLock(`<div class="form-row"><label>Star Emojis</label><input type="text" id="sb-emojis" value="${esc(currentEmojis)}" placeholder="⭐"><div class="hint">Comma separated emojis (e.g. ⭐, 🔥, or ID like 1521227907647668374).</div></div>`, 'Premium Required (Custom Emojis)')}
             <hr>
             <div class="text-sm text-mute">Starred messages so far: <b>${w.starredCount}</b></div>
         </div>
@@ -79,6 +79,12 @@ async function pageCounting() {
             <div class="card-h"><div class="ic">${icon('hash')}</div><div class="tt"><div class="t">Setup</div><div class="s">Members count 1, 2, 3… in a dedicated channel. Same user can't count twice in a row.</div></div></div>
             <div class="switch-row"><div><div class="lbl">Enable Counting</div></div><label class="switch"><input type="checkbox" id="ct-enabled" ${w.enabled ? 'checked' : ''}><span class="slide"></span></label></div>
             <div class="form-row mt-2"><label>Counting Channel</label><select id="ct-channel"><option value="">— None —</option>${chSel}</select></div>
+            
+            ${window.premLock(`
+            <div class="form-row mt-2"><label>Success Reaction</label><input type="text" id="ct-react-success" value="${esc(w.successReaction || '✅')}" placeholder="✅"><div class="hint">Emoji added when a count is correct.</div></div>
+            <div class="form-row"><label>Fail Reaction</label><input type="text" id="ct-react-fail" value="${esc(w.failReaction || '❌')}" placeholder="❌"><div class="hint">Emoji added when a count is incorrect.</div></div>
+            <div class="switch-row"><div><div class="lbl">Math Mode</div><div class="desc">Allow members to use math expressions (e.g. 5+5 instead of 10).</div></div><label class="switch"><input type="checkbox" id="ct-math" ${w.mathMode ? 'checked' : ''}><span class="slide"></span></label></div>
+            `, 'Premium Required (Custom Reactions & Math Mode)')}
         </div>
 
         <div class="card mb-2">
@@ -101,7 +107,10 @@ async function pageCounting() {
         const btn = $('#ct-save'); btn.disabled = true; btn.textContent = 'Saving…';
         const r = await api(`/api/guild/${g.id}/counting-config`, { method: 'PUT', body: JSON.stringify({
             enabled: $('#ct-enabled').checked,
-            channelId: $('#ct-channel').value || null
+            channelId: $('#ct-channel').value || null,
+            successReaction: $('#ct-react-success').value || '✅',
+            failReaction: $('#ct-react-fail').value || '❌',
+            mathMode: $('#ct-math').checked
         })});
         btn.disabled = false; btn.innerHTML = icon('check') + ' Save';
         if (r && !r._error) toast('Counting saved!', 'success');
@@ -152,7 +161,7 @@ function _renderAutoreactBody(g) {
         </div>
 
         <div class="card mb-2">
-            <div class="card-h"><div class="ic">${icon('chat')}</div><div class="tt"><div class="t">Triggers (${(w.reactions||[]).length})</div><div class="s">When a message contains the trigger word, bot reacts with the emojis.</div></div></div>
+            <div class="card-h"><div class="ic">${icon('chat')}</div><div class="tt"><div class="t">Triggers (${(w.reactions||[]).length})</div><div class="s">When a message contains the trigger word, bot reacts with the emojis. ${!state.premium?.hasPremium ? '<b>Free tier limit: 3</b>.' : ''}</div></div></div>
             ${reactionsHtml}
             <hr>
             <h4 class="mb-1">Add Trigger</h4>
@@ -178,11 +187,14 @@ function _renderAutoreactBody(g) {
     };
 }
 window.__arAdd = () => {
+    window.__arWorking.reactions = window.__arWorking.reactions || [];
+    if (!state.premium?.hasPremium && window.__arWorking.reactions.length >= 3) {
+        return toast('Premium required for more than 3 auto-react triggers!', 'error');
+    }
     const trigger = ($('#ar-trigger').value || '').trim().toLowerCase();
     const emojis = ($('#ar-emojis').value || '').trim().split(/\s+/).filter(Boolean);
     if (!trigger) return toast('Enter a trigger word', 'error');
     if (!emojis.length) return toast('Enter at least one emoji', 'error');
-    window.__arWorking.reactions = window.__arWorking.reactions || [];
     window.__arWorking.reactions.push({ trigger, emojis });
     _renderAutoreactBody(state.currentGuild);
 };
@@ -235,8 +247,8 @@ async function pageGiveaway() {
             </div>
             <hr>
             <div class="form-row"><label>Ping Role (on giveaway start)</label>${roleSel('ga-ping', w.pingRole)}</div>
-            <div class="form-row"><label>Required Role (to enter)</label>${roleSel('ga-require', w.requireRole)}<div class="hint">Only members with this role can enter giveaways.</div></div>
-            <div class="form-row"><label>Bypass Role (skip requirements)</label>${roleSel('ga-bypass', w.bypassRole)}</div>
+            ${window.premLock(`<div class="form-row"><label>Required Role (to enter)</label>${roleSel('ga-require', w.requireRole)}<div class="hint">Only members with this role can enter giveaways.</div></div>
+            <div class="form-row"><label>Bypass Role (skip requirements)</label>${roleSel('ga-bypass', w.bypassRole)}</div>`, 'Premium Required (Role Restrictions)')}
             <hr>
             <div class="switch-row"><div><div class="lbl">DM Winners</div><div class="desc">Send a DM to winners when they win.</div></div><label class="switch"><input type="checkbox" id="ga-dm" ${w.dmWinners ? 'checked' : ''}><span class="slide"></span></label></div>
             <div class="switch-row"><div><div class="lbl">Show Participants</div><div class="desc">Show entry count on the giveaway message.</div></div><label class="switch"><input type="checkbox" id="ga-show" ${w.showParticipants ? 'checked' : ''}><span class="slide"></span></label></div>

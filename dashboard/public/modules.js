@@ -21,7 +21,7 @@ window.XNICO_MODULES = [
         description: 'Enable or disable roleplay action commands (hug, kiss, pat, etc.) for your server.',
         icon: 'star',
         fields: [
-            { key: 'enabled', label: 'Enable Actions', type: 'toggle' }
+            { key: 'enabled', label: 'Enable Actions', type: 'toggle', premium: true }
         ]
     },
     {
@@ -365,6 +365,7 @@ window.XNICO_MODULES = [
         group: 'Engagement',
         description: 'Conversational AI chat in a designated channel. Choose model, prompt, tokens.',
         icon: 'chat',
+        premium: true,
         custom: true
     },
     {
@@ -489,10 +490,10 @@ window.XNICO_MODULES = [
             { key: 'youtube.enabled', label: 'Enable YouTube Alerts', type: 'toggle' },
             { key: 'youtube.notifyChannel', label: 'Announcement Channel', type: 'channel' },
             { key: 'youtube.pingRole', label: 'Ping Role', type: 'role' },
-            { key: 'youtube.channels', label: 'YouTube Channels', type: 'tags', desc: 'Channel IDs or handles to watch.' },
-            { key: 'youtube.message', label: 'Upload Message', type: 'textarea', desc: 'Placeholders: {channel} {title} {url}' },
+            { key: 'youtube.channels', label: 'YouTube Channels (Unlimited on Premium)', type: 'tags', desc: 'Channel IDs or handles to watch. Limit 1 for free tier.', premium: true },
+            { key: 'youtube.message', label: 'Upload Message', type: 'textarea', desc: 'Placeholders: {channel} {title} {url}', premium: true },
             { key: 'youtube.liveEnabled', label: 'Announce Live Streams', type: 'toggle' },
-            { key: 'youtube.liveMessage', label: 'Live Message', type: 'textarea', desc: 'Placeholders: {channel} {url}' }
+            { key: 'youtube.liveMessage', label: 'Live Message', type: 'textarea', desc: 'Placeholders: {channel} {url}', premium: true }
         ]
     },
     {

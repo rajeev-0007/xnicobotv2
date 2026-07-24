@@ -62,8 +62,16 @@ async function pageTickets() {
     const history = Array.isArray(historyTickets) ? historyTickets : [];
 
     window.__ticketWorking = structuredClone(w);
+    if (!window.__ticketWorking.panelMessage) window.__ticketWorking.panelMessage = { mode: 'components', color: '#5865F2', content: '' };
+    if (!window.__ticketWorking.welcomeMessage) window.__ticketWorking.welcomeMessage = { mode: 'components', color: '#5865F2', content: '' };
+    
     window.__ticketHistory = history;
     _renderTicketsBody(g, window.__ticketWorking, tickets, history);
+}
+
+function _tkGetEmbedInput(prefix, key) {
+    const el = document.getElementById(`tk-${prefix}-${key}`);
+    return el ? el.value : undefined;
 }
 
 function _rerenderTicketsKeepScroll() {
@@ -88,6 +96,31 @@ function _renderTicketsBody(g, w, tickets, history) {
         const opts = state.roles.map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
         return `<select id="${id}"><option value="">— None —</option>${opts}</select>`;
     };
+    
+    const colorIn = (id, val) => `<div class="row"><input type="color" id="${id}-c" value="${esc(val||'#5865F2')}" oninput="document.getElementById('${id}').value=this.value; window.__tkUpdatePreview()"><input type="text" id="${id}" value="${esc(val||'#5865F2')}" style="flex:1" oninput="document.getElementById('${id}-c').value=this.value; window.__tkUpdatePreview()"></div>`;
+
+    const buildEmbedEditorHtml = (prefix, title, desc, obj) => `
+        <div class="card mb-2">
+            <div class="card-h"><div class="ic">${icon('chat')}</div><div class="tt"><div class="t">${title}</div><div class="s">${desc}</div></div></div>
+            <div class="form-row"><label>Display Mode</label>
+                <select id="tk-${prefix}-mode" onchange="document.getElementById('tk-${prefix}-embed').style.display=this.value==='embed'?'':'none'; window.__tkUpdatePreview()">
+                    <option value="components" ${obj.mode==='components'?'selected':''}>Components V2 (Modern)</option>
+                    <option value="embed" ${obj.mode==='embed'?'selected':''}>Embed (Classic)</option>
+                </select>
+            </div>
+            <div class="form-row"><label>Message Content</label><textarea id="tk-${prefix}-content" rows="3" oninput="window.__tkUpdatePreview()" placeholder="Markdown supported">${esc(obj.content||'')}</textarea></div>
+            <div id="tk-${prefix}-embed" ${vis(obj.mode==='embed')}>
+                <div class="form-row mt-2"><label>Embed Color</label>${colorIn(`tk-${prefix}-color`, obj.color)}</div>
+                <div class="form-row"><label>Title</label><input type="text" id="tk-${prefix}-title" value="${esc(obj.title||'')}" oninput="window.__tkUpdatePreview()"></div>
+                <div class="form-row"><label>Description</label><textarea id="tk-${prefix}-description" rows="3" oninput="window.__tkUpdatePreview()">${esc(obj.description||'')}</textarea></div>
+                <div class="form-row"><label>Author</label><input type="text" id="tk-${prefix}-author" value="${esc(obj.author||'')}" oninput="window.__tkUpdatePreview()"></div>
+                <div class="form-row"><label>Footer</label><input type="text" id="tk-${prefix}-footer" value="${esc(obj.footer||'')}" oninput="window.__tkUpdatePreview()"></div>
+                <div class="form-row"><label>Image URL</label><input type="url" id="tk-${prefix}-image" value="${esc(obj.image||'')}" oninput="window.__tkUpdatePreview()"></div>
+                <div class="form-row"><label>Thumbnail URL</label><input type="url" id="tk-${prefix}-thumbnail" value="${esc(obj.thumbnail||'')}" oninput="window.__tkUpdatePreview()"></div>
+            </div>
+            <div id="tk-${prefix}-preview-container" class="mt-2 p-2" style="background:var(--bg-card-alt); border-radius:8px"></div>
+        </div>
+    `;
 
     // Categories editor
     const catsHtml = (w.categories || []).map((cat, i) => `
@@ -163,6 +196,12 @@ function _renderTicketsBody(g, w, tickets, history) {
             <div class="form-row"><label>Support Role</label>${roleSel('tk-support', w.supportRoleId)}<div class="hint">This role gets access to all ticket channels.</div></div>
         </div>
 
+        <!-- PANEL CUSTOMIZATION -->
+        ${buildEmbedEditorHtml('pm', 'Panel Customization', 'Customize the message that users see in the Panel Channel.', w.panelMessage)}
+
+        <!-- WELCOME MESSAGE -->
+        ${buildEmbedEditorHtml('wm', 'Welcome Message', 'Customize the message sent when a new ticket channel is opened.', w.welcomeMessage)}
+
         <!-- CATEGORIES -->
         <div class="card mb-2">
             <div class="card-h"><div class="ic">${icon('grid')}</div><div class="tt"><div class="t">Ticket Categories (${(w.categories||[]).length})</div><div class="s">Users pick a category from the dropdown when opening a ticket.</div></div></div>
@@ -199,7 +238,7 @@ function _renderTicketsBody(g, w, tickets, history) {
                 <li>The <b>Support Role</b> and the user get access to the channel</li>
                 <li>Staff can claim, close, or save transcripts using buttons in the ticket</li>
             </ol>
-            <div class="hint">Customize the panel appearance and welcome message via <code>/ticket-setup panel</code> and <code>/ticket-setup message</code> in Discord.</div>
+            <div class="hint">You can fully customize the Panel and Welcome messages in the sections above, or using the <code>/ticket-setup panel</code> and <code>/ticket-setup message</code> commands in Discord.</div>
         </div>
 
         <!-- SAVE -->
@@ -216,12 +255,15 @@ function _renderTicketsBody(g, w, tickets, history) {
 
     // Save handler
     $('#tk-save').onclick = async () => {
+        window.__tkSyncToWorking();
         const btn = $('#tk-save'); btn.disabled = true; btn.textContent = 'Saving…';
         const payload = {
-            channelId: $('#tk-panel-ch').value || null,
-            categoryId: $('#tk-category').value || null,
-            supportRoleId: $('#tk-support').value || null,
-            categories: window.__ticketWorking.categories || []
+            channelId: window.__ticketWorking.channelId,
+            categoryId: window.__ticketWorking.categoryId,
+            supportRoleId: window.__ticketWorking.supportRoleId,
+            categories: window.__ticketWorking.categories || [],
+            panelMessage: window.__ticketWorking.panelMessage,
+            welcomeMessage: window.__ticketWorking.welcomeMessage
         };
         const r = await api(`/api/guild/${g.id}/tickets-config`, { method: 'PUT', body: JSON.stringify(payload) });
         btn.disabled = false; btn.innerHTML = icon('check') + ' Save';
@@ -231,26 +273,69 @@ function _renderTicketsBody(g, w, tickets, history) {
 
     // Deploy handler — saves the current config, then asks the bot to post the panel.
     $('#tk-deploy').onclick = async () => {
-        const chId = $('#tk-panel-ch').value || null;
+        window.__tkSyncToWorking();
+        const chId = window.__ticketWorking.channelId;
         if (!chId) return toast('Pick a Panel Channel first', 'error');
         if (!(window.__ticketWorking.categories || []).length) {
             return toast('Add at least one ticket category first', 'error');
         }
         const btn = $('#tk-deploy'); const orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = icon('refresh') + ' Deploying…';
-        // Persist the latest config so the bot builds the panel from it.
+        
         await api(`/api/guild/${g.id}/tickets-config`, {
             method: 'PUT',
             body: JSON.stringify({
                 channelId: chId,
-                categoryId: $('#tk-category').value || null,
-                supportRoleId: $('#tk-support').value || null,
-                categories: window.__ticketWorking.categories || []
+                categoryId: window.__ticketWorking.categoryId,
+                supportRoleId: window.__ticketWorking.supportRoleId,
+                categories: window.__ticketWorking.categories || [],
+                panelMessage: window.__ticketWorking.panelMessage,
+                welcomeMessage: window.__ticketWorking.welcomeMessage
             })
         }).catch(() => {});
         await deployPanel(g.id, 'tickets', chId);
         btn.disabled = false; btn.innerHTML = orig;
     };
+    
+    // Preview updater
+    window.__tkSyncToWorking = () => {
+        window.__ticketWorking.channelId = $('#tk-panel-ch').value || null;
+        window.__ticketWorking.categoryId = $('#tk-category').value || null;
+        window.__ticketWorking.supportRoleId = $('#tk-support').value || null;
+        
+        const rMsg = (prefix) => ({
+            mode: _tkGetEmbedInput(prefix, 'mode'),
+            content: _tkGetEmbedInput(prefix, 'content'),
+            title: _tkGetEmbedInput(prefix, 'title'),
+            description: _tkGetEmbedInput(prefix, 'description'),
+            color: _tkGetEmbedInput(prefix, 'color'),
+            image: _tkGetEmbedInput(prefix, 'image'),
+            thumbnail: _tkGetEmbedInput(prefix, 'thumbnail'),
+            author: _tkGetEmbedInput(prefix, 'author'),
+            footer: _tkGetEmbedInput(prefix, 'footer')
+        });
+        window.__ticketWorking.panelMessage = rMsg('pm');
+        window.__ticketWorking.welcomeMessage = rMsg('wm');
+    };
+    
+    window.__tkUpdatePreview = () => {
+        if (!window.buildDiscordPreview) return;
+        window.__tkSyncToWorking();
+        const pCont = document.getElementById('tk-pm-preview-container');
+        if (pCont) {
+            const cfg = structuredClone(window.__ticketWorking.panelMessage);
+            pCont.innerHTML = '<div class="text-xs text-mute mb-1">Panel Preview</div>' + buildDiscordPreview(cfg, state.botInfo);
+        }
+        const wCont = document.getElementById('tk-wm-preview-container');
+        if (wCont) {
+            const cfg = structuredClone(window.__ticketWorking.welcomeMessage);
+            cfg.content = (cfg.content||'').replaceAll('{user}','@User').replaceAll('{server}',g.name);
+            cfg.title = (cfg.title||'').replaceAll('{server}',g.name);
+            wCont.innerHTML = '<div class="text-xs text-mute mb-1">Welcome Message Preview</div>' + buildDiscordPreview(cfg, state.botInfo);
+        }
+    };
+    
+    setTimeout(window.__tkUpdatePreview, 100);
 }
 
 // Category CRUD

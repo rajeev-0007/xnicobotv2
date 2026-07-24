@@ -266,18 +266,20 @@
                     <label class="field"><span>Announcement Channel</span>
                         <select id="bd-ch">${channelOptions(ctx.channels, w.channelId)}</select>
                     </label>
+                    <label class="field"><span>Send Hour (UTC)</span>
+                        <select id="bd-hour">${hours.map(h => `<option value="${h}" ${h === w.hour ? 'selected' : ''}>${h.toString().padStart(2, '0')}:00 UTC</option>`).join('')}</select>
+                    </label>
+                    ${window.premLock(`
                     <label class="field"><span>Birthday Role (optional)</span>
                         <select id="bd-role">${roleOptions(ctx.roles, w.roleId)}</select>
                     </label>
                     <label class="field"><span>Ping Mode</span>
                         <select id="bd-ping">${pingModes.map(p => `<option value="${p.v}" ${p.v === w.pingMode ? 'selected' : ''}>${esc(p.l)}</option>`).join('')}</select>
                     </label>
-                    <label class="field"><span>Send Hour (UTC)</span>
-                        <select id="bd-hour">${hours.map(h => `<option value="${h}" ${h === w.hour ? 'selected' : ''}>${h.toString().padStart(2, '0')}:00 UTC</option>`).join('')}</select>
-                    </label>
                     <label class="field"><span>Message Style</span>
                         <select id="bd-style">${types.map(t => `<option value="${t.v}" ${t.v === w.messageType ? 'selected' : ''}>${esc(t.l)}</option>`).join('')}</select>
                     </label>
+                    `, 'Premium Required (Roles & Custom Styles)')}
                 </div>
                 <p class="text-mute mt-2">Saved birthdays: <b>${w.userCount}</b>. Members can register their date with <code>/birthday set</code> on Discord.</p>
             </div>

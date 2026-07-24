@@ -241,6 +241,19 @@ function setDeep(obj, path, val) {
     o[keys[keys.length - 1]] = val;
 }
 
+window.premLock = (html, reason = 'Premium Required') => {
+    const isPrem = !!state.premium?.hasPremium;
+    if (isPrem) return html;
+    return `
+        <div class="premium-lock-container is-locked premium-glow" style="margin-bottom:20px;">
+            <div style="pointer-events:none">${html}</div>
+            <a href="https://discord.gg/Zs35X7Umak" target="_blank" class="premium-lock-overlay">
+                ${icon('crown')} ${esc(reason)}
+            </a>
+        </div>
+    `;
+};
+
 // â”€â”€â”€â”€â”€ API layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function api(path, opts = {}) {
     const url = (API_BASE || '') + path;
@@ -1152,23 +1165,10 @@ async function pageModule(mod) {
         return;
     }
 
-    // Premium gate
-    if (mod.premium) {
+    // Premium gate (check status but don't hard block, use visual locks instead)
+    if (mod.premium || true) { // Always fetch premium status just in case fields need it
         const premium = await api(`/api/guild/${g.id}/premium-status`);
         state.premium = premium;
-        if (!premium?.hasPremium) {
-            $('#page').innerHTML = `
-                <div class="page-h">
-                    <div><h1>${esc(mod.name)} <span class="tag amber">Premium</span></h1><p>${esc(mod.description)}</p></div>
-                </div>
-                <div class="empty">
-                    ${icon('crown')}
-                    <h3>Premium module</h3>
-                    <p>This module is only available on Premium servers. Unlock it to unlock personalization.</p>
-                    <a class="btn primary mt-2" href="#/premium">Go Premium</a>
-                </div>`;
-            return;
-        }
     }
 
     // Fetch config, channels, roles in parallel
@@ -1353,42 +1353,61 @@ function renderFieldGroups(fields, working) {
 function renderField(f, working) {
     const val = getDeep(working, f.key);
     const desc = f.desc ? `<div class="hint">${esc(f.desc)}</div>` : '';
+    let fieldHtml = '';
     switch (f.type) {
         case 'toggle':
-            return `
+            fieldHtml = `
                 <div class="switch-row">
                     <div><div class="lbl">${esc(f.label)}</div>${f.desc ? `<div class="desc">${esc(f.desc)}</div>` : ''}</div>
                     <label class="switch"><input type="checkbox" data-key="${esc(f.key)}" ${val ? 'checked' : ''}><span class="slide"></span></label>
                 </div>`;
+            break;
         case 'text':
         case 'url':
         case 'email':
-            return `<div class="form-row"><label>${esc(f.label)}</label><input type="${f.type === 'url' ? 'url' : 'text'}" data-key="${esc(f.key)}" value="${esc(val || '')}" placeholder="${esc(f.placeholder || '')}">${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label><input type="${f.type === 'url' ? 'url' : 'text'}" data-key="${esc(f.key)}" value="${esc(val || '')}" placeholder="${esc(f.placeholder || '')}">${desc}</div>`;
+            break;
         case 'number':
-            return `<div class="form-row"><label>${esc(f.label)}</label><input type="number" data-key="${esc(f.key)}" value="${esc(val ?? 0)}" min="${f.min ?? ''}" max="${f.max ?? ''}">${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label><input type="number" data-key="${esc(f.key)}" value="${esc(val ?? 0)}" min="${f.min ?? ''}" max="${f.max ?? ''}">${desc}</div>`;
+            break;
         case 'textarea':
-            return `<div class="form-row"><label>${esc(f.label)}</label><textarea data-key="${esc(f.key)}">${esc(val || '')}</textarea>${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label><textarea data-key="${esc(f.key)}">${esc(val || '')}</textarea>${desc}</div>`;
+            break;
         case 'color':
-            return `<div class="form-row"><label>${esc(f.label)}</label><div class="row"><input type="color" data-key="${esc(f.key)}" value="${esc(normalizeColor(val))}"><input type="text" data-key="${esc(f.key)}" value="${esc(val || '')}" placeholder="#6366f1" style="flex:1"></div>${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label><div class="row"><input type="color" data-key="${esc(f.key)}" value="${esc(normalizeColor(val))}"><input type="text" data-key="${esc(f.key)}" value="${esc(val || '')}" placeholder="#6366f1" style="flex:1"></div>${desc}</div>`;
+            break;
         case 'select': {
             const opts = (f.options || []).map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
-            return `<div class="form-row"><label>${esc(f.label)}</label><select data-key="${esc(f.key)}">${opts}</select>${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label><select data-key="${esc(f.key)}">${opts}</select>${desc}</div>`;
+            break;
         }
         case 'channel':
-            return `<div class="form-row"><label>${esc(f.label)}</label>${renderChannelSelect(f.key, val, f.channelType)}${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label>${renderChannelSelect(f.key, val, f.channelType)}${desc}</div>`;
+            break;
         case 'channels':
-            return `<div class="form-row"><label>${esc(f.label)}</label>${renderMultiSelect(f.key, val || [], state.channels, 'channel')}${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label>${renderMultiSelect(f.key, val || [], state.channels, 'channel')}${desc}</div>`;
+            break;
         case 'role':
-            return `<div class="form-row"><label>${esc(f.label)}</label>${renderRoleSelect(f.key, val)}${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label>${renderRoleSelect(f.key, val)}${desc}</div>`;
+            break;
         case 'roles':
-            return `<div class="form-row"><label>${esc(f.label)}</label>${renderMultiSelect(f.key, val || [], state.roles, 'role')}${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label>${renderMultiSelect(f.key, val || [], state.roles, 'role')}${desc}</div>`;
+            break;
         case 'tags':
-            return `<div class="form-row"><label>${esc(f.label)}</label>${renderTags(f.key, Array.isArray(val) ? val : [])}${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label>${renderTags(f.key, Array.isArray(val) ? val : [])}${desc}</div>`;
+            break;
         case 'jsonList':
-            return `<div class="form-row"><label>${esc(f.label)}</label>${renderJsonList(f, val || [])}${desc}</div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label>${renderJsonList(f, val || [])}${desc}</div>`;
+            break;
         default:
-            return `<div class="form-row"><label>${esc(f.label)}</label><input type="text" data-key="${esc(f.key)}" value="${esc(val || '')}"></div>`;
+            fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label><input type="text" data-key="${esc(f.key)}" value="${esc(val || '')}"></div>`;
+            break;
     }
+    
+    if (f.premium) {
+        return window.premLock(fieldHtml, 'Premium Feature');
+    }
+    return fieldHtml;
 }
 
 function normalizeColor(v) {
