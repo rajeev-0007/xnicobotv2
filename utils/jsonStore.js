@@ -328,6 +328,7 @@ class JsonStore extends EventEmitter {
         }
 
         const seen = new Set();
+        const changedFiles = [];
         for (const file of files) {
             const storeName = path.basename(file, '.json');
             seen.add(storeName);
@@ -350,6 +351,10 @@ class JsonStore extends EventEmitter {
             }
             this.cache.set(storeName, parsed);
             this._fileMtimes.set(storeName, stat.mtimeMs);
+            changedFiles.push({ storeName, parsed });
+        }
+
+        for (const { storeName, parsed } of changedFiles) {
             try { this.emit('update', storeName, parsed); } catch {}
         }
 
@@ -928,12 +933,16 @@ class JsonStore extends EventEmitter {
         const pool = getPool();
         if (storeNames.length === 0) {
             const { rows } = await pool.query('SELECT store_name, data, updated_at FROM json_store');
+            const changed = [];
             for (const row of rows) {
                 if (!this.dirty.has(row.store_name)) {
                     this.cache.set(row.store_name, row.data);
                     if (row.updated_at) this._timestamps.set(row.store_name, new Date(row.updated_at).getTime());
-                    this.emit('update', row.store_name, row.data);
+                    changed.push(row);
                 }
+            }
+            for (const row of changed) {
+                this.emit('update', row.store_name, row.data);
             }
             return rows.length;
         }
@@ -941,12 +950,16 @@ class JsonStore extends EventEmitter {
             'SELECT store_name, data, updated_at FROM json_store WHERE store_name = ANY($1)',
             [storeNames]
         );
+        const changed = [];
         for (const row of rows) {
             if (!this.dirty.has(row.store_name)) {
                 this.cache.set(row.store_name, row.data);
                 if (row.updated_at) this._timestamps.set(row.store_name, new Date(row.updated_at).getTime());
-                this.emit('update', row.store_name, row.data);
+                changed.push(row);
             }
+        }
+        for (const row of changed) {
+            this.emit('update', row.store_name, row.data);
         }
         return rows.length;
     }
