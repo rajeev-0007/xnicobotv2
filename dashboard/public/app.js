@@ -455,23 +455,19 @@ async function showDashboard() {
         if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light'); // nosonar
         updateThemeIcon();
 
-        if (!sessionStorage.getItem('ident_played')) {
-            sessionStorage.setItem('ident_played', '1');
-            $('#auth-loading').classList.add('hidden');
-            const ident = $('#ident-overlay');
-            if (ident) {
-                ident.classList.remove('hidden');
-                // Play sound
-                playTudum();
-                // Wait for animation
-                await new Promise(r => setTimeout(r, 2800));
-                ident.classList.add('fade-out');
-                setTimeout(() => ident.remove(), 600);
-            }
+        $('#auth-loading').classList.add('hidden');
+        const ident = $('#ident-overlay');
+        if (ident) {
+            ident.classList.remove('hidden');
+            // Play sound
+            playTudum();
+            // Wait for animation
+            await new Promise(r => setTimeout(r, 2800));
+            ident.classList.add('fade-out');
+            setTimeout(() => ident.remove(), 600);
         }
 
         $('#dashboard').classList.remove('hidden');
-        $('#auth-loading').classList.add('hidden');
 
         // Start router
         window.addEventListener('hashchange', handleRoute);
@@ -1116,62 +1112,79 @@ function pageSetup() {
 // â”€â”€â”€â”€â”€ Page: server overview (module grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pageServerOverview() {
     const g = state.currentGuild;
-    // Fetch each module's enabled state (best-effort)
     const mods = window.XNICO_MODULES || [];
-    const statuses = {};
-    await Promise.all(mods.map(async (m) => {
-        const cfg = await api(`/api/guild/${g.id}/${m.id}`);
-        statuses[m.id] = !!(cfg && cfg.enabled); // nosonar
-    }));
-    state.moduleStatus[g.id] = statuses;
-
-    // Analytics snapshot
-    const a = await api(`/api/guild/${g.id}/analytics`) || {};
-
-    const premium = await api(`/api/guild/${g.id}/premium-status`);
-    state.premium = premium;
-
+    
+    // Optimistic Render
     $('#page').innerHTML = `
         <div class="page-h">
             <div>
                 <h1>${esc(g.name)}</h1>
                 <p>Overview of all modules active on this server.</p>
             </div>
-            <div class="row wrap">
+            <div class="row wrap" id="overview-actions">
                 <a class="btn" href="#/server/${esc(g.id)}/analytics">${icon('chart')} Analytics</a>
-                ${premium?.hasPremium ? `<span class="tag">${icon('crown')} Premium</span>` : ''}
             </div>
         </div>
 
         <div class="grid g-4 mb-3">
-            <div class="stat purple"><div class="ic">${icon('code')}</div><div><div class="v">${(a.commandsUsed ?? 0).toLocaleString()}</div><div class="l">Commands</div></div></div>
-            <div class="stat cyan"><div class="ic">${icon('chat')}</div><div><div class="v">${(a.messagesLogged ?? 0).toLocaleString()}</div><div class="l">Messages Logged</div></div></div>
-            <div class="stat amber"><div class="ic">${icon('shield')}</div><div><div class="v">${(a.activeWarnings ?? 0).toLocaleString()}</div><div class="l">Warnings</div></div></div>
-            <div class="stat green"><div class="ic">${icon('coin')}</div><div><div class="v">${(a.economyFlow ?? 0).toLocaleString()}</div><div class="l">Economy Flow</div></div></div>
+            <div class="stat purple"><div class="ic">${icon('code')}</div><div><div class="v" id="ov-cmds">...</div><div class="l">Commands</div></div></div>
+            <div class="stat cyan"><div class="ic">${icon('chat')}</div><div><div class="v" id="ov-msgs">...</div><div class="l">Messages Logged</div></div></div>
+            <div class="stat amber"><div class="ic">${icon('shield')}</div><div><div class="v" id="ov-warns">...</div><div class="l">Warnings</div></div></div>
+            <div class="stat green"><div class="ic">${icon('coin')}</div><div><div class="v" id="ov-econ">...</div><div class="l">Economy Flow</div></div></div>
         </div>
 
         <h3 class="mb-2">Modules</h3>
-        <div class="grid g-3">
-            ${mods.map(m => renderModCard(m, statuses[m.id])).join('')}
+        <div class="grid g-3" id="ov-modules">
+            ${mods.map(m => renderModCard(m, false, true)).join('')}
         </div>
     `;
+
+    // Fetch Analytics async
+    api(`/api/guild/${g.id}/analytics`).then(a => {
+        if (!a) a = {};
+        const $e = document.getElementById('ov-cmds'); if($e) $e.textContent = (a.commandsUsed ?? 0).toLocaleString();
+        const $m = document.getElementById('ov-msgs'); if($m) $m.textContent = (a.messagesLogged ?? 0).toLocaleString();
+        const $w = document.getElementById('ov-warns'); if($w) $w.textContent = (a.activeWarnings ?? 0).toLocaleString();
+        const $ec = document.getElementById('ov-econ'); if($ec) $ec.textContent = (a.economyFlow ?? 0).toLocaleString();
+    }).catch(()=>{});
+
+    // Fetch Premium & Modules async
+    api(`/api/guild/${g.id}/premium-status`).then(premium => {
+        state.premium = premium;
+        if (premium?.hasPremium) {
+            const actions = document.getElementById('overview-actions');
+            if (actions) actions.innerHTML += `<span class="tag">${icon('crown')} Premium</span>`;
+        }
+        
+        const statuses = {};
+        Promise.all(mods.map(async (m) => {
+            const cfg = await api(`/api/guild/${g.id}/${m.id}`);
+            const enabled = !!(cfg && cfg.enabled);
+            statuses[m.id] = enabled;
+            const card = document.getElementById(`mod-card-${m.id}`);
+            if (card) card.outerHTML = renderModCard(m, enabled, false);
+        })).then(() => {
+            state.moduleStatus[g.id] = statuses;
+        }).catch(()=>{});
+    }).catch(()=>{});
 }
 
-function renderModCard(m, enabled) {
+function renderModCard(m, enabled, loading = false) {
     const g = state.currentGuild;
     const locked = m.premium && !state.premium?.hasPremium;
 
     let sub = 'Click to configure';
-    if (locked) sub = 'Premium required';
+    if (loading) sub = 'Loading...';
+    else if (locked) sub = 'Premium required';
     else if (enabled) sub = 'Enabled';
 
     let statusHtml = '<span class="pro">PRO</span>';
     if (!m.premium) {
-        statusHtml = `<span class="status ${enabled ? 'on' : ''}"></span>`;
+        statusHtml = `<span class="status ${enabled && !loading ? 'on' : ''}"></span>`;
     }
 
     return `
-        <div class="mod" onclick="location.hash='#/server/${esc(g.id)}/${esc(m.id)}'">
+        <div class="mod" id="mod-card-${m.id}" onclick="location.hash='#/server/${esc(g.id)}/${esc(m.id)}'">
             ${statusHtml}
             <div class="ic">${icon(m.icon || 'grid')}</div>
             <div class="t">${esc(m.name)}</div>
