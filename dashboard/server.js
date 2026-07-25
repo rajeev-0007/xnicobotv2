@@ -2404,7 +2404,7 @@ app.put('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
     const data = readBotStore('tickets') || {};
     if (!data[gid]) data[gid] = { tickets: {}, nextTicketNumber: 0 };
     const cfg = data[gid];
-
+    if (body.enabled !== undefined) cfg.enabled = !!body.enabled;
     if (body.channelId !== undefined) cfg.channelId = body.channelId || null;
     if (body.categoryId !== undefined) cfg.categoryId = body.categoryId || null;
     if (body.supportRoleId !== undefined) cfg.supportRoleId = body.supportRoleId || null;
