@@ -455,23 +455,19 @@ async function showDashboard() {
         if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light'); // nosonar
         updateThemeIcon();
 
-        if (!sessionStorage.getItem('ident_played')) {
-            sessionStorage.setItem('ident_played', '1');
-            $('#auth-loading').classList.add('hidden');
-            const ident = $('#ident-overlay');
-            if (ident) {
-                ident.classList.remove('hidden');
-                // Play sound
-                playTudum();
-                // Wait for animation
-                await new Promise(r => setTimeout(r, 2800));
-                ident.classList.add('fade-out');
-                setTimeout(() => ident.remove(), 600);
-            }
+        $('#auth-loading').classList.add('hidden');
+        const ident = $('#ident-overlay');
+        if (ident) {
+            ident.classList.remove('hidden');
+            // Play sound
+            playTudum();
+            // Wait for animation
+            await new Promise(r => setTimeout(r, 2800));
+            ident.classList.add('fade-out');
+            setTimeout(() => ident.remove(), 600);
         }
 
         $('#dashboard').classList.remove('hidden');
-        $('#auth-loading').classList.add('hidden');
 
         // Start router
         window.addEventListener('hashchange', handleRoute);
