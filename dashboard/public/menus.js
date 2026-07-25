@@ -77,42 +77,7 @@ function renderMenuEditor(g, id, menu, isNew) {
     window.__currentMenuId = id;
     window.__currentMenuIsNew = isNew;
 
-    // Global menu event handlers
-    window.__saveMenu = async function() {
-        try {
-            const payload = { ...menu, options: window.__currentMenuOpts };
-            toast('Saving...', 'info');
-            const res = await api(`/api/guild/${g.id}/select-menus/${id || '_new_'}`, {
-                method: 'PUT',
-                body: JSON.stringify(payload)
-            });
-            if (res._error) {
-                toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
-            } else {
-                toast('Menu saved!', 'success');
-                localStorage.removeItem(draftKey);
-                setTimeout(() => window.location.hash = `#/server/${g.id}/menus`, 300);
-            }
-        } catch (e) {
-            toast(`Error: ${e.message}`, 'error');
-        }
-    };
-
-    window.__delMenu = async function(menuId) {
-        if (!confirm('Delete this menu? This action cannot be undone.')) return;
-        try {
-            toast('Deleting...', 'info');
-            const res = await api(`/api/guild/${g.id}/select-menus/${menuId}`, { method: 'DELETE' });
-            if (res._error) {
-                toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
-            } else {
-                toast('Menu deleted!', 'success');
-                setTimeout(() => pageMenuCreator(), 300);
-            }
-        } catch (e) {
-            toast(`Error: ${e.message}`, 'error');
-        }
-    };
+    // Option array mutations are handled globally below
 
     window.__newMenu = function() {
         window.location.hash = `#/server/${g.id}/menu-new`;
@@ -237,6 +202,10 @@ function renderOptActionEditor(g, id, menu, optIdx) {
     const actionTypes = ['add_role','remove_role','toggle_role','send_message','send_dm','create_ticket'];
     const roleOpts = state.roles.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
     const roleSel = `<select id="oa-role"><option value="">— Select Role —</option>${roleOpts}</select>`;
+    const chOpts = state.channels.filter(c => c.type === 0 || c.type === 5).map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('');
+    const chSel = `<select id="oa-channel"><option value="">— Current Channel —</option>${chOpts}</select>`;
+    const catOpts = state.channels.filter(c => c.type === 4).map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    const catSel = `<select id="oa-category"><option value="">— Current / None —</option>${catOpts}</select>`;
 
     const actionsHtml = (opt.actions || []).map((a, i) => `
         <div class="listi" style="display:block;margin-bottom:.4rem">
@@ -255,7 +224,10 @@ function renderOptActionEditor(g, id, menu, optIdx) {
             <h3 class="mb-1">Add Action</h3>
             <div class="form-row"><label>Type</label><select id="oa-type">${actionTypes.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select></div>
             <div class="form-row"><label>Role</label>${roleSel}</div>
-            <div class="form-row"><label>Message</label><textarea id="oa-msg" rows="2" placeholder="Hello {user}!"></textarea></div>
+            <div class="form-row"><label>Message (for send_message/send_dm)</label><textarea id="oa-msg" rows="2" placeholder="Hello {user}!"></textarea></div>
+            <div class="form-row"><label>Channel (for send_message)</label>${chSel}</div>
+            <div class="form-row"><label>Ticket Name (for create_ticket)</label><input type="text" id="oa-ticket-name" placeholder="ticket-{user}"></div>
+            <div class="form-row"><label>Ticket Category (for create_ticket)</label>${catSel}</div>
             <button class="btn sm mt-1" onclick="window.__addOptAction(${optIdx})">${icon('user-plus')} Add</button>
         </div>
         <div class="save-bar">
@@ -311,8 +283,12 @@ window.__addOptAction = (optIdx) => {
     const type = $('#oa-type').value;
     const action = { type };
     if (type.includes('role')) action.roleId = $('#oa-role').value;
-    if (type === 'send_message' || type === 'send_dm') action.message = $('#oa-msg').value;
-    if (type === 'create_ticket') action.ticketName = 'ticket-{user}';
+    if (type === 'send_message') { action.message = $('#oa-msg').value; action.channelId = $('#oa-channel').value || null; }
+    if (type === 'send_dm') action.message = $('#oa-msg').value;
+    if (type === 'create_ticket') {
+        action.ticketName = $('#oa-ticket-name').value || 'ticket-{user}';
+        action.categoryId = $('#oa-category').value || null;
+    }
     if (!window.__currentMenuOpts[optIdx].actions) window.__currentMenuOpts[optIdx].actions = [];
     window.__currentMenuOpts[optIdx].actions.push(action);
     const g = state.currentGuild;
