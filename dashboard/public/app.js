@@ -98,9 +98,7 @@ function renderDiscord(input) {
 
 // —— Advanced Discord Message Simulator ——
 function buildDiscordPreview(cfg, botInfo) {
-    const avatar = botInfo?.avatar 
-        ? `https://cdn.discordapp.com/avatars/${botInfo.id}/${botInfo.avatar}.png` 
-        : null;
+    const avatar = botInfo?.avatar || null;
     const username = botInfo?.username || 'xNico';
     
     // Components Builder

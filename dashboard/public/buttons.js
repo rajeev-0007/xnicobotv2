@@ -81,42 +81,7 @@ function renderButtonEditor(g, id, btn, isNew) {
     window.__currentBtnId = id;
     window.__currentBtnIsNew = isNew;
 
-    // Global button event handlers
-    window.__saveBtn = async function() {
-        try {
-            const payload = { ...btn, actions: window.__currentBtnActions };
-            toast('Saving...', 'info');
-            const res = await api(`/api/guild/${g.id}/button-commands/${id || '_new_'}`, {
-                method: 'PUT',
-                body: JSON.stringify(payload)
-            });
-            if (res._error) {
-                toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
-            } else {
-                toast('Button saved!', 'success');
-                localStorage.removeItem(draftKey);
-                setTimeout(() => window.location.hash = `#/server/${g.id}/buttons`, 300);
-            }
-        } catch (e) {
-            toast(`Error: ${e.message}`, 'error');
-        }
-    };
-
-    window.__delBtn = async function(btnId) {
-        if (!confirm('Delete this button? This action cannot be undone.')) return;
-        try {
-            toast('Deleting...', 'info');
-            const res = await api(`/api/guild/${g.id}/button-commands/${btnId}`, { method: 'DELETE' });
-            if (res._error) {
-                toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
-            } else {
-                toast('Button deleted!', 'success');
-                setTimeout(() => pageButtonCreator(), 300);
-            }
-        } catch (e) {
-            toast(`Error: ${e.message}`, 'error');
-        }
-    };
+    // Action array mutations are handled globally below
 
     window.__newBtn = function() {
         window.location.hash = `#/server/${g.id}/button-new`;
@@ -167,6 +132,8 @@ function renderButtonEditor(g, id, btn, isNew) {
     const roleSel = `<select id="action-role"><option value="">— Select Role —</option>${roleOpts}</select>`;
     const chOpts = state.channels.filter(c => c.type === 0 || c.type === 5).map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('');
     const chSel = `<select id="action-channel"><option value="">— Current Channel —</option>${chOpts}</select>`;
+    const catOpts = state.channels.filter(c => c.type === 4).map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    const catSel = `<select id="action-category"><option value="">— Current / None —</option>${catOpts}</select>`;
 
     $('#page').innerHTML = `
         <div class="page-h">
@@ -203,6 +170,8 @@ function renderButtonEditor(g, id, btn, isNew) {
             </div>
             <div class="form-row"><label>Message (for send_message/send_dm)</label><textarea id="action-msg" rows="2" placeholder="Hello {user}!"></textarea></div>
             <div class="form-row"><label>Channel (for send_message)</label>${chSel}</div>
+            <div class="form-row"><label>Ticket Name (for create_ticket)</label><input type="text" id="action-ticket-name" placeholder="ticket-{user}"></div>
+            <div class="form-row"><label>Ticket Category (for create_ticket)</label>${catSel}</div>
             <button class="btn sm mt-1" onclick="window.__addBtnAction()">${icon('user-plus')} Add Action</button>
         </div>
 
@@ -269,7 +238,10 @@ window.__addBtnAction = () => {
     if (type.includes('role')) action.roleId = $('#action-role').value;
     if (type === 'send_message') { action.message = $('#action-msg').value; action.channelId = $('#action-channel').value || null; }
     if (type === 'send_dm') action.message = $('#action-msg').value;
-    if (type === 'create_ticket') action.ticketName = 'ticket-{user}';
+    if (type === 'create_ticket') { 
+        action.ticketName = $('#action-ticket-name').value || 'ticket-{user}';
+        action.categoryId = $('#action-category').value || null;
+    }
     window.__currentBtnActions.push(action);
     // Re-render editor
     const g = state.currentGuild;

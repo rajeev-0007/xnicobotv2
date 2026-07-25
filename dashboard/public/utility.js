@@ -212,6 +212,16 @@ async function pageSticky() {
             <div class="row wrap"><a class="btn" href="#/server/${esc(g.id)}">${icon('home')} Overview</a></div></div>
 
         <div class="card mb-2">
+            <div class="row spread b-bot pb-2 mb-3">
+                <div>
+                    <h3>Sticky System</h3>
+                    <p class="text-mute text-sm">Enable or disable all sticky messages for this server.</p>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="sticky-enabled" ${(cfg && cfg.enabled) ? 'checked' : ''} onchange="window.__stickyToggle(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
             <div class="card-h"><div class="ic">${icon('pin')}</div><div class="tt"><div class="t">Active Stickies (${messages.length})</div><div class="s">The bot re-posts the sticky message whenever new messages push it up.</div></div></div>
             ${listHtml}
             <hr>
@@ -223,6 +233,12 @@ async function pageSticky() {
 
         <div class="hint">Also manageable via <code>/sticky-message set</code> and <code>/sticky-message remove</code> in Discord.</div>`;
 }
+window.__stickyToggle = async (enabled) => {
+    const g = state.currentGuild;
+    const r = await api(`/api/guild/${g.id}/sticky-config`, { method: 'PUT', body: JSON.stringify({ enabled }) });
+    if (r && !r._error) toast(`Sticky messages ${enabled ? 'enabled' : 'disabled'}`, 'success');
+    else { toast(r?.error || 'Failed', 'error'); pageSticky(); }
+};
 window.__stickyAdd = async () => {
     const channelId = $('#sticky-ch').value;
     const content = ($('#sticky-content').value || '').trim();
