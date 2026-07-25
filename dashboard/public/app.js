@@ -295,6 +295,7 @@ function showAuthError(code) {
         if (t && t.length > 20) {
             state.token = t;
             localStorage.setItem('token', t);
+            sessionStorage.setItem('fresh_login', '1');
         }
         history.replaceState({}, '', location.pathname + location.hash);
     }
@@ -350,6 +351,57 @@ async function loadAuthStats() {
 //   • Only when there's no token (or it's invalid) do we render the
 //     landing page, and only then do we await the public stats that
 //     populate it.
+function playTudum() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        
+        const playHit = (time, freqs, duration, attack, volume) => {
+            freqs.forEach(freq => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, time);
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(150, time);
+                filter.frequency.exponentialRampToValueAtTime(800, time + attack);
+                filter.frequency.exponentialRampToValueAtTime(100, time + duration);
+                gain.gain.setValueAtTime(0, time);
+                gain.gain.linearRampToValueAtTime(volume, time + attack);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(time);
+                osc.stop(time + duration);
+            });
+        };
+        const now = ctx.currentTime;
+        playHit(now, [32.7, 65.4, 98], 0.4, 0.02, 0.6);
+        playHit(now + 0.18, [32.7, 65.4, 130.8, 196, 261.6], 2.5, 0.05, 0.8);
+        
+        const bufferSize = ctx.sampleRate * 2.5;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) { output[i] = Math.random() * 2 - 1; }
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 1000;
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(0, now + 0.18);
+        noiseGain.gain.linearRampToValueAtTime(0.1, now + 0.25);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        noise.start(now + 0.18);
+    } catch (e) { console.error('Audio playback failed', e); }
+}
+
 async function bootstrap() {
     if (state.token) {
         // Show the connecting loader right away — no landing flash.
@@ -402,6 +454,21 @@ async function showDashboard() {
         const theme = localStorage.getItem('theme');
         if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light'); // nosonar
         updateThemeIcon();
+
+        if (!sessionStorage.getItem('ident_played')) {
+            sessionStorage.setItem('ident_played', '1');
+            $('#auth-loading').classList.add('hidden');
+            const ident = $('#ident-overlay');
+            if (ident) {
+                ident.classList.remove('hidden');
+                // Play sound
+                playTudum();
+                // Wait for animation
+                await new Promise(r => setTimeout(r, 2800));
+                ident.classList.add('fade-out');
+                setTimeout(() => ident.remove(), 600);
+            }
+        }
 
         $('#dashboard').classList.remove('hidden');
         $('#auth-loading').classList.add('hidden');
