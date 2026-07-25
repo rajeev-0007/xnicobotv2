@@ -98,6 +98,7 @@ function _renderTicketsBody(g, w, tickets, history) {
     };
     
     const colorIn = (id, val) => `<div class="row"><input type="color" id="${id}-c" value="${esc(val||'#5865F2')}" oninput="document.getElementById('${id}').value=this.value; window.__tkUpdatePreview()"><input type="text" id="${id}" value="${esc(val||'#5865F2')}" style="flex:1" oninput="document.getElementById('${id}-c').value=this.value; window.__tkUpdatePreview()"></div>`;
+    const vis = (cond) => cond ? '' : 'style="display:none"';
 
     const buildEmbedEditorHtml = (prefix, title, desc, obj) => `
         <div class="card mb-2">

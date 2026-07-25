@@ -2411,3 +2411,110 @@ textarea.has-emoji-btn {
     font-size: 0.6rem;
     color: #b5bac1;
 }
+
+/* Netflix-style Ident Animation */
+.ident-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #000;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.ident-overlay.hidden {
+    display: none !important;
+}
+
+.ident-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, #111, #000 60%);
+    opacity: 0;
+    animation: identBgFade 0.5s ease-out forwards;
+}
+
+.ident-logo-container {
+    position: relative;
+    z-index: 2;
+    transform: scale(0.8);
+    opacity: 0;
+    animation: identLogoPop 2.8s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.ident-logo {
+    width: 150px;
+    height: auto;
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
+}
+
+.ident-flare {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100vw;
+    height: 100vh;
+    transform: translate(-50%, -50%);
+    background: conic-gradient(from 180deg at 50% 50%, transparent 0deg, rgba(88, 101, 242, 0.4) 180deg, transparent 360deg);
+    mix-blend-mode: screen;
+    opacity: 0;
+    z-index: 1;
+    animation: identFlareExpand 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation-delay: 0.4s;
+}
+
+@keyframes identBgFade {
+    to { opacity: 1; }
+}
+
+@keyframes identLogoPop {
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+        filter: blur(10px) brightness(0.5);
+    }
+    10% {
+        opacity: 1;
+        filter: blur(0px) brightness(1.5) drop-shadow(0 0 20px rgba(88, 101, 242, 0.8));
+    }
+    15% {
+        transform: scale(1.1);
+        filter: blur(0px) brightness(1.2) drop-shadow(0 0 15px rgba(88, 101, 242, 0.5));
+    }
+    100% {
+        transform: scale(1.3);
+        opacity: 1;
+        filter: blur(0px) brightness(1);
+    }
+}
+
+@keyframes identFlareExpand {
+    0% {
+        transform: translate(-50%, -50%) scale(0.1) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(2) rotate(45deg);
+        opacity: 0;
+    }
+}
+
+.ident-overlay.fade-out {
+    animation: identContainerFadeOut 0.5s ease-out forwards;
+}
+
+@keyframes identContainerFadeOut {
+    to {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
