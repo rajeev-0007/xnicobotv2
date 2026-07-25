@@ -11654,7 +11654,7 @@ client.on('guildMemberAdd', async (member) => {
                 const autoroleConfig = jsonStore.peek('autorole') || {};
                 const guildAutorole = autoroleConfig[member.guild.id];
 
-                if (guildAutorole) {
+                if (guildAutorole && guildAutorole.enabled !== false) {
                     let roleIds;
                     if (typeof guildAutorole === 'string') {
                         roleIds = member.user.bot ? [] : [guildAutorole];

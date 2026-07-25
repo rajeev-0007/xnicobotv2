@@ -1126,7 +1126,7 @@ const MODULE_DEFAULTS = {
     antiraid: () => ({ enabled: false, joinLimit: 10, timeWindow: 10, action: 'kick', logChannel: null }),
     antispam: () => ({ enabled: false, messageSpam: { enabled: false, limit: 5, time: 5, action: 'timeout' }, emojiSpam: { enabled: false, limit: 10, action: 'delete' }, capsSpam: { enabled: false, percentage: 80, minLength: 10, action: 'delete' }, linkSpam: { enabled: false, limit: 3, action: 'delete' }, imageSpam: { enabled: false, limit: 5, action: 'delete' }, stickerSpam: { enabled: false, limit: 5, action: 'delete' }, mentionSpam: { enabled: false, limit: 5, action: 'timeout' }, duplicateSpam: { enabled: false, limit: 3, action: 'delete' }, inviteSpam: { enabled: false, action: 'delete' }, newlineSpam: { enabled: false, limit: 15, action: 'delete' }, ignoredRoles: [], ignoredChannels: [], logChannel: null }),
     antilink: () => ({ enabled: false, action: 'delete', whitelistedLinks: [], whitelistedRoles: [], whitelistedChannels: [], logChannel: null }),
-    suggestions: () => ({ enabled: false, channelId: null, approvedChannelId: null, deniedChannelId: null, allowComments: true, anonymousMode: false }),
+    suggestions: () => ({ channelId: null, logsChannelId: null, voteThreshold: 10, threadSlowmode: 0, nextId: 1, suggestions: {} }),
     afk: () => ({ enabled: true }),
     actions: () => ({ enabled: true }),
     'button-commands': () => ({}),
@@ -1994,6 +1994,7 @@ app.get('/api/guild/:guildId/voice-config', authMiddleware, (req, res) => {
         // Legacy mirrors for older dashboard widgets that still read these.
         enabled: interfaces.some(i => i.enabled !== false),
         triggerChannelId: interfaces[0]?.triggerChannelId || null,
+        interfaceChannelId: interfaces[0]?.interfaceChannelId || null,
         activeChannels: activeChannelCount
     });
 });
@@ -2189,6 +2190,7 @@ app.get('/api/guild/:guildId/autorole-config', authMiddleware, (req, res) => {
         humansRole = [];
     }
     res.json({
+        enabled: cfg.enabled !== false,
         humans: humansRole,
         bots: Array.isArray(cfg.bots) ? cfg.bots : []
     });
@@ -2198,6 +2200,7 @@ app.put('/api/guild/:guildId/autorole-config', authMiddleware, (req, res) => {
     const body = req.body || {};
     const data = readBotStore('autorole') || {};
     data[gid] = {
+        enabled: body.enabled !== false,
         humans: Array.isArray(body.humans) ? body.humans.map(String).slice(0, 10) : [],
         bots: Array.isArray(body.bots) ? body.bots.map(String).slice(0, 10) : []
     };

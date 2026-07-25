@@ -5,49 +5,7 @@
 
 // ═══════════════════════════════════════════════════════════
 // AUTOROLE
-// ═══════════════════════════════════════════════════════════// Global AutoRole event handlers
-window.__saveAutoRole = async function() {
-    try {
-        const g = state.currentGuild;
-        const payload = window.__working || {};
-        toast('Saving AutoRole config...', 'info');
-        const res = await api(`/api/guild/${g.id}/autorole-config`, {
-            method: 'PUT',
-            body: JSON.stringify(payload)
-        });
-        if (res._error) {
-            toast(`Failed: ${res.error || 'Unknown error'}`, 'error');
-        } else {
-            toast('AutoRole saved!', 'success');
-            localStorage.removeItem(`draft:autorole:${g.id}`);
-        }
-    } catch (e) {
-        toast(`Error: ${e.message}`, 'error');
-    }
-};
-
-window.__addAutoRole = function(roleId, roleType = 'humans') {
-    if (!roleId) { toast('Select a role', 'error'); return; }
-    const cfg = window.__working || {};
-    if (!cfg[roleType]) cfg[roleType] = [];
-    if (!cfg[roleType].includes(roleId)) {
-        cfg[roleType].push(roleId);
-        window.__working = cfg;
-        localStorage.setItem(`draft:autorole:${state.currentGuild.id}`, JSON.stringify(cfg));
-        if (window.__renderModule) window.__renderModule();
-    }
-};
-
-window.__aroleRm = function(roleType, roleId) {
-    const cfg = window.__working || {};
-    if (cfg[roleType]) {
-        const idx = cfg[roleType].indexOf(roleId);
-        if (idx > -1) cfg[roleType].splice(idx, 1);
-        window.__working = cfg;
-        localStorage.setItem(`draft:autorole:${state.currentGuild.id}`, JSON.stringify(cfg));
-        if (window.__renderModule) window.__renderModule();
-    }
-};
+// ═══════════════════════════════════════════════════════════
 async function pageAutorole() {
     const g = state.currentGuild;
     const [cfg, roles] = await Promise.all([
@@ -79,6 +37,8 @@ function _renderAutorolePage(g) {
     $('#page').innerHTML = `
         <div class="page-h"><div><h1>Auto-Role</h1><p>Auto-assign roles when members join ${esc(g.name)}.</p></div>
             <div class="row wrap"><a class="btn" href="#/server/${esc(g.id)}">${icon('home')} Overview</a></div></div>
+            
+        <div class="switch-row mb-2"><div><div class="lbl">Enable Auto-Role</div><div class="desc">Automatically assign roles when users or bots join.</div></div><label class="switch"><input type="checkbox" id="arole-enabled" ${w.enabled !== false ? 'checked' : ''} onchange="window.__aroleToggle()"><span class="slide"></span></label></div>
 
         <div class="card mb-2">
             <div class="card-h"><div class="ic">${icon('user-plus')}</div><div class="tt"><div class="t">Roles for Humans</div><div class="s">Assigned to real users when they join. Up to 10.</div></div></div>
@@ -115,6 +75,9 @@ window.__aroleAdd = (type, selId) => {
 window.__aroleRm = (type, id) => {
     window.__aroleWorking[type] = window.__aroleWorking[type].filter(x => x !== id);
     _renderAutorolePage(state.currentGuild);
+};
+window.__aroleToggle = () => {
+    window.__aroleWorking.enabled = $('#arole-enabled').checked;
 };
 
 // ═══════════════════════════════════════════════════════════
