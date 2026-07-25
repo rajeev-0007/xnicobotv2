@@ -4153,18 +4153,28 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
     userRec = userRec || {};
     
     const profile = userRec.profile || {};
-    const economy = userRec.economy || economyStore[discordId] || { balance: 0, bank: 0, inventory: [] };
-    const social = userRec.social || socialStore[discordId] || { reputation: 0 };
+    const economy = economyStore[discordId] || userRec.economy || { balance: 0, bank: 0, inventory: [] };
+    const social = socialStore[discordId] || userRec.social || { reputation: 0 };
     const stats = userRec.stats || { commandsUsed: 0, botInteractions: 0 };
     const afk = userRec.afk || { isAfk: false };
 
     const memberEntries = [];
     if (Array.isArray(guildMembers)) {
-        for (const m of guildMembers) { if (m && m.user_id === discordId) memberEntries.push(m); }
+        for (const m of guildMembers) { if (m && (m.user_id === discordId || m.userId === discordId)) memberEntries.push(m); }
     } else {
-        for (const key in guildMembers) {
-            const m = guildMembers[key];
-            if (m && m.user_id === discordId) memberEntries.push(m);
+        for (const guildId in guildMembers) {
+            const usersObj = guildMembers[guildId];
+            if (usersObj && typeof usersObj === 'object') {
+                if (usersObj[discordId]) {
+                    memberEntries.push(usersObj[discordId]);
+                } else {
+                    for (const uid in usersObj) {
+                        if (uid === discordId || usersObj[uid].user_id === discordId || usersObj[uid].userId === discordId) {
+                            memberEntries.push(usersObj[uid]);
+                        }
+                    }
+                }
+            }
         }
     }
     let totalMessages = 0, totalVoiceTime = 0, totalXp = 0, highestLevel = 0, totalWarnings = 0, totalInvites = 0;
@@ -4384,11 +4394,21 @@ app.get('/api/users/me/analytics', authMiddleware, (req, res) => {
     const levelingStore = peekBotStore('leveling') || {};
     const memberEntries = [];
     if (Array.isArray(guildMembers)) {
-        for (const m of guildMembers) { if (m && m.user_id === discordId) memberEntries.push(m); }
+        for (const m of guildMembers) { if (m && (m.user_id === discordId || m.userId === discordId)) memberEntries.push(m); }
     } else {
-        for (const key in guildMembers) {
-            const m = guildMembers[key];
-            if (m && m.user_id === discordId) memberEntries.push(m);
+        for (const guildId in guildMembers) {
+            const usersObj = guildMembers[guildId];
+            if (usersObj && typeof usersObj === 'object') {
+                if (usersObj[discordId]) {
+                    memberEntries.push(usersObj[discordId]);
+                } else {
+                    for (const uid in usersObj) {
+                        if (uid === discordId || usersObj[uid].user_id === discordId || usersObj[uid].userId === discordId) {
+                            memberEntries.push(usersObj[uid]);
+                        }
+                    }
+                }
+            }
         }
     }
 
