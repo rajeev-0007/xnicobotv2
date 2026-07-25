@@ -9748,7 +9748,7 @@ client.on('messageCreate', async (message) => {
         {
             const guildStickyConfig = jsonStore.peekGuild('sticky', guildId);
 
-            if (guildStickyConfig?.enabled && guildStickyConfig.messages?.[message.channel.id]) {
+            if (guildStickyConfig?.enabled !== false && guildStickyConfig.messages?.[message.channel.id]) {
                 const stickyData = guildStickyConfig.messages[message.channel.id];
 
                 // Cooldown: only re-send if at least 3 seconds have passed since last re-send
