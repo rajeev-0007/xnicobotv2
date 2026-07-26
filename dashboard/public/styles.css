@@ -2518,3 +2518,489 @@ textarea.has-emoji-btn {
         visibility: hidden;
     }
 }
+
+/* —— Advanced Discord Preview Styles —— */
+.d-message {
+    display: flex;
+    margin-top: 1rem;
+    font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #dbdee1;
+    font-size: 16px;
+    line-height: 1.375rem;
+}
+
+.d-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 16px;
+    flex-shrink: 0;
+    overflow: hidden;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+.d-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.d-message-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.d-msg-header {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+
+.d-username {
+    font-weight: 500;
+    color: #f2f3f5;
+    margin-right: 0.25rem;
+}
+
+.d-bot-tag {
+    background: #5865F2;
+    color: white;
+    font-size: 0.625rem;
+    padding: 0 4px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.3;
+    margin-right: 0.25rem;
+    position: relative;
+    top: -2px;
+}
+
+.d-bot-check {
+    margin-right: 2px;
+}
+
+.d-timestamp {
+    font-size: 0.75rem;
+    color: #949ba4;
+    margin-left: 0.25rem;
+}
+
+.d-message-content {
+    margin-bottom: 8px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.d-embed-wrapper {
+    display: flex;
+    max-width: 520px;
+    background: #2b2d31;
+    border-radius: 4px;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.d-embed-color {
+    width: 4px;
+    flex-shrink: 0;
+}
+
+.d-embed-inner {
+    padding: 12px 16px 16px;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.d-embed-author {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #f2f3f5;
+    margin-bottom: 4px;
+}
+
+.d-embed-title {
+    font-weight: 600;
+    color: #00a8fc;
+    margin-bottom: 8px;
+}
+
+.d-embed-description {
+    font-size: 0.875rem;
+    color: #dbdee1;
+    white-space: pre-wrap;
+    margin-bottom: 8px;
+}
+
+.d-embed-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.d-embed-field {
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+.d-embed-field-inline {
+    flex: 1 1 calc(33.333% - 8px);
+}
+
+.d-embed-field-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f2f3f5;
+    margin-bottom: 2px;
+}
+
+.d-embed-field-value {
+    font-size: 0.875rem;
+    color: #dbdee1;
+    white-space: pre-wrap;
+}
+
+.d-embed-image {
+    max-width: 100%;
+    border-radius: 4px;
+    margin-top: 12px;
+}
+
+.d-embed-thumbnail {
+    max-width: 80px;
+    max-height: 80px;
+    border-radius: 4px;
+    margin: 16px 16px 16px 0;
+    object-fit: cover;
+}
+
+.d-embed-footer {
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #f2f3f5;
+    margin-top: 8px;
+}
+
+.d-components {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.d-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.d-button {
+    border: none;
+    border-radius: 3px;
+    padding: 6px 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+    cursor: default;
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    box-sizing: border-box;
+}
+
+.d-btn-primary {
+    background: #5865F2;
+}
+
+.d-btn-secondary {
+    background: #4f545c;
+}
+
+.d-btn-success {
+    background: #23a559;
+}
+
+.d-btn-danger {
+    background: #da373c;
+}
+
+.d-btn-link {
+    background: #4f545c;
+}
+
+.d-select {
+    background: #1e1f22;
+    border: 1px solid #1e1f22;
+    border-radius: 4px;
+    padding: 8px;
+    color: #dbdee1;
+    font-size: 0.875rem;
+    flex: 1;
+    max-width: 400px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: default;
+}
+
+.d-select-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.d-select-icon {
+    font-size: 0.6rem;
+    color: #b5bac1;
+}
+
+/* Netflix-style Ident Animation */
+.ident-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #000;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.ident-overlay.hidden {
+    display: none !important;
+}
+
+.ident-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, #111, #000 60%);
+    opacity: 0;
+    animation: identBgFade 0.5s ease-out forwards;
+}
+
+.ident-logo-container {
+    position: relative;
+    z-index: 2;
+    transform: scale(0.8);
+    opacity: 0;
+    animation: identLogoPop 2.8s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.ident-logo {
+    width: 150px;
+    height: auto;
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
+}
+
+.ident-flare {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100vw;
+    height: 100vh;
+    transform: translate(-50%, -50%);
+    background: conic-gradient(from 180deg at 50% 50%, transparent 0deg, rgba(88, 101, 242, 0.4) 180deg, transparent 360deg);
+    mix-blend-mode: screen;
+    opacity: 0;
+    z-index: 1;
+    animation: identFlareExpand 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation-delay: 0.4s;
+}
+
+@keyframes identBgFade {
+    to { opacity: 1; }
+}
+
+@keyframes identLogoPop {
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+        filter: blur(10px) brightness(0.5);
+    }
+    10% {
+        opacity: 1;
+        filter: blur(0px) brightness(1.5) drop-shadow(0 0 20px rgba(88, 101, 242, 0.8));
+    }
+    15% {
+        transform: scale(1.1);
+        filter: blur(0px) brightness(1.2) drop-shadow(0 0 15px rgba(88, 101, 242, 0.5));
+    }
+    100% {
+        transform: scale(1.3);
+        opacity: 1;
+        filter: blur(0px) brightness(1);
+    }
+}
+
+@keyframes identFlareExpand {
+    0% {
+        transform: translate(-50%, -50%) scale(0.1) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(2) rotate(45deg);
+        opacity: 0;
+    }
+}
+
+.ident-overlay.fade-out {
+    animation: identContainerFadeOut 0.5s ease-out forwards;
+}
+
+@keyframes identContainerFadeOut {
+    to {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
+
+/* =========================================================
+   HOLOGRAPHIC GLASSMORPHISM (Spatial UI)
+   ========================================================= */
+.card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    /* Deep frosted glass */
+    background: rgba(5, 5, 7, 0.4);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+/* Add subtle micro-animations to cards */
+.card {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 30px rgba(0, 240, 255, 0.1);
+    border-color: rgba(0, 240, 255, 0.3);
+}
+
+/* Global Spatial Scrollbars */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(5, 5, 7, 0.8);
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    border: 2px solid rgba(5, 5, 7, 0.8);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 240, 255, 0.5);
+}
+
+/* Text Selection Accent */
+::selection {
+    background: rgba(0, 240, 255, 0.3);
+    color: #ffffff;
+}
+
+/* Glass Inputs & Buttons */
+input, select, textarea, .search-box input {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(12px);
+    color: #fff !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus, select:focus, textarea:focus, .search-box input:focus {
+    border-color: rgba(0, 240, 255, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.15) !important;
+    outline: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, rgba(0, 240, 255, 0.8), rgba(255, 0, 85, 0.8)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 4px 15px rgba(0, 240, 255, 0.2) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(255, 0, 85, 0.4) !important;
+}
+
+/* Overrides for spatial layers */
+.card {
+    position: relative;
+    overflow: hidden;
+    background: rgba(5, 5, 7, 0.4) !important;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+.topbar {
+    position: relative;
+    background: rgba(5, 5, 7, 0.4) !important;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+/* SVG Noise Overlay */
+.card::after, .topbar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    z-index: -1;
+}
+
+.sidebar {
+    background: rgba(5, 5, 7, 0.6) !important;
+    backdrop-filter: blur(24px) saturate(180%);
+    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+#webgl-scene {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    pointer-events: auto;
+}
+
+.main, .page {
+    pointer-events: none;
+}
+.main > *, .page > * {
+    pointer-events: auto;
+}

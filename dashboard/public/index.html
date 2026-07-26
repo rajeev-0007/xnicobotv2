@@ -12,7 +12,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css?v=4.3.0">
+    <link rel="stylesheet" href="/styles.css?v=5.0.4">
     <link rel="stylesheet" href="/starfield.css?v=1.3.0">
     <link rel="icon" type="image/png" href="/logo.png">
 </head>
@@ -21,6 +21,18 @@
 
     <!-- Background: clean, static accent wash (styled in starfield.css) -->
     <div class="bg-fx" id="bg-fx" aria-hidden="true"></div>
+    <canvas id="webgl-scene"></canvas>
+
+    <!-- 3D Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/Pass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 
     <!-- Auth Loading -->
     <div id="auth-loading" class="auth-loading hidden">
@@ -365,7 +377,7 @@
 
     <script src="/config.js?v=4.1.0"></script>
     <script src="/modules.js?v=4.3.0"></script>
-    <script src="/app.js?v=4.5.1"></script>
+    <script src="/app.js?v=5.0.2"></script>
     <script src="/welcomer.js?v=4.2.0"></script>
     <script src="/buttons.js?v=4.1.0"></script>
     <script src="/menus.js?v=4.1.0"></script>
@@ -380,6 +392,7 @@
     <script src="/message-builder.js?v=4.1.0"></script>
     <script src="/webhook-botignore.js?v=4.1.1"></script>
     <script src="/extras.js?v=4.1.0"></script>
+    <script src="/spatial.js?v=2.1.2"></script>
 </body>
 
 </html>

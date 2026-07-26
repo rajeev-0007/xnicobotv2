@@ -323,8 +323,9 @@ async function loadAuthStats() {
     if (bot && !bot._error) {
         state.botInfo = bot;
         if (bot.avatar) {
-            $('#bot-logo').innerHTML = `<img src="${esc(bot.avatar)}" alt="Bot">`;
-            $('#sb-logo').innerHTML = `<img src="${esc(bot.avatar)}" alt="Bot">`;
+            // Do not override user's custom logo
+            // $('#bot-logo').innerHTML = `<img src="${esc(bot.avatar)}" alt="Bot">`;
+            // $('#sb-logo').innerHTML = `<img src="${esc(bot.avatar)}" alt="Bot">`;
         }
     }
     const stats = await api('/api/stats');
@@ -435,11 +436,17 @@ function showAuth() {
     $('#auth-screen').classList.remove('hidden');
     $('#dashboard').classList.add('hidden');
     $('#auth-loading').classList.add('hidden');
+    const bgFx = document.getElementById('bg-fx');
+    if (bgFx) bgFx.style.display = 'block';
+    document.body.style.background = 'var(--bg)';
 }
 
 async function showDashboard() {
     $('#auth-loading').classList.remove('hidden');
     $('#auth-screen').classList.add('hidden');
+    const bgFx = document.getElementById('bg-fx');
+    if (bgFx) bgFx.style.display = 'none';
+    document.body.style.background = 'transparent';
 
     try {
         // Sidebar render
