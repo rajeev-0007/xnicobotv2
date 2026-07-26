@@ -4177,7 +4177,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
             }
         }
     }
-    let totalMessages = 0, totalVoiceTime = 0, totalXp = 0, highestLevel = 0, totalWarnings = 0, totalInvites = 0;
+    let totalVoiceTime = 0, totalWarnings = 0, totalInvites = 0;
     const guildStats = [];
 
     for (const m of memberEntries) {
@@ -4187,8 +4187,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
         const voice = Number(m.analytics?.voiceTime || 0);
         const warnings = Array.isArray(m.warnings) ? m.warnings.length : 0;
         const invites = Number(m.invites?.invites || 0);
-        totalMessages += msgs; totalVoiceTime += voice; totalXp += xp;
-        if (level > highestLevel) highestLevel = level;
+        totalVoiceTime += voice;
         totalWarnings += warnings; totalInvites += invites;
         guildStats.push({ guildId: m.guild_id, xp, level, messages: msgs, voiceTime: voice, warnings, invites });
     }
@@ -4205,9 +4204,14 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
             if (msgs > existing.messages) existing.messages = msgs;
         } else {
             guildStats.push({ guildId, xp, level, messages: msgs, voiceTime: 0, warnings: 0, invites: 0 });
-            totalXp += xp; totalMessages += msgs;
-            if (level > highestLevel) highestLevel = level;
         }
+    }
+
+    let totalMessages = 0, totalXp = 0, highestLevel = 0;
+    for (const g of guildStats) {
+        totalXp += g.xp;
+        totalMessages += g.messages;
+        if (g.level > highestLevel) highestLevel = g.level;
     }
 
     guildStats.sort((a, b) => b.xp - a.xp);
@@ -4412,18 +4416,41 @@ app.get('/api/users/me/analytics', authMiddleware, (req, res) => {
         }
     }
 
-    const totalMsgs = memberEntries.reduce((s, m) => s + Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0), 0);
-    const totalVoice = memberEntries.reduce((s, m) => s + Number(m.analytics?.voiceTime || 0), 0);
-
-    const topGuilds = memberEntries
-        .map(m => ({
+    const guildStats = new Map();
+    for (const m of memberEntries) {
+        guildStats.set(m.guild_id, {
             guildId: m.guild_id,
             xp: Number(m.leveling?.xp || 0),
-            level: Number(m.leveling?.level || 0),
-            messages: Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0)
-        }))
-        .sort((a, b) => b.xp - a.xp)
-        .slice(0, 5);
+            level: Number(m.leveling?.level || Math.floor(0.1 * Math.sqrt(Number(m.leveling?.xp || 0)))),
+            messages: Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0),
+            voiceTime: Number(m.analytics?.voiceTime || 0)
+        });
+    }
+
+    for (const [guildId, guildUsers] of Object.entries(levelingStore)) {
+        const userLv = guildUsers ? guildUsers[discordId] : null;
+        if (!userLv) continue;
+        const xp = Number(userLv.xp || 0);
+        const level = Number(userLv.level || Math.floor(0.1 * Math.sqrt(xp)));
+        const msgs = Number(userLv.messages || 0);
+        const existing = guildStats.get(guildId);
+        if (existing) {
+            if (xp > existing.xp) { existing.xp = xp; existing.level = level; }
+            if (msgs > existing.messages) existing.messages = msgs;
+        } else {
+            guildStats.set(guildId, { guildId, xp, level, messages: msgs, voiceTime: 0 });
+        }
+    }
+
+    let totalMsgs = 0;
+    let totalVoice = 0;
+    const allGuilds = Array.from(guildStats.values());
+    for (const g of allGuilds) {
+        totalMsgs += g.messages;
+        totalVoice += g.voiceTime;
+    }
+
+    const topGuilds = allGuilds.sort((a, b) => b.xp - a.xp).slice(0, 5);
 
     const guildRanks = topGuilds.map(g => {
         const xpData = levelingStore[g.guildId] || {};

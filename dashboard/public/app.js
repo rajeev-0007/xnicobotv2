@@ -1686,7 +1686,7 @@ async function pageProfile() { // nosonar
     // Top guilds table
     const topGuildsHtml = a.topGuilds.length ? a.topGuilds.map((g, i) => {
         const server = (state.guilds || []).find(x => x.id === g.guildId);
-        return `<tr>
+        return `<tr onclick="location.hash='#/server/${esc(g.guildId)}/leveling'" style="cursor:pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='transparent'">
             <td><span class="tag">${i + 1}</span></td>
             <td class="row" style="gap:.5rem;align-items:center">
                 <div class="ic" style="width:28px;height:28px;border-radius:50%;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.8rem;overflow:hidden">
@@ -1748,7 +1748,7 @@ async function pageProfile() { // nosonar
 
         <div class="grid g-2 mb-2">
             <!-- ECONOMY CARD -->
-            <div class="card">
+            <div class="card" onclick="location.hash='#/servers'" style="cursor:pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='none'">
                 <div class="card-h"><div class="ic">${icon('coin')}</div><div class="tt"><div class="t">Economy</div><div class="s">Your wallet & bank.</div></div></div>
                 <div class="grid g-2 mt-2">
                     <div style="padding:1rem;background:var(--bg-hover);border-radius:10px">
@@ -1770,7 +1770,7 @@ async function pageProfile() { // nosonar
             </div>
 
             <!-- LEVELING CARD -->
-            <div class="card">
+            <div class="card" onclick="location.hash='#/servers'" style="cursor:pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='none'">
                 <div class="card-h"><div class="ic">${icon('trend')}</div><div class="tt"><div class="t">Leveling</div><div class="s">Highest level across all servers.</div></div></div>
                 <div class="center mt-2" style="padding:1rem">
                     <div style="font-size:3rem;font-weight:900" class="grad-text">${d.leveling.highestLevel}</div>
@@ -1784,7 +1784,7 @@ async function pageProfile() { // nosonar
             </div>
 
             <!-- ACTIVITY CARD -->
-            <div class="card">
+            <div class="card" onclick="location.hash='#/servers'" style="cursor:pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='none'">
                 <div class="card-h"><div class="ic">${icon('chart')}</div><div class="tt"><div class="t">Activity (7d)</div><div class="s">Estimated daily messages.</div></div></div>
                 <div class="row" style="height:60px;align-items:flex-end;margin-top:1rem">
                     ${sparkline}
@@ -1796,7 +1796,7 @@ async function pageProfile() { // nosonar
             </div>
 
             <!-- MODERATION CARD -->
-            <div class="card">
+            <div class="card" onclick="location.hash='#/servers'" style="cursor:pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='none'">
                 <div class="card-h"><div class="ic">${icon('shield')}</div><div class="tt"><div class="t">Moderation & Activity</div><div class="s">Warnings, invites, commands.</div></div></div>
                 <div class="grid g-3 mt-2">
                     <div class="center"><div class="text-xs text-mute">Warnings</div><b style="color:${d.stats.totalWarnings > 0 ? 'var(--warning)' : 'inherit'}">${fmtNum(d.stats.totalWarnings)}</b></div>
