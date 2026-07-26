@@ -2401,79 +2401,80 @@ app.get('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
     });
 });
 
-app.put('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
+app.put('/api/guild/:guildId/tickets-config', authMiddleware, async (req, res) => {
     const gid = req.params.guildId;
     const body = req.body || {};
-    const data = readBotStore('tickets') || {};
-    if (!data[gid]) data[gid] = { tickets: {}, nextTicketNumber: 0 };
-    const cfg = data[gid];
-    if (body.enabled !== undefined) cfg.enabled = !!body.enabled;
-    if (body.channelId !== undefined) cfg.channelId = body.channelId || null;
-    if (body.categoryId !== undefined) cfg.categoryId = body.categoryId || null;
-    if (body.supportRoleId !== undefined) cfg.supportRoleId = body.supportRoleId || null;
-    if (Array.isArray(body.categories)) {
-        cfg.categories = body.categories
-            .filter(c => c?.id && c?.label)
-            .map(c => ({
-                id: String(c.id).toLowerCase().replace(/\s+/g, '-').slice(0, 32),
-                label: String(c.label).slice(0, 80),
-                emoji: String(c.emoji || '🎫').slice(0, 32),
-                description: String(c.description || '').slice(0, 100)
-            }));
-        // Ensure the default panel exposes all categories by setting it to empty array
-        // (Empty array means "expose entire pool" in ticket-setup.js)
-        if (cfg.panels && cfg.panels.default) {
-            cfg.panels.default.categoryIds = [];
-        }
-    }
+    try {
+        await jsonStore.updateGuildEntry('tickets', gid, (cfg) => {
+            if (!cfg) cfg = { tickets: {}, nextTicketNumber: 0 };
+            if (body.enabled !== undefined) cfg.enabled = !!body.enabled;
+            if (body.channelId !== undefined) cfg.channelId = body.channelId || null;
+            if (body.categoryId !== undefined) cfg.categoryId = body.categoryId || null;
+            if (body.supportRoleId !== undefined) cfg.supportRoleId = body.supportRoleId || null;
+            if (Array.isArray(body.categories)) {
+                cfg.categories = body.categories
+                    .filter(c => c?.id && c?.label)
+                    .map(c => ({
+                        id: String(c.id).toLowerCase().replace(/\s+/g, '-').slice(0, 32),
+                        label: String(c.label).slice(0, 80),
+                        emoji: String(c.emoji || '🎫').slice(0, 32),
+                        description: String(c.description || '').slice(0, 200)
+                    }));
+                if (cfg.panels && cfg.panels.default) {
+                    cfg.panels.default.categoryIds = [];
+                }
+            }
 
-    if (body.panelMessage !== undefined) {
-        if (!body.panelMessage) {
-            delete cfg.panelMessage;
-        } else {
-            cfg.panelMessage = {
-                mode: String(body.panelMessage.mode || 'components'),
-                content: String(body.panelMessage.content || '').slice(0, 2000),
-                title: String(body.panelMessage.title || '').slice(0, 256),
-                description: String(body.panelMessage.description || '').slice(0, 4096),
-                color: String(body.panelMessage.color || '#5865F2').slice(0, 20),
-                image: String(body.panelMessage.image || '').slice(0, 500),
-                thumbnail: String(body.panelMessage.thumbnail || '').slice(0, 500),
-                footer: String(body.panelMessage.footer || '').slice(0, 2048),
-                footerIcon: String(body.panelMessage.footerIcon || '').slice(0, 500),
-                author: String(body.panelMessage.author || '').slice(0, 256),
-                authorIcon: String(body.panelMessage.authorIcon || '').slice(0, 500)
-            };
-        }
-    }
+            if (body.panelMessage !== undefined) {
+                if (!body.panelMessage) {
+                    delete cfg.panelMessage;
+                } else {
+                    cfg.panelMessage = {
+                        mode: String(body.panelMessage.mode || 'components'),
+                        content: String(body.panelMessage.content || '').slice(0, 2000),
+                        title: String(body.panelMessage.title || '').slice(0, 256),
+                        description: String(body.panelMessage.description || '').slice(0, 4096),
+                        color: String(body.panelMessage.color || '#5865F2').slice(0, 20),
+                        image: String(body.panelMessage.image || '').slice(0, 500),
+                        thumbnail: String(body.panelMessage.thumbnail || '').slice(0, 500),
+                        footer: String(body.panelMessage.footer || '').slice(0, 2048),
+                        footerIcon: String(body.panelMessage.footerIcon || '').slice(0, 500),
+                        author: String(body.panelMessage.author || '').slice(0, 256),
+                        authorIcon: String(body.panelMessage.authorIcon || '').slice(0, 500)
+                    };
+                }
+            }
 
-    if (body.welcomeMessage !== undefined) {
-        if (!body.welcomeMessage) {
-            delete cfg.welcomeMessage;
-        } else {
-            cfg.welcomeMessage = {
-                mode: String(body.welcomeMessage.mode || 'components'),
-                content: String(body.welcomeMessage.content || '').slice(0, 2000),
-                title: String(body.welcomeMessage.title || '').slice(0, 256),
-                description: String(body.welcomeMessage.description || '').slice(0, 4096),
-                color: String(body.welcomeMessage.color || '#5865F2').slice(0, 20),
-                image: String(body.welcomeMessage.image || '').slice(0, 500),
-                thumbnail: String(body.welcomeMessage.thumbnail || '').slice(0, 500),
-                footer: String(body.welcomeMessage.footer || '').slice(0, 2048),
-                footerIcon: String(body.welcomeMessage.footerIcon || '').slice(0, 500),
-                author: String(body.welcomeMessage.author || '').slice(0, 256),
-                authorIcon: String(body.welcomeMessage.authorIcon || '').slice(0, 500)
-            };
-        }
+            if (body.welcomeMessage !== undefined) {
+                if (!body.welcomeMessage) {
+                    delete cfg.welcomeMessage;
+                } else {
+                    cfg.welcomeMessage = {
+                        mode: String(body.welcomeMessage.mode || 'components'),
+                        content: String(body.welcomeMessage.content || '').slice(0, 2000),
+                        title: String(body.welcomeMessage.title || '').slice(0, 256),
+                        description: String(body.welcomeMessage.description || '').slice(0, 4096),
+                        color: String(body.welcomeMessage.color || '#5865F2').slice(0, 20),
+                        image: String(body.welcomeMessage.image || '').slice(0, 500),
+                        thumbnail: String(body.welcomeMessage.thumbnail || '').slice(0, 500),
+                        footer: String(body.welcomeMessage.footer || '').slice(0, 2048),
+                        footerIcon: String(body.welcomeMessage.footerIcon || '').slice(0, 500),
+                        author: String(body.welcomeMessage.author || '').slice(0, 256),
+                        authorIcon: String(body.welcomeMessage.authorIcon || '').slice(0, 500)
+                    };
+                }
+            }
+            return cfg;
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
-
-    writeBotStore('tickets', data);
-    res.json({ success: true });
 });
 
 // List open tickets
 app.get('/api/guild/:guildId/tickets-open', authMiddleware, (req, res) => {
-    const data = readBotStore('tickets') || {};
+    const data = peekBotStore('tickets') || {};
     const cfg = data[req.params.guildId] || {};
     const tickets = cfg.tickets || {};
     const list = Object.entries(tickets).map(([channelId, t]) => ({
@@ -2487,7 +2488,7 @@ app.get('/api/guild/:guildId/tickets-open', authMiddleware, (req, res) => {
 
 // Ticket History
 app.get('/api/guild/:guildId/tickets-history', authMiddleware, (req, res) => {
-    const data = readBotStore('ticket-history') || {};
+    const data = peekBotStore('ticket-history') || {};
     const history = data[req.params.guildId] || [];
     res.json(history);
 });

@@ -100,10 +100,10 @@ function renderDiscord(input) {
 function buildDiscordPreview(cfg, botInfo) {
     const avatar = botInfo?.avatar || null;
     const username = botInfo?.username || 'xNico';
-    
+
     // Components Builder
     let componentsHtml = '';
-    
+
     // Custom Buttons (Message Builder / Welcomer Action Buttons)
     if (cfg.actionButtons && cfg.actionButtons.length > 0) {
         componentsHtml += `<div class="d-action-row">`;
@@ -115,7 +115,7 @@ function buildDiscordPreview(cfg, botInfo) {
         });
         componentsHtml += `</div>`;
     }
-    
+
     // Legacy/Direct buttons array (Welcomer)
     if (cfg.buttons && cfg.buttons.length > 0) {
         componentsHtml += `<div class="d-action-row">`;
@@ -138,11 +138,11 @@ function buildDiscordPreview(cfg, botInfo) {
     let embedHtml = '';
     let msgContent = '';
     let embedDesc = cfg.description || '';
-    
+
     // In welcomer, if mode is 'components', content goes to embed description usually.
     // In message-builder, embed mode means content is outside, description is inside.
     const mode = cfg.mode || 'components';
-    
+
     if (mode === 'text') {
         msgContent = cfg.content || 'Welcome to the server!';
     } else if (cfg._isWelcomer) {
@@ -158,7 +158,7 @@ function buildDiscordPreview(cfg, botInfo) {
 
     if (hasEmbed && mode !== 'text') {
         const color = cfg.colorless ? 'transparent' : (cfg.color || '#bcf1e4');
-        
+
         let fieldsHtml = '';
         if (cfg.fields && cfg.fields.length > 0) {
             fieldsHtml = `<div class="d-embed-fields">`;
@@ -356,7 +356,7 @@ function playTudum() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
-        
+
         const playHit = (time, freqs, duration, attack, volume) => {
             freqs.forEach(freq => {
                 const osc = ctx.createOscillator();
@@ -381,7 +381,7 @@ function playTudum() {
         const now = ctx.currentTime;
         playHit(now, [32.7, 65.4, 98], 0.4, 0.02, 0.6);
         playHit(now + 0.18, [32.7, 65.4, 130.8, 196, 261.6], 2.5, 0.05, 0.8);
-        
+
         const bufferSize = ctx.sampleRate * 2.5;
         const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
         const output = noiseBuffer.getChannelData(0);
@@ -1113,7 +1113,7 @@ function pageSetup() {
 async function pageServerOverview() {
     const g = state.currentGuild;
     const mods = window.XNICO_MODULES || [];
-    
+
     // Optimistic Render
     $('#page').innerHTML = `
         <div class="page-h">
@@ -1142,11 +1142,11 @@ async function pageServerOverview() {
     // Fetch Analytics async
     api(`/api/guild/${g.id}/analytics`).then(a => {
         if (!a) a = {};
-        const $e = document.getElementById('ov-cmds'); if($e) $e.textContent = (a.commandsUsed ?? 0).toLocaleString();
-        const $m = document.getElementById('ov-msgs'); if($m) $m.textContent = (a.messagesLogged ?? 0).toLocaleString();
-        const $w = document.getElementById('ov-warns'); if($w) $w.textContent = (a.activeWarnings ?? 0).toLocaleString();
-        const $ec = document.getElementById('ov-econ'); if($ec) $ec.textContent = (a.economyFlow ?? 0).toLocaleString();
-    }).catch(()=>{});
+        const $e = document.getElementById('ov-cmds'); if ($e) $e.textContent = (a.commandsUsed ?? 0).toLocaleString();
+        const $m = document.getElementById('ov-msgs'); if ($m) $m.textContent = (a.messagesLogged ?? 0).toLocaleString();
+        const $w = document.getElementById('ov-warns'); if ($w) $w.textContent = (a.activeWarnings ?? 0).toLocaleString();
+        const $ec = document.getElementById('ov-econ'); if ($ec) $ec.textContent = (a.economyFlow ?? 0).toLocaleString();
+    }).catch(() => { });
 
     // Fetch Premium & Modules async
     api(`/api/guild/${g.id}/premium-status`).then(premium => {
@@ -1155,7 +1155,7 @@ async function pageServerOverview() {
             const actions = document.getElementById('overview-actions');
             if (actions) actions.innerHTML += `<span class="tag">${icon('crown')} Premium</span>`;
         }
-        
+
         const statuses = {};
         Promise.all(mods.map(async (m) => {
             const cfg = await api(`/api/guild/${g.id}/${m.id}`);
@@ -1165,8 +1165,8 @@ async function pageServerOverview() {
             if (card) card.outerHTML = renderModCard(m, enabled, false);
         })).then(() => {
             state.moduleStatus[g.id] = statuses;
-        }).catch(()=>{});
-    }).catch(()=>{});
+        }).catch(() => { });
+    }).catch(() => { });
 }
 
 function renderModCard(m, enabled, loading = false) {
@@ -1481,7 +1481,7 @@ function renderField(f, working) {
             fieldHtml = `<div class="form-row"><label>${esc(f.label)}</label><input type="text" data-key="${esc(f.key)}" value="${esc(val || '')}"></div>`;
             break;
     }
-    
+
     if (f.premium) {
         return window.premLock(fieldHtml, 'Premium Feature');
     }
@@ -1898,7 +1898,7 @@ window.__profileEditBio = () => {
 // Edit rank + profile card modal
 window.__profileEditCard = () => {
     const d = window.__profileData;
-    
+
     if (!d.user.hasPremium && !d.user.hasVoted && !d.user.isOwner) {
         const wrap = document.createElement('div');
         wrap.className = 'modal-wrap';

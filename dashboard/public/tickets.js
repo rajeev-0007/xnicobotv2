@@ -144,7 +144,7 @@ function _renderTicketsBody(g, w, tickets, history) {
             <tbody>${tickets.map(t => {
                 const ch = state.channels.find(c => c.id === t.channelId);
                 return `<tr>
-                    <td>${ch ? '#' + esc(ch.name) : `<code>${esc(t.channelId)}</code>`}</td>
+                    <td><a href="https://discord.com/channels/${g.id}/${t.channelId}" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:500;">${ch ? '#' + esc(ch.name) : `<code>${esc(t.channelId)}</code>`}</a></td>
                     <td class="mono text-xs">${esc(t.userId)}</td>
                     <td><span class="tag">${esc(t.category)}</span></td>
                     <td class="text-xs">${t.createdAt ? new Date(t.createdAt).toLocaleString() : '—'}</td>
