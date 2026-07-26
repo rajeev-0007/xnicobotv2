@@ -2401,79 +2401,80 @@ app.get('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
     });
 });
 
-app.put('/api/guild/:guildId/tickets-config', authMiddleware, (req, res) => {
+app.put('/api/guild/:guildId/tickets-config', authMiddleware, async (req, res) => {
     const gid = req.params.guildId;
     const body = req.body || {};
-    const data = readBotStore('tickets') || {};
-    if (!data[gid]) data[gid] = { tickets: {}, nextTicketNumber: 0 };
-    const cfg = data[gid];
-    if (body.enabled !== undefined) cfg.enabled = !!body.enabled;
-    if (body.channelId !== undefined) cfg.channelId = body.channelId || null;
-    if (body.categoryId !== undefined) cfg.categoryId = body.categoryId || null;
-    if (body.supportRoleId !== undefined) cfg.supportRoleId = body.supportRoleId || null;
-    if (Array.isArray(body.categories)) {
-        cfg.categories = body.categories
-            .filter(c => c?.id && c?.label)
-            .map(c => ({
-                id: String(c.id).toLowerCase().replace(/\s+/g, '-').slice(0, 32),
-                label: String(c.label).slice(0, 80),
-                emoji: String(c.emoji || '🎫').slice(0, 32),
-                description: String(c.description || '').slice(0, 100)
-            }));
-        // Ensure the default panel exposes all categories by setting it to empty array
-        // (Empty array means "expose entire pool" in ticket-setup.js)
-        if (cfg.panels && cfg.panels.default) {
-            cfg.panels.default.categoryIds = [];
-        }
-    }
+    try {
+        await jsonStore.updateGuildEntry('tickets', gid, (cfg) => {
+            if (!cfg) cfg = { tickets: {}, nextTicketNumber: 0 };
+            if (body.enabled !== undefined) cfg.enabled = !!body.enabled;
+            if (body.channelId !== undefined) cfg.channelId = body.channelId || null;
+            if (body.categoryId !== undefined) cfg.categoryId = body.categoryId || null;
+            if (body.supportRoleId !== undefined) cfg.supportRoleId = body.supportRoleId || null;
+            if (Array.isArray(body.categories)) {
+                cfg.categories = body.categories
+                    .filter(c => c?.id && c?.label)
+                    .map(c => ({
+                        id: String(c.id).toLowerCase().replace(/\s+/g, '-').slice(0, 32),
+                        label: String(c.label).slice(0, 80),
+                        emoji: String(c.emoji || '🎫').slice(0, 32),
+                        description: String(c.description || '').slice(0, 200)
+                    }));
+                if (cfg.panels && cfg.panels.default) {
+                    cfg.panels.default.categoryIds = [];
+                }
+            }
 
-    if (body.panelMessage !== undefined) {
-        if (!body.panelMessage) {
-            delete cfg.panelMessage;
-        } else {
-            cfg.panelMessage = {
-                mode: String(body.panelMessage.mode || 'components'),
-                content: String(body.panelMessage.content || '').slice(0, 2000),
-                title: String(body.panelMessage.title || '').slice(0, 256),
-                description: String(body.panelMessage.description || '').slice(0, 4096),
-                color: String(body.panelMessage.color || '#5865F2').slice(0, 20),
-                image: String(body.panelMessage.image || '').slice(0, 500),
-                thumbnail: String(body.panelMessage.thumbnail || '').slice(0, 500),
-                footer: String(body.panelMessage.footer || '').slice(0, 2048),
-                footerIcon: String(body.panelMessage.footerIcon || '').slice(0, 500),
-                author: String(body.panelMessage.author || '').slice(0, 256),
-                authorIcon: String(body.panelMessage.authorIcon || '').slice(0, 500)
-            };
-        }
-    }
+            if (body.panelMessage !== undefined) {
+                if (!body.panelMessage) {
+                    delete cfg.panelMessage;
+                } else {
+                    cfg.panelMessage = {
+                        mode: String(body.panelMessage.mode || 'components'),
+                        content: String(body.panelMessage.content || '').slice(0, 2000),
+                        title: String(body.panelMessage.title || '').slice(0, 256),
+                        description: String(body.panelMessage.description || '').slice(0, 4096),
+                        color: String(body.panelMessage.color || '#5865F2').slice(0, 20),
+                        image: String(body.panelMessage.image || '').slice(0, 500),
+                        thumbnail: String(body.panelMessage.thumbnail || '').slice(0, 500),
+                        footer: String(body.panelMessage.footer || '').slice(0, 2048),
+                        footerIcon: String(body.panelMessage.footerIcon || '').slice(0, 500),
+                        author: String(body.panelMessage.author || '').slice(0, 256),
+                        authorIcon: String(body.panelMessage.authorIcon || '').slice(0, 500)
+                    };
+                }
+            }
 
-    if (body.welcomeMessage !== undefined) {
-        if (!body.welcomeMessage) {
-            delete cfg.welcomeMessage;
-        } else {
-            cfg.welcomeMessage = {
-                mode: String(body.welcomeMessage.mode || 'components'),
-                content: String(body.welcomeMessage.content || '').slice(0, 2000),
-                title: String(body.welcomeMessage.title || '').slice(0, 256),
-                description: String(body.welcomeMessage.description || '').slice(0, 4096),
-                color: String(body.welcomeMessage.color || '#5865F2').slice(0, 20),
-                image: String(body.welcomeMessage.image || '').slice(0, 500),
-                thumbnail: String(body.welcomeMessage.thumbnail || '').slice(0, 500),
-                footer: String(body.welcomeMessage.footer || '').slice(0, 2048),
-                footerIcon: String(body.welcomeMessage.footerIcon || '').slice(0, 500),
-                author: String(body.welcomeMessage.author || '').slice(0, 256),
-                authorIcon: String(body.welcomeMessage.authorIcon || '').slice(0, 500)
-            };
-        }
+            if (body.welcomeMessage !== undefined) {
+                if (!body.welcomeMessage) {
+                    delete cfg.welcomeMessage;
+                } else {
+                    cfg.welcomeMessage = {
+                        mode: String(body.welcomeMessage.mode || 'components'),
+                        content: String(body.welcomeMessage.content || '').slice(0, 2000),
+                        title: String(body.welcomeMessage.title || '').slice(0, 256),
+                        description: String(body.welcomeMessage.description || '').slice(0, 4096),
+                        color: String(body.welcomeMessage.color || '#5865F2').slice(0, 20),
+                        image: String(body.welcomeMessage.image || '').slice(0, 500),
+                        thumbnail: String(body.welcomeMessage.thumbnail || '').slice(0, 500),
+                        footer: String(body.welcomeMessage.footer || '').slice(0, 2048),
+                        footerIcon: String(body.welcomeMessage.footerIcon || '').slice(0, 500),
+                        author: String(body.welcomeMessage.author || '').slice(0, 256),
+                        authorIcon: String(body.welcomeMessage.authorIcon || '').slice(0, 500)
+                    };
+                }
+            }
+            return cfg;
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
-
-    writeBotStore('tickets', data);
-    res.json({ success: true });
 });
 
 // List open tickets
 app.get('/api/guild/:guildId/tickets-open', authMiddleware, (req, res) => {
-    const data = readBotStore('tickets') || {};
+    const data = peekBotStore('tickets') || {};
     const cfg = data[req.params.guildId] || {};
     const tickets = cfg.tickets || {};
     const list = Object.entries(tickets).map(([channelId, t]) => ({
@@ -2487,7 +2488,7 @@ app.get('/api/guild/:guildId/tickets-open', authMiddleware, (req, res) => {
 
 // Ticket History
 app.get('/api/guild/:guildId/tickets-history', authMiddleware, (req, res) => {
-    const data = readBotStore('ticket-history') || {};
+    const data = peekBotStore('ticket-history') || {};
     const history = data[req.params.guildId] || [];
     res.json(history);
 });
@@ -4177,7 +4178,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
             }
         }
     }
-    let totalMessages = 0, totalVoiceTime = 0, totalXp = 0, highestLevel = 0, totalWarnings = 0, totalInvites = 0;
+    let totalVoiceTime = 0, totalWarnings = 0, totalInvites = 0;
     const guildStats = [];
 
     for (const m of memberEntries) {
@@ -4187,8 +4188,7 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
         const voice = Number(m.analytics?.voiceTime || 0);
         const warnings = Array.isArray(m.warnings) ? m.warnings.length : 0;
         const invites = Number(m.invites?.invites || 0);
-        totalMessages += msgs; totalVoiceTime += voice; totalXp += xp;
-        if (level > highestLevel) highestLevel = level;
+        totalVoiceTime += voice;
         totalWarnings += warnings; totalInvites += invites;
         guildStats.push({ guildId: m.guild_id, xp, level, messages: msgs, voiceTime: voice, warnings, invites });
     }
@@ -4205,9 +4205,14 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
             if (msgs > existing.messages) existing.messages = msgs;
         } else {
             guildStats.push({ guildId, xp, level, messages: msgs, voiceTime: 0, warnings: 0, invites: 0 });
-            totalXp += xp; totalMessages += msgs;
-            if (level > highestLevel) highestLevel = level;
         }
+    }
+
+    let totalMessages = 0, totalXp = 0, highestLevel = 0;
+    for (const g of guildStats) {
+        totalXp += g.xp;
+        totalMessages += g.messages;
+        if (g.level > highestLevel) highestLevel = g.level;
     }
 
     guildStats.sort((a, b) => b.xp - a.xp);
@@ -4412,18 +4417,41 @@ app.get('/api/users/me/analytics', authMiddleware, (req, res) => {
         }
     }
 
-    const totalMsgs = memberEntries.reduce((s, m) => s + Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0), 0);
-    const totalVoice = memberEntries.reduce((s, m) => s + Number(m.analytics?.voiceTime || 0), 0);
-
-    const topGuilds = memberEntries
-        .map(m => ({
+    const guildStats = new Map();
+    for (const m of memberEntries) {
+        guildStats.set(m.guild_id, {
             guildId: m.guild_id,
             xp: Number(m.leveling?.xp || 0),
-            level: Number(m.leveling?.level || 0),
-            messages: Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0)
-        }))
-        .sort((a, b) => b.xp - a.xp)
-        .slice(0, 5);
+            level: Number(m.leveling?.level || Math.floor(0.1 * Math.sqrt(Number(m.leveling?.xp || 0)))),
+            messages: Number(m.analytics?.totalMessages || m.leveling?.messageCount || 0),
+            voiceTime: Number(m.analytics?.voiceTime || 0)
+        });
+    }
+
+    for (const [guildId, guildUsers] of Object.entries(levelingStore)) {
+        const userLv = guildUsers ? guildUsers[discordId] : null;
+        if (!userLv) continue;
+        const xp = Number(userLv.xp || 0);
+        const level = Number(userLv.level || Math.floor(0.1 * Math.sqrt(xp)));
+        const msgs = Number(userLv.messages || 0);
+        const existing = guildStats.get(guildId);
+        if (existing) {
+            if (xp > existing.xp) { existing.xp = xp; existing.level = level; }
+            if (msgs > existing.messages) existing.messages = msgs;
+        } else {
+            guildStats.set(guildId, { guildId, xp, level, messages: msgs, voiceTime: 0 });
+        }
+    }
+
+    let totalMsgs = 0;
+    let totalVoice = 0;
+    const allGuilds = Array.from(guildStats.values());
+    for (const g of allGuilds) {
+        totalMsgs += g.messages;
+        totalVoice += g.voiceTime;
+    }
+
+    const topGuilds = allGuilds.sort((a, b) => b.xp - a.xp).slice(0, 5);
 
     const guildRanks = topGuilds.map(g => {
         const xpData = levelingStore[g.guildId] || {};
