@@ -4065,11 +4065,17 @@ app.post('/api/premium/generate', authMiddleware, ownerOnly, (req, res) => {
     const duration = String(req.body.duration || '30d');
     const key = 'XNICO-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase(); // nosonar
     const entry = {
-        key, tier, duration,
+        key,
+        type: 'user', // tier is legacy, bot uses type
+        duration,
         createdBy: req.user.username,
         createdById: req.user.discordId || req.user.id,
         createdAt: new Date().toISOString(),
-        redeemed: false
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        redeemed: false,
+        redeemedBy: null,
+        redeemedAt: null,
+        guildId: null
     };
 
     // 1. Local dashboard ledger

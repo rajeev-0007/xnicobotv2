@@ -453,6 +453,18 @@ async function showDashboard() {
         renderSidebar();
         renderUserBadge();
 
+        const ident = $('#ident-overlay');
+        let identPromise = Promise.resolve();
+        
+        if (ident) {
+            ident.classList.remove('hidden');
+            $('#auth-loading').classList.add('hidden');
+            // Play sound
+            playTudum();
+            // Wait for animation concurrently with API calls
+            identPromise = new Promise(r => setTimeout(r, 2800));
+        }
+
         // Load user guilds (tolerate failure — the rest of the UI still works)
         const guilds = await api('/api/guilds/me');
         state.guilds = Array.isArray(guilds) ? guilds : [];
@@ -462,16 +474,12 @@ async function showDashboard() {
         if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light'); // nosonar
         updateThemeIcon();
 
-        $('#auth-loading').classList.add('hidden');
-        const ident = $('#ident-overlay');
         if (ident) {
-            ident.classList.remove('hidden');
-            // Play sound
-            playTudum();
-            // Wait for animation
-            await new Promise(r => setTimeout(r, 2800));
+            await identPromise;
             ident.classList.add('fade-out');
             setTimeout(() => ident.remove(), 600);
+        } else {
+            $('#auth-loading').classList.add('hidden');
         }
 
         $('#dashboard').classList.remove('hidden');
@@ -485,6 +493,8 @@ async function showDashboard() {
         // Surface it and drop back to a usable state.
         console.error('[xNico] Dashboard failed to render:', e);
         $('#auth-loading').classList.add('hidden');
+        const ident = $('#ident-overlay');
+        if (ident) ident.remove();
         $('#dashboard').classList.remove('hidden');
         toast('Something went wrong loading the dashboard. ' + (e.message || String(e)), 'error');
     }
