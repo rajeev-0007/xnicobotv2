@@ -47,8 +47,9 @@ async function handleUpload(reply, guild, user, name, source, volume) {
         // Upload to guild soundboard
         const sound = await guild.soundboardSounds.create({
             name: cleanName,
-            sound: buffer,
+            file: buffer,
             volume: Math.min(1, Math.max(0, volume || 1)),
+            emojiName: '🎵',
             reason: `Uploaded by ${user.username} via uploadsoundboard`,
         });
 
