@@ -4062,12 +4062,15 @@ app.get('/api/premium', authMiddleware, ownerOnly, (req, res) => {
 });
 app.post('/api/premium/generate', authMiddleware, ownerOnly, (req, res) => {
     const tier = 'user'; // Server premium discontinued — only user keys are generated.
-    const duration = String(req.body.duration || '30d');
+    let parsedDuration = 30;
+    if (req.body.duration === 'lifetime') parsedDuration = null;
+    else if (req.body.duration) parsedDuration = parseInt(req.body.duration, 10) || 30;
+
     const key = 'XNICO-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase(); // nosonar
     const entry = {
         key,
         type: 'user', // tier is legacy, bot uses type
-        duration,
+        duration: parsedDuration,
         createdBy: req.user.username,
         createdById: req.user.discordId || req.user.id,
         createdAt: new Date().toISOString(),
