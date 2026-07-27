@@ -33,6 +33,12 @@ module.exports = {
         }
 
         const keyCode = args[0].toUpperCase();
+        
+        // Force a sync with the database so dashboard-generated keys are visible immediately
+        const jsonStore = require('../../utils/jsonStore');
+        if (typeof jsonStore.smartRefresh === 'function') await jsonStore.smartRefresh();
+        else if (typeof jsonStore.refresh === 'function') await jsonStore.refresh();
+
         const result = premiumManager.redeemKey(message.author.id, keyCode);
 
         if (!result.success) {
