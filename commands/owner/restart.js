@@ -8,7 +8,7 @@
 
 const { isOwner } = require('../../utils/helpers');
 const jsonStore = require('../../utils/jsonStore');
-const { MessageFlags, ContainerBuilder, TextDisplayBuilder } = require('discord.js');
+const { MessageFlags, ContainerBuilder, TextDisplayBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const log = require('../../utils/logger');
 const { buildErrorResponse } = require('../../utils/responseBuilder');
 
@@ -54,18 +54,66 @@ module.exports = {
         const activePlayers = getActivePlayers(message.client);
         const playerInfo = formatPlayerInfo(activePlayers);
 
-        if (activePlayers.length) {
-            log.warning?.(`Restart initiated with ${activePlayers.length} active player(s): ${activePlayers.map(p => `${p.guild} → ${p.track}`).join(', ')}`);
-        }
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('confirm_restart')
+                .setLabel('Restart')
+                .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+                .setCustomId('cancel_restart')
+                .setLabel('Cancel')
+                .setStyle(ButtonStyle.Secondary)
+        );
 
         const container = new ContainerBuilder()
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-                `# <:Refresh:1521227946441052420> Restarting Bot\n\n**Status:** Flushing database and restarting...\n**Expected downtime:** 5-10 seconds${playerInfo}`
-            ));
+                `# ⚠️ Restart Confirmation\n\nAre you sure you want to restart the bot?${playerInfo}`
+            ))
+            .addActionRowComponents(row);
 
-        await message.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+        const replyMessage = await message.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
 
-        try { await jsonStore.flush(); } catch {}
-        setTimeout(() => process.exit(1), 1000);
+        const collector = replyMessage.createMessageComponentCollector({
+            filter: i => i.user.id === message.author.id,
+            time: 30000,
+            max: 1
+        });
+
+        collector.on('collect', async i => {
+            if (i.customId === 'cancel_restart') {
+                const cancelContainer = new ContainerBuilder()
+                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                        `# ❌ Restart Cancelled\n\nThe bot restart was cancelled.`
+                    ));
+                await i.update({ components: [cancelContainer], flags: MessageFlags.IsComponentsV2 });
+                return;
+            }
+
+            if (i.customId === 'confirm_restart') {
+                if (activePlayers.length) {
+                    log.warning?.(`Restart initiated with ${activePlayers.length} active player(s): ${activePlayers.map(p => `${p.guild} → ${p.track}`).join(', ')}`);
+                }
+
+                const confirmContainer = new ContainerBuilder()
+                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                        `# <:Refresh:1521227946441052420> Restarting Bot\n\n**Status:** Flushing database and restarting...\n**Expected downtime:** 5-10 seconds`
+                    ));
+
+                await i.update({ components: [confirmContainer], flags: MessageFlags.IsComponentsV2 });
+
+                try { await jsonStore.flush(); } catch { }
+                setTimeout(() => process.exit(1), 1000);
+            }
+        });
+
+        collector.on('end', async (collected, reason) => {
+            if (reason === 'time' && collected.size === 0) {
+                const timeoutContainer = new ContainerBuilder()
+                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                        `# ⏱️ Restart Cancelled\n\nConfirmation timed out.`
+                    ));
+                await replyMessage.edit({ components: [timeoutContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => { });
+            }
+        });
     }
 };

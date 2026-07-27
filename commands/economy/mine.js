@@ -1,22 +1,22 @@
 'use strict';
 
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const { formatCoins, formatCoinsShort , coinIcon, formatCoinsAmount } = require('../../utils/currencyHelper');
+const { formatCoins, formatCoinsShort, coinIcon, formatCoinsAmount } = require('../../utils/currencyHelper');
 const { createContainer, addTextDisplay, addSeparator, formatNumber, SeparatorSpacingSize } = require('../../utils/componentHelpers');
 const economyManager = require('../../utils/economyManager');
 const { EMOJIS } = require('../../utils/economyEmojis');
 const jsonStore = require('../../utils/jsonStore');
 const { applyIncomeTax, formatTaxFootnote } = require('../../utils/taxHelper');
 
-const COOLDOWN = 30 * 60 * 1000;
+const COOLDOWN = 30 * 1000;
 const cooldowns = new Map();
 
 const ORE_TABLE = [
-  { id: 'stone',       name: 'Stone',       emoji: '🪨', weight: 40, value: 5   },
-  { id: 'iron_ore',    name: 'Iron Ore',    emoji: '⚙', weight: 30, value: 25  },
-  { id: 'gold_ore',    name: 'Gold Ore',    emoji: '🟡', weight: 15, value: 75  },
+  { id: 'stone', name: 'Stone', emoji: '🪨', weight: 40, value: 5 },
+  { id: 'iron_ore', name: 'Iron Ore', emoji: '⚙', weight: 30, value: 25 },
+  { id: 'gold_ore', name: 'Gold Ore', emoji: '🟡', weight: 15, value: 75 },
   { id: 'diamond_ore', name: 'Diamond Ore', emoji: '<:Sketch:1521228025365004471>', weight: 10, value: 200 },
-  { id: 'emerald_ore', name: 'Emerald Ore', emoji: '💚', weight: 5,  value: 500 },
+  { id: 'emerald_ore', name: 'Emerald Ore', emoji: '💚', weight: 5, value: 500 },
 ];
 
 function pickOre(boost = false) {
@@ -53,8 +53,8 @@ function getPickaxeBonus(userId, userData) {
   };
 
   if (owns('diamond_pickaxe')) return { name: 'Diamond Pickaxe', bonus: 3, emoji: '<:Sketch:1521228025365004471>' };
-  if (owns('gold_pickaxe'))    return { name: 'Gold Pickaxe',    bonus: 2, emoji: '<:Money:1521228266957045900>' };
-  if (owns('iron_pickaxe'))    return { name: 'Iron Pickaxe',    bonus: 1, emoji: '⛏' };
+  if (owns('gold_pickaxe')) return { name: 'Gold Pickaxe', bonus: 2, emoji: '<:Money:1521228266957045900>' };
+  if (owns('iron_pickaxe')) return { name: 'Iron Pickaxe', bonus: 1, emoji: '⛏' };
   return null;
 }
 
@@ -73,7 +73,7 @@ async function handleMine(reply, userId, guildId) {
       `# ${EMOJIS.sandwatch} Mining Cooldown`,
       '',
       `${EMOJIS.alarm} You need to rest! Come back in **${timeStr}**.`,
-      `-# Mining cooldown: 30 minutes`,
+      `-# Mining cooldown: 30 Seconds`,
     ].join('\n'));
     return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
   }
@@ -132,7 +132,7 @@ async function handleMine(reply, userId, guildId) {
     `💼 **Total mines:** ${formatNumber(userData.miningCount)}`,
     `${coinIcon(guildId)} **Wallet:** ${formatCoinsAmount(userData.coins, guildId)}`,
     `${pickaxeLine}${boostLine}${taxBlock}`,
-    `-# Cooldown: 30 minutes`,
+    `-# Cooldown: 30 Seconds`,
   ].join('\n'));
 
   return reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
