@@ -12,43 +12,43 @@ function buildInviteResponse(client) {
     const headerSection = new SectionBuilder()
         .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `# <:bots:1521227848101396610> Invite Nico\n\n` +
+                `# <:xnico:1521228240440660180> Invite Nico\n\n` +
                 `Add me to your server and unlock powerful features!`
             )
         )
         .setThumbnailAccessory(new ThumbnailBuilder({ media: { url: client.user.displayAvatarURL({ size: 256 }) } }));
 
     container.addSectionComponents(headerSection);
-    
+
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    
+
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
             `### <:Fire:1521227907647668374> Features\n` +
-            `<:Invoice:1521227903956811836> **Music** • Stream from YouTube, Spotify, SoundCloud\n` +
-            `<:Invoice:1521227903956811836> **Moderation** • Anti-nuke, Anti-raid, Auto-mod\n` +
-            `<:Invoice:1521227903956811836> **Leveling** • XP system with role rewards\n` +
-            `<:Invoice:1521227903956811836> **Economy** • Currency, shop, gambling\n` +
-            `<:Invoice:1521227903956811836> **Tickets** • Support ticket system\n` +
-            `<:Invoice:1521227903956811836> **Giveaways** • Host interactive giveaways\n` +
-            `<:Invoice:1521227903956811836> **Welcomer** • Custom welcome/leave messages`
+            `<:Music:1521228141543165982> **Music** • Stream from YouTube, Spotify, SoundCloud\n` +
+            `<:banhammer:1521227777083314529> **Moderation** • Anti-nuke, Anti-raid, Auto-mod\n` +
+            `<:Lightningalt:1521227851796447472> **Leveling** • XP system with role rewards\n` +
+            `<:NICO:1530980063028183082> **Economy** • Currency, shop, gambling\n` +
+            `<:Envelopeopen:1521228083049271540> **Tickets** • Support ticket system\n` +
+            `<:Present:1521228115655917659> **Giveaways** • Host interactive giveaways\n` +
+            `<:rocket:1521228374805057756> **Welcomer** • Custom welcome/leave messages`
         )
     );
-    
+
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    
+
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
             `### <:Lightning:1521227915537285150> Statistics\n` +
             `<:Folder:1521228095225331765> **${client.guilds.cache.size}** Servers\n` +
             `<:Userplus:1521227719621218477> **${totalMembers.toLocaleString()}** Users\n` +
             `<:Folder:1521228095225331765> **${totalChannels.toLocaleString()}** Channels\n` +
-            `<:Book:1521228246748889179> **${client.commands?.size || 517}** Commands`
+            `<a:glitchy:1531295690448179331> **${client.commands?.size || 517}** Commands`
         )
     );
-    
+
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    
+
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
             `-# Click the button below to add me to your server!`
@@ -80,7 +80,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('invite')
         .setDescription('Get the bot invite link'),
-    
+
     async execute(interaction) {
         try {
             const { container, row } = buildInviteResponse(interaction.client);
@@ -89,9 +89,9 @@ module.exports = {
             console.error(`[INVITE] Error:`, error);
             const content = '<:Cancel:1521227723916181644> An error occurred while running this command.';
             if (interaction.deferred || interaction.replied) {
-                await interaction.editReply({ content }).catch(() => {});
+                await interaction.editReply({ content }).catch(() => { });
             } else {
-                await interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
+                await interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => { });
             }
         }
     },
@@ -102,7 +102,7 @@ module.exports = {
             await message.reply({ components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error(`[INVITE] Error:`, error);
-            await message.reply('<:Cancel:1521227723916181644> An error occurred while running this command.').catch(() => {});
+            await message.reply('<:Cancel:1521227723916181644> An error occurred while running this command.').catch(() => { });
         }
     }
 };
