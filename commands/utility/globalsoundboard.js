@@ -180,12 +180,18 @@ function attachCollector(panelMessage, ownerId, guild, state) {
                     const response = await require('axios').get(url, { responseType: 'arraybuffer', timeout: 10000 });
                     const buffer = Buffer.from(response.data);
 
-                    await guild.soundboardSounds.create({
+                    const createOptions = {
                         name: sound.name,
-                        sound: buffer,
+                        file: buffer,
                         volume: sound.volume,
                         reason: `Cloned from ${sound.guildName} by ${i.user.username}`,
-                    });
+                    };
+                    if (sourceSound.emojiId) {
+                        createOptions.emojiId = sourceSound.emojiId;
+                    } else {
+                        createOptions.emojiName = sourceSound.emojiName || '🎵';
+                    }
+                    await guild.soundboardSounds.create(createOptions);
                     ok.push(sound.name);
                 } catch (err) {
                     fail.push({ name: sound.name, reason: err.message?.slice(0, 50) || 'Failed' });
