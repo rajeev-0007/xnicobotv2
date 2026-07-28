@@ -1317,7 +1317,9 @@ app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => { /
     }
 
     // Economy flow: total wallet+bank for THIS guild's members.
-    // The bot stores economy globally in `users` and `economy` stores, so we intersect `guild_members`.
+    // The bot stores economy globally in `economy` store keyed by user_id
+    // with fields { coins, bank }. We intersect with guild_members to
+    // scope the total to this guild only.
     let economyFlow = 0;
     const usersStore = readBotStore('users') || [];
     const economyStore = readBotStore('economy') || {};
@@ -1333,19 +1335,13 @@ app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => { /
         }
     }
     
-    if (guildMemberEconomy.length) {
-        for (const m of guildMemberEconomy) {
-            const u = usersStore.find(user => user.user_id === m.user_id);
-            const userEconomy = economyStore[m.user_id] || (u && u.economy);
-            if (userEconomy) {
-                economyFlow += Number(userEconomy.balance || userEconomy.coins || 0);
-                economyFlow += Number(userEconomy.bank || 0);
-            }
-        }
-    } else {
-        // Fallback for completely empty guilds or legacy `economy.json`
-        for (const e of Object.values(economyStore)) {
-            economyFlow += Number(e.coins || e.balance || 0) + Number(e.bank || 0);
+    for (const m of guildMemberEconomy) {
+        const u = Array.isArray(usersStore) ? usersStore.find(user => user.user_id === m.user_id) : null;
+        const userEconomy = economyStore[m.user_id] || (u && u.economy);
+        if (userEconomy) {
+            // The economy store uses 'coins' for wallet balance
+            economyFlow += Number(userEconomy.coins || 0);
+            economyFlow += Number(userEconomy.bank || 0);
         }
     }
 
@@ -2770,9 +2766,9 @@ app.get('/api/guild/:guildId/economy-leaderboard', authMiddleware, (req, res) =>
 
     const mergedEconomy = { ...economyStore };
     for (const u of usersStore) {
-        if (u.economy && (!mergedEconomy[u.user_id] || (!mergedEconomy[u.user_id].coins && !mergedEconomy[u.user_id].balance))) {
+        if (u.economy && (!mergedEconomy[u.user_id] || !mergedEconomy[u.user_id].coins)) {
             mergedEconomy[u.user_id] = {
-                coins: Number(u.economy.balance || u.economy.coins || 0),
+                coins: Number(u.economy.coins || 0),
                 bank: Number(u.economy.bank || 0),
                 level: 1,
                 streak: 0
@@ -4326,9 +4322,9 @@ app.get('/api/users/me/profile', authMiddleware, (req, res) => { // nosonar
             memberSince: userRec.created_at || null
         },
         economy: {
-            wallet: Number(economy.balance || economy.coins || 0),
+            wallet: Number(economy.coins || 0),
             bank: Number(economy.bank || 0),
-            total: Number(economy.balance || economy.coins || 0) + Number(economy.bank || 0),
+            total: Number(economy.coins || 0) + Number(economy.bank || 0),
             inventory: Array.isArray(economy.inventory) ? economy.inventory : [],
             lastDaily: economy.lastDaily || null,
             lastWeekly: economy.lastWeekly || null,
