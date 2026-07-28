@@ -230,16 +230,18 @@ window.XNICO_MODULES = [
         id: 'suggestions',
         name: 'Suggestions',
         group: 'Utility',
-        description: 'Community suggestion system with voting and auto-logging.',
+        description: 'Numbered suggestion cards with vote bars, threads, mod review and DMs.',
         icon: 'bulb',
+        premium: true,
         custom: true
     },
     {
         id: 'feedback',
         name: 'Feedback',
         group: 'Utility',
-        description: 'Star-rating feedback system with analytics.',
+        description: 'Star-rated feedback panel and analytics.',
         icon: 'star',
+        premium: true,
         custom: true
     },
     {
@@ -353,7 +355,7 @@ window.XNICO_MODULES = [
         name: 'Bot Customize',
         group: 'Premium',
         premium: true,
-        description: 'Customize bot nickname, prefix, embed colors, and behavior. Premium only.',
+        description: 'Custom bot nickname, avatar, prefix, embed colors and footer per server.',
         icon: 'settings',
         custom: true
     },
@@ -363,7 +365,7 @@ window.XNICO_MODULES = [
         id: 'aichat',
         name: 'AI Chat',
         group: 'Engagement',
-        description: 'Conversational AI chat in a designated channel. Choose model, prompt, tokens.',
+        description: 'Set up a dedicated AI chat channel powered by Llama 3 / Groq.',
         icon: 'chat',
         premium: true,
         custom: true
@@ -420,16 +422,18 @@ window.XNICO_MODULES = [
         id: 'vanityguard',
         name: 'Vanity Guard',
         group: 'Moderation',
-        description: 'Protect your vanity URL from unauthorized changes.',
+        description: 'Detect, revert, and optionally ban anyone who changes the server vanity URL without permission.',
         icon: 'shield',
+        premium: true,
         custom: true
     },
     {
         id: 'confessions',
         name: 'Confessions',
         group: 'Utility',
-        description: 'Anonymous confession channel with moderation controls.',
+        description: 'Anonymous confession channel with reply threads and admin-only audit log.',
         icon: 'chat',
+        premium: true,
         custom: true
     },
     {
@@ -447,6 +451,107 @@ window.XNICO_MODULES = [
         description: 'Browse the real moderation cases logged by /warn, /ban, /kick, /timeout.',
         icon: 'log',
         custom: true
+    },
+
+    {
+        id: 'autonick',
+        name: 'Auto-Nick',
+        group: 'Utility',
+        description: 'Automatically nick new members to a custom format with {user} placeholders.',
+        icon: 'user-plus',
+        premium: true,
+        fields: [
+            { key: 'enabled', label: 'Enable Auto-Nick', type: 'toggle' },
+            { key: 'format', label: 'Nickname Format', type: 'text', desc: 'Use {user} for username.' }
+        ]
+    },
+    {
+        id: 'nightmode',
+        name: 'Night Mode',
+        group: 'Moderation',
+        description: 'Schedule channel lockdowns based on time of day to fight late-night raids.',
+        icon: 'moon',
+        premium: true,
+        fields: [
+            { key: 'enabled', label: 'Enable Night Mode', type: 'toggle' },
+            { key: 'startHour', label: 'Start Hour (0-23)', type: 'number', min: 0, max: 23 },
+            { key: 'endHour', label: 'End Hour (0-23)', type: 'number', min: 0, max: 23 },
+            { key: 'lockChannels', label: 'Channels to Lock', type: 'channels' },
+            { key: 'lockMessage', label: 'Lock Message', type: 'textarea' },
+            { key: 'logChannel', label: 'Log Channel', type: 'channel' }
+        ]
+    },
+    {
+        id: 'superthreatmode',
+        name: 'Super Threat Mode',
+        group: 'Moderation',
+        description: 'Tighten every protection (anti-nuke, anti-raid, automod) at once during an active threat.',
+        icon: 'shield',
+        premium: true,
+        fields: [
+            { key: 'enabled', label: 'Enable Super Threat Mode', type: 'toggle' },
+            { key: 'triggerThreshold', label: 'Joins per minute to trigger', type: 'number', min: 1, max: 100 },
+            { key: 'action', label: 'Auto Action', type: 'select', options: ['lockdown', 'kick', 'ban'] },
+            { key: 'notifyChannel', label: 'Alert Channel', type: 'channel' }
+        ]
+    },
+    {
+        id: 'currency',
+        name: 'Custom Currency',
+        group: 'Engagement',
+        description: 'Rename and re-emoji the server currency (gems, gold, credits \u2014 anything).',
+        icon: 'coin',
+        premium: true,
+        fields: [
+            { key: 'enabled', label: 'Enable Custom Currency', type: 'toggle' },
+            { key: 'currencyName', label: 'Currency Name', type: 'text', desc: 'e.g. Gems, Gold, Credits' },
+            { key: 'currencyEmoji', label: 'Currency Emoji', type: 'text', desc: 'Emoji to display next to amounts' }
+        ]
+    },
+    {
+        id: 'customshop',
+        name: 'Custom Shop',
+        group: 'Engagement',
+        description: 'Build a guild-specific shop with custom items and reward actions (give role, DM, add coins...).',
+        icon: 'gift',
+        premium: true,
+        fields: [
+            { key: 'enabled', label: 'Enable Custom Shop', type: 'toggle' },
+            { key: 'logChannel', label: 'Purchase Log Channel', type: 'channel' },
+            {
+                key: 'items', label: 'Shop Items', type: 'jsonList',
+                schema: [
+                    { key: 'name', label: 'Item Name', type: 'text' },
+                    { key: 'price', label: 'Price', type: 'number' },
+                    { key: 'roleReward', label: 'Reward Role (optional)', type: 'role' },
+                    { key: 'description', label: 'Description', type: 'textarea' }
+                ]
+            }
+        ]
+    },
+    {
+        id: 'loan',
+        name: 'Loan Office',
+        group: 'Engagement',
+        description: 'Borrow against your bank with daily interest and repay anytime.',
+        icon: 'trend',
+        premium: true,
+        fields: [
+            { key: 'enabled', label: 'Enable Loan Office', type: 'toggle' },
+            { key: 'maxLoan', label: 'Max Loan Amount', type: 'number', min: 100, max: 10000000 },
+            { key: 'dailyInterest', label: 'Daily Interest (%)', type: 'number', min: 1, max: 100 },
+            { key: 'logChannel', label: 'Log Channel', type: 'channel' }
+        ]
+    },,{
+        id: 'profilebadge',
+        name: 'Premium Profile Badge',
+        group: 'Premium',
+        description: 'A premium badge on your /profile and /userinfo views.',
+        icon: 'crown',
+        premium: true,
+        fields: [
+            { key: 'enabled', label: 'Show Premium Badge', type: 'toggle' }
+        ]
     },
 
     // ── Parity additions (dashboard v4.2): systems the bot supports that
@@ -573,3 +678,4 @@ window.XNICO_ICONS = {
     tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
     bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
 };
+

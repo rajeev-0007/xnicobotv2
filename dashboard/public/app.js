@@ -1272,6 +1272,17 @@ async function pageModule(mod) {
         api(`/api/guild/${g.id}/channels`),
         api(`/api/guild/${g.id}/roles`),
     ]);
+    if (cfg?._error && cfg?.status === 403) {
+        $('#page').innerHTML = `
+            <div class="page-h"><div><h1>${esc(mod.name)} <span class="tag amber">Premium</span></h1><p>${esc(mod.description)}</p></div></div>
+            <div class="empty premium-glow" style="border-radius:var(--radius)">
+                ${icon('crown')}
+                <h3>Premium Required</h3>
+                <p>${esc(mod.name)} is a premium feature. Unlock it to use this module on your server.</p>
+                <a class="btn primary mt-2" href="https://discord.gg/Zs35X7Umak" target="_blank">${icon('star')} Get Premium</a>
+            </div>`;
+        return;
+    }
     if (cfg?._error || cfg?._unauth) {
         $('#page').innerHTML = `<div class="empty"><h3>Failed to load</h3><p>${esc(cfg?.error || 'Unknown error')}</p></div>`;
         return;

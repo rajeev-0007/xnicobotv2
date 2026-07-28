@@ -24,14 +24,14 @@ function buildInviteResponse(client) {
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-            `### <:Fire:1521227907647668374> Features\n` +
-            `<:Music:1521228141543165982> **Music** • Stream from YouTube, Spotify, SoundCloud\n` +
-            `<:banhammer:1521227777083314529> **Moderation** • Anti-nuke, Anti-raid, Auto-mod\n` +
-            `<:Lightningalt:1521227851796447472> **Leveling** • XP system with role rewards\n` +
+            `### <:feature:1531637028138254417> Features\n` +
+            `<a:songs:1531635554934849556> **Music** • Stream from YouTube, Spotify, SoundCloud\n` +
+            `<a:HAMMER:1531654717829021858> **Moderation** • Anti-nuke, Anti-raid, Auto-mod\n` +
+            `<a:LEVELING:1531655197154345051> **Leveling** • XP system with role rewards\n` +
             `<:NICO:1530980063028183082> **Economy** • Currency, shop, gambling\n` +
-            `<:Envelopeopen:1521228083049271540> **Tickets** • Support ticket system\n` +
-            `<:Present:1521228115655917659> **Giveaways** • Host interactive giveaways\n` +
-            `<:rocket:1521228374805057756> **Welcomer** • Custom welcome/leave messages`
+            `<a:TICKET:1531658671367393340> **Tickets** • Support ticket system\n` +
+            `<a:gift:1531643397859708961> **Giveaways** • Host interactive giveaways\n` +
+            `<a:ROCKET1:1531658260786970636> **Welcomer** • Custom welcome/leave messages`
         )
     );
 
@@ -40,7 +40,7 @@ function buildInviteResponse(client) {
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
             `### <:Lightning:1521227915537285150> Statistics\n` +
-            `<:Folder:1521228095225331765> **${client.guilds.cache.size}** Servers\n` +
+            `<a:envelop:1531670145678704722> **${client.guilds.cache.size}** Servers\n` +
             `<:Userplus:1521227719621218477> **${totalMembers.toLocaleString()}** Users\n` +
             `<:Folder:1521228095225331765> **${totalChannels.toLocaleString()}** Channels\n` +
             `<a:glitchy:1531295690448179331> **${client.commands?.size || 517}** Commands`

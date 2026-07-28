@@ -184,6 +184,9 @@ const MODULE_TO_STORE = {
     'screenshot-verify':             'screenshot-verify',
     'screenshot-verify-submissions': 'screenshot-verify-submissions',
     'custom-shop':                   'custom-shop',
+    'customshop':                    'custom-shop',
+    'currency':                      'economy-settings',
+    'superthreatmode':               'superthreatmode',
     // Newly surfaced bot features. Each of these has a dedicated panel
     // command (`commands/admin/<name>.js`) writing to the store of the
     // same name; we expose them on the dashboard now so changes made
@@ -1153,6 +1156,14 @@ const MODULE_DEFAULTS = {
         model: 'llama-3.3-70b-versatile',
         temperature: 0.7, maxTokens: 1024, systemPrompt: ''
     }),
+    autonick: () => ({ enabled: false, format: '{user}' }),
+    nightmode: () => ({ enabled: false, startHour: 22, endHour: 6, lockChannels: [], lockMessage: 'The server is currently in Night Mode. Chat is locked.', logChannel: null }),
+    superthreatmode: () => ({ enabled: false, triggerThreshold: 10, action: 'lockdown', notifyChannel: null }),
+    currency: () => ({ enabled: false, currencyName: 'coins', currencyEmoji: '🪙' }),
+    customshop: () => ({ enabled: false, logChannel: null, items: [] }),
+    loan: () => ({ enabled: false, maxLoan: 5000, dailyInterest: 5, logChannel: null }),
+
+    profilebadge: () => ({ enabled: false }),
     birthdays: () => ({
         enabled: false, channelId: null, roleId: null,
         pingMode: 'user',          // user | role | here | everyone | none
@@ -2239,6 +2250,9 @@ app.put('/api/guild/:guildId/autorole-config', authMiddleware, (req, res) => {
 
 // â”€â”€ Suggestions CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/suggestions-config', authMiddleware, (req, res) => {
+    const premium = checkPremiumStatus(req, req.params.guildId);
+    if (!premium.hasPremium) return res.status(403).json({ error: 'Premium required' });
+
     const data = readBotStore('suggestions') || {};
     const cfg = data[req.params.guildId] || {};
     res.json({
@@ -2265,6 +2279,9 @@ app.put('/api/guild/:guildId/suggestions-config', authMiddleware, (req, res) => 
 
 // â”€â”€ Feedback CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/feedback-config', authMiddleware, (req, res) => {
+    const premium = checkPremiumStatus(req, req.params.guildId);
+    if (!premium.hasPremium) return res.status(403).json({ error: 'Premium required' });
+
     const data = readBotStore('feedback') || {};
     const cfg = data[req.params.guildId] || {};
     const ratings = cfg.ratings || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -3341,6 +3358,9 @@ app.delete('/api/guild/:guildId/warnings-list/:userId', authMiddleware, (req, re
 
 // â”€â”€ AI Chat config (matches commands/admin/aichat-setup.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/aichat-config', authMiddleware, (req, res) => {
+    const premium = checkPremiumStatus(req, req.params.guildId);
+    if (!premium.hasPremium) return res.status(403).json({ error: 'Premium required' });
+
     const data = readBotStore('aichat') || {};
     const cfg  = data[req.params.guildId] || {};
     res.json({
@@ -3545,6 +3565,9 @@ app.put('/api/guild/:guildId/botblock-config', authMiddleware, (req, res) => {
 
 // â”€â”€ Vanity Guard config (matches commands/admin/vanityguard.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/guild/:guildId/vanityguard-config', authMiddleware, (req, res) => {
+    const premium = checkPremiumStatus(req, req.params.guildId);
+    if (!premium.hasPremium) return res.status(403).json({ error: 'Premium required' });
+
     const data = readBotStore('vanityguard') || {};
     const cfg  = data[req.params.guildId] || {};
     res.json({
@@ -3585,6 +3608,9 @@ app.put('/api/guild/:guildId/ignored-channels-config', authMiddleware, (req, res
 
 // â”€â”€ Confessions (read enriched stats — write delegated to confession panel) â”€â”€
 app.get('/api/guild/:guildId/confessions-config', authMiddleware, (req, res) => {
+    const premium = checkPremiumStatus(req, req.params.guildId);
+    if (!premium.hasPremium) return res.status(403).json({ error: 'Premium required' });
+
     const data = readBotStore('confessions') || {};
     const cfg  = data[req.params.guildId] || {};
     res.json({
@@ -3718,6 +3744,10 @@ app.get('/api/guild/:guildId/:module', authMiddleware, async (req, res) => {
     const { guildId, module } = req.params;
     const defaults = MODULE_DEFAULTS[module];
     if (!defaults) return res.status(404).json({ error: 'Unknown module' });
+    const premiumModules = ["bot-customize","aichat","suggestions","feedback","vanityguard","confessions","autonick","nightmode","superthreatmode","currency","customshop","loan","profilebadge"];
+    if (premiumModules.includes(module) && !checkPremiumStatus(req, guildId).hasPremium) {
+        return res.status(403).json({ error: 'Premium required for this module.' });
+    }
 
     // Live read from PG so the dashboard shows what the bot wrote
     // since the last cache load. Skips on local/single-host setups
@@ -3737,6 +3767,10 @@ app.put('/api/guild/:guildId/:module', authMiddleware, async (req, res) => {
     const { guildId, module } = req.params;
     const defaults = MODULE_DEFAULTS[module];
     if (!defaults) return res.status(404).json({ error: 'Unknown module' });
+    const premiumModules = ["bot-customize","aichat","suggestions","feedback","vanityguard","confessions","autonick","nightmode","superthreatmode","currency","customshop","loan","profilebadge"];
+    if (premiumModules.includes(module) && !checkPremiumStatus(req, guildId).hasPremium) {
+        return res.status(403).json({ error: 'Premium required for this module.' });
+    }
 
     try {
         const storeName = MODULE_TO_STORE[module] || module;
