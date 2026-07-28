@@ -2103,7 +2103,7 @@ async function pageCommands() {
 async function pagePremium() {
     if (!state.user?.isOwner) { location.hash = '#/servers'; return; }
     const data = await api('/api/premium');
-    if (data?._error) {
+    if (data?._error || data?.error) {
         $('#page').innerHTML = `<div class="empty"><h3>Failed</h3><p>${esc(data.error || 'Could not load keys.')}</p></div>`;
         return;
     }

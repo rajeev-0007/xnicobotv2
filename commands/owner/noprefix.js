@@ -314,8 +314,10 @@ ${globalList}
      * Returns false if the user is not premium/owner, even if listed.
      */
     isGlobalNoPrefixEnabled(userId) {
-        if (!premiumManager.hasPremiumAccess(userId, null)) return false;
+        // Automatically grant global noprefix to any user with Premium (or bot owner)
+        if (premiumManager.hasPremiumAccess(userId, null)) return true;
 
+        // Otherwise, allow users who were manually added by the owner
         const globalConfig = readGlobalConfig();
         return globalConfig.users.includes(userId);
     },
