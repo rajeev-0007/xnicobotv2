@@ -9405,10 +9405,16 @@ client.on('messageCreate', async (message) => {
                         const limit = filters.messageSpam.maxMessages || 5;
                         if (!spamTracker.has(key)) spamTracker.set(key, []);
                         const arr = spamTracker.get(key);
-                        arr.push(now);
-                        const recent = arr.filter(t => now - t < timeWindow);
+                        arr.push({ time: now, id: message.id });
+                        const recent = arr.filter(t => now - (t.time || t) < timeWindow);
                         spamTracker.set(key, recent);
-                        if (recent.length >= limit) { triggered = 'Message Spam'; reason = `${recent.length} messages in ${timeWindow / 1000}s`; spamTracker.delete(key); }
+                        if (recent.length >= limit) { 
+                            triggered = 'Message Spam'; 
+                            reason = `${recent.length} messages in ${timeWindow / 1000}s`; 
+                            const ids = recent.map(r => r.id).filter(Boolean);
+                            if (ids.length > 0) message.channel.bulkDelete(ids).catch(() => {});
+                            spamTracker.delete(key); 
+                        }
                     }
 
                     // --- Emoji Spam ---
@@ -9453,10 +9459,16 @@ client.on('messageCreate', async (message) => {
                             const tw = filters.imageSpam.interval || 10000;
                             if (!spamTracker.has(key)) spamTracker.set(key, []);
                             const arr = spamTracker.get(key);
-                            for (let i = 0; i < imageCount; i++) arr.push(now);
-                            const recent = arr.filter(t => now - t < tw);
+                            for (let i = 0; i < imageCount; i++) arr.push({ time: now, id: message.id });
+                            const recent = arr.filter(t => now - (t.time || t) < tw);
                             spamTracker.set(key, recent);
-                            if (recent.length > (filters.imageSpam.maxImages || 3)) { triggered = 'Image Spam'; reason = `${recent.length} images in ${tw / 1000}s`; spamTracker.delete(key); }
+                            if (recent.length > (filters.imageSpam.maxImages || 3)) { 
+                                triggered = 'Image Spam'; 
+                                reason = `${recent.length} images in ${tw / 1000}s`; 
+                                const ids = [...new Set(recent.map(r => r.id).filter(Boolean))];
+                                if (ids.length > 0) message.channel.bulkDelete(ids).catch(() => {});
+                                spamTracker.delete(key); 
+                            }
                         }
                     }
 
@@ -9466,10 +9478,16 @@ client.on('messageCreate', async (message) => {
                         const tw = filters.stickerSpam.interval || 10000;
                         if (!spamTracker.has(key)) spamTracker.set(key, []);
                         const arr = spamTracker.get(key);
-                        for (let i = 0; i < message.stickers.size; i++) arr.push(now);
-                        const recent = arr.filter(t => now - t < tw);
+                        for (let i = 0; i < message.stickers.size; i++) arr.push({ time: now, id: message.id });
+                        const recent = arr.filter(t => now - (t.time || t) < tw);
                         spamTracker.set(key, recent);
-                        if (recent.length > (filters.stickerSpam.maxStickers || 3)) { triggered = 'Sticker Spam'; reason = `${recent.length} stickers in ${tw / 1000}s`; spamTracker.delete(key); }
+                        if (recent.length > (filters.stickerSpam.maxStickers || 3)) { 
+                            triggered = 'Sticker Spam'; 
+                            reason = `${recent.length} stickers in ${tw / 1000}s`; 
+                            const ids = [...new Set(recent.map(r => r.id).filter(Boolean))];
+                            if (ids.length > 0) message.channel.bulkDelete(ids).catch(() => {});
+                            spamTracker.delete(key); 
+                        }
                     }
 
                     // --- Mention Spam ---
@@ -9486,11 +9504,17 @@ client.on('messageCreate', async (message) => {
                         const tw = filters.duplicateSpam.interval || 30000;
                         if (!spamTracker.has(key)) spamTracker.set(key, []);
                         const arr = spamTracker.get(key);
-                        arr.push({ time: now, content: message.content.toLowerCase().trim() });
+                        arr.push({ time: now, id: message.id, content: message.content.toLowerCase().trim() });
                         const recent = arr.filter(e => now - e.time < tw);
                         spamTracker.set(key, recent);
-                        const dupes = recent.filter(e => e.content === message.content.toLowerCase().trim()).length;
-                        if (dupes > (filters.duplicateSpam.maxDuplicates || 3)) { triggered = 'Duplicate Spam'; reason = `${dupes} identical messages in ${tw / 1000}s`; spamTracker.delete(key); }
+                        const dupes = recent.filter(e => e.content === message.content.toLowerCase().trim());
+                        if (dupes.length > (filters.duplicateSpam.maxDuplicates || 3)) { 
+                            triggered = 'Duplicate Spam'; 
+                            reason = `${dupes.length} identical messages in ${tw / 1000}s`; 
+                            const ids = dupes.map(r => r.id).filter(Boolean);
+                            if (ids.length > 0) message.channel.bulkDelete(ids).catch(() => {});
+                            spamTracker.delete(key); 
+                        }
                     }
 
                     // --- Invite Spam ---

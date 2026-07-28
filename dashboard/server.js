@@ -1293,17 +1293,22 @@ app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => { /
         else if (userWarns && typeof userWarns === 'object') activeWarnings += Object.keys(userWarns).length;
     }
 
-    // Economy flow: total wallet+bank for THIS guild's members. If the
-    // bot uses guild_members.economy we sum that; otherwise fall back to
-    // the global economy store (rough approximation).
+    // Economy flow: total wallet+bank for THIS guild's members.
+    // The bot stores economy globally in `users`, so we intersect `guild_members` with `users`.
     let economyFlow = 0;
+    const usersStore = readBotStore('users') || [];
     const guildMemberEconomy = guildMembers.filter(m => m.guild_id === gid);
+    
     if (guildMemberEconomy.length) {
         for (const m of guildMemberEconomy) {
-            economyFlow += Number(m.economy?.balance || m.economy?.coins || 0);
-            economyFlow += Number(m.economy?.bank || 0);
+            const u = usersStore.find(user => user.user_id === m.user_id);
+            if (u && u.economy) {
+                economyFlow += Number(u.economy.balance || u.economy.coins || 0);
+                economyFlow += Number(u.economy.bank || 0);
+            }
         }
     } else {
+        // Fallback for completely empty guilds or legacy `economy.json`
         for (const e of Object.values(economy)) {
             economyFlow += Number(e.coins || e.balance || 0) + Number(e.bank || 0);
         }

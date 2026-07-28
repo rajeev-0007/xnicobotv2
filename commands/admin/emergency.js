@@ -28,7 +28,7 @@
 const {
     ContainerBuilder, TextDisplayBuilder, SeparatorBuilder,
     SeparatorSpacingSize, MessageFlags, PermissionFlagsBits,
-    ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField } = require('discord.js');
 const { COLORS, buildErrorResponse } = require('../../utils/responseBuilder');
 const trust = require('../../utils/trustManager');
 const jsonStore = require('../../utils/jsonStore');
@@ -130,7 +130,6 @@ async function activate(guild, gc, actor) {
         ? guild.roles.cache.filter(r => gc.emergencyRoles.includes(r.id))
         : guild.roles.cache.filter(r =>
             !r.managed &&
-            r.id !== guild.id &&
             r.position < botHighest.position &&
             DANGEROUS_PERMS.some(p => r.permissions.has(PermissionFlagsBits[p]))
         );
@@ -138,10 +137,9 @@ async function activate(guild, gc, actor) {
     for (const [roleId, role] of targetRoles) {
         if (role.position >= botHighest.position) continue;
         if (role.managed) continue;
-        if (role.id === guild.id) continue;
         try {
             savedPerms[roleId] = role.permissions.bitfield.toString();
-            const newPerms = role.permissions.remove(
+            const newPerms = new PermissionsBitField(role.permissions).remove(
                 DANGEROUS_PERMS.map(p => PermissionFlagsBits[p])
             );
             await role.setPermissions(newPerms, `Emergency Mode activated by ${actor.tag}`);

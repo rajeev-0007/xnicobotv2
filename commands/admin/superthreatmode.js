@@ -153,6 +153,15 @@ module.exports = {
         if (willEnable) {
             gc._savedLimits = {};
             gc._preSuperEnabled = gc.enabled; // save antinuke enabled state
+            gc._savedStates = {
+                zeroTolerance: !!gc.zeroTolerance,
+                instantQuarantine: !!gc.instantQuarantine,
+                autoRestore: !!gc.autoRestore
+            };
+            gc.zeroTolerance = true;
+            gc.instantQuarantine = true;
+            gc.autoRestore = true;
+
             for (const [key, overrides] of Object.entries(SUPER_THREAT_LIMITS)) {
                 if (gc[key]) gc._savedLimits[key] = { ...gc[key] };
                 if (!gc[key]) gc[key] = {};
@@ -170,6 +179,12 @@ module.exports = {
                     if (gc[key]) Object.assign(gc[key], saved);
                 }
                 delete gc._savedLimits;
+            }
+            if (gc._savedStates) {
+                gc.zeroTolerance = gc._savedStates.zeroTolerance;
+                gc.instantQuarantine = gc._savedStates.instantQuarantine;
+                gc.autoRestore = gc._savedStates.autoRestore;
+                delete gc._savedStates;
             }
             // Restore the original antinuke enabled state
             if (gc._preSuperEnabled !== undefined) {

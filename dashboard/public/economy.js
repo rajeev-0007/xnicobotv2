@@ -11,7 +11,7 @@ window.__saveEconomy = async function() {
         const g = state.currentGuild;
         const payload = window.__working || {};
         toast('Saving Economy config...', 'info');
-        const res = await api(`/api/guild/${g.id}/economy`, {
+        const res = await api(`/api/guild/${g.id}/economy-settings`, {
             method: 'PUT',
             body: JSON.stringify(payload)
         });

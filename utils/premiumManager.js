@@ -169,6 +169,19 @@ function grantPremium(userId, duration, keyCode = 'DIRECT_GRANT') {
 
     savePremiumData(premiumData);
 
+    // ── Auto-sync global noprefix ──
+    try {
+        const jsonStore = require('./jsonStore');
+        const npData = jsonStore.read('globalnoprefix') || { users: [] };
+        if (!npData.users) npData.users = [];
+        if (!npData.users.includes(userId)) {
+            npData.users.push(userId);
+            jsonStore.writeImmediate('globalnoprefix', npData).catch(() => {});
+        }
+    } catch (e) {
+        console.error('[PremiumManager] Failed to sync noprefix:', e);
+    }
+
     // ── Optional audit webhook (env-gated) ──
     const premiumWebhook = process.env.PREMIUM_AUDIT_WEBHOOK;
     if (premiumWebhook) {

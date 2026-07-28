@@ -63,7 +63,7 @@ const CRITICAL_STORES = new Set([
     // Moderation / protection config
     'automod', 'antinuke', 'antiraid', 'antispam', 'antialt', 'vanityguard',
     'emergency', 'nightmode', 'botblock', 'statusrole', 'ignored-channels',
-    'lockdown', 'trust', 'warnings', 'modlogs',
+    'lockdown', 'trust', 'warnings', 'modlogs', 'warn-config',
     // Trap (honeypot) system
     'trap',
     // Tickets
