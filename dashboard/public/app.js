@@ -523,7 +523,7 @@ function renderSidebar() { // nosonar
     // "click -> 403 -> bounce" UX. A locked card is still rendered on
     // the server overview so users know the feature exists.
     const viewerHasPremium = !!(state.user?.isOwner || state.user?.hasPremium);
-    for (const m of (window.XNICO_MODULES || [])) {
+    for (const m of (window.XNICO_MODULES || []).filter(Boolean)) {
         if (m.premium && !viewerHasPremium) continue;
         if (m.ownerOnly && !state.user?.isOwner) continue;
         (groups[m.group] ||= []).push(m); // nosonar
@@ -884,7 +884,7 @@ async function handleRoute() { // nosonar
             const module = parts[2];
             if (!module) { setCrumb(state.currentGuild.name, 'Overview'); return pageServerOverview(); }
             if (module === 'analytics') { setCrumb(state.currentGuild.name, 'Analytics'); return pageAnalytics(); }
-            const mod = (window.XNICO_MODULES || []).find(m => m.id === module);
+            const mod = (window.XNICO_MODULES || []).filter(Boolean).find(m => m.id === module);
             if (!mod) return pageNotFound('Unknown module.');
             setCrumb(state.currentGuild.name, mod.name);
             if (mod.custom && mod.id === 'welcomer') return pageWelcomer();
@@ -1129,7 +1129,7 @@ function pageSetup() {
 // â”€â”€â”€â”€â”€ Page: server overview (module grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function pageServerOverview() {
     const g = state.currentGuild;
-    const mods = window.XNICO_MODULES || [];
+    const mods = (window.XNICO_MODULES || []).filter(Boolean);
 
     // Optimistic Render
     $('#page').innerHTML = `
