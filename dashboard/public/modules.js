@@ -542,7 +542,7 @@ window.XNICO_MODULES = [
             { key: 'dailyInterest', label: 'Daily Interest (%)', type: 'number', min: 1, max: 100 },
             { key: 'logChannel', label: 'Log Channel', type: 'channel' }
         ]
-    },,{
+    },{
         id: 'profilebadge',
         name: 'Premium Profile Badge',
         group: 'Premium',
@@ -678,4 +678,5 @@ window.XNICO_ICONS = {
     tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
     bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
 };
+
 
