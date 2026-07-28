@@ -1197,40 +1197,52 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
         if (u) discordId = u.discordId;
     }
 
-    // Check user premium (server premium discontinued — user premium only)
     let userPremium = false;
+    let serverPremium = false;
     let premiumExpiry = null;
     let premiumType = null;
 
     try {
         const premiumManager = require('../utils/premiumManager');
         userPremium = premiumManager.isPremium(discordId);
-        if (userPremium) {
+        serverPremium = premiumManager.isServerPremium(req.params.guildId);
+
+        if (serverPremium) {
+            const status = premiumManager.getServerPremiumStatus(req.params.guildId);
+            premiumExpiry = status.expiresAt;
+            premiumType = 'server';
+        } else if (userPremium) {
             const status = premiumManager.getPremiumStatus(discordId);
             premiumExpiry = status.expiresAt;
             premiumType = 'user';
         }
     } catch (error) { // nosonar
-        // premiumManager may not be available in dashboard-only mode —
-        // fall back to reading the user premium store directly.
+        // Fall back to reading stores directly
         try {
-            const premiumData = readBotStore('premium') || [];
-            const userEntry = premiumData.find(p => p.userId === discordId);
-            if (userEntry && (!userEntry.expiresAt || new Date(userEntry.expiresAt) > new Date())) {
-                userPremium = true;
-                premiumExpiry = userEntry.expiresAt;
-                premiumType = 'user';
+            const serverData = readBotStore('server-premium') || [];
+            const serverEntry = serverData.find(s => s.guildId === req.params.guildId);
+            if (serverEntry && (!serverEntry.expiresAt || new Date(serverEntry.expiresAt) > new Date())) {
+                serverPremium = true;
+                premiumExpiry = serverEntry.expiresAt;
+                premiumType = 'server';
+            } else {
+                const premiumData = readBotStore('premium') || [];
+                const userEntry = premiumData.find(p => p.userId === discordId);
+                if (userEntry && (!userEntry.expiresAt || new Date(userEntry.expiresAt) > new Date())) {
+                    userPremium = true;
+                    premiumExpiry = userEntry.expiresAt;
+                    premiumType = 'user';
+                }
             }
-        } catch (error_) { /* Failed to read premium data from store, proceed */ } // nosonar
+        } catch (error_) { /* proceed */ } // nosonar
     }
 
-    // Also check if user is a bot owner (always has premium)
     const isOwner = isBotOwner(req);
 
     res.json({
-        hasPremium: isOwner || userPremium,
+        hasPremium: isOwner || userPremium || serverPremium,
         userPremium,
-        serverPremium: false,
+        serverPremium,
         isOwner,
         premiumType: isOwner ? 'owner' : premiumType,
         expiresAt: premiumExpiry,
@@ -1294,22 +1306,34 @@ app.get('/api/guild/:guildId/analytics', authMiddleware, async (req, res) => { /
     }
 
     // Economy flow: total wallet+bank for THIS guild's members.
-    // The bot stores economy globally in `users`, so we intersect `guild_members` with `users`.
+    // The bot stores economy globally in `users` and `economy` stores, so we intersect `guild_members`.
     let economyFlow = 0;
     const usersStore = readBotStore('users') || [];
-    const guildMemberEconomy = guildMembers.filter(m => m.guild_id === gid);
+    const economyStore = readBotStore('economy') || {};
+    
+    // Deduplicate members by user_id to prevent massively inflated stats
+    const rawGuildMembers = guildMembers.filter(m => m.guild_id === gid);
+    const seenUsers = new Set();
+    const guildMemberEconomy = [];
+    for (const m of rawGuildMembers) {
+        if (!seenUsers.has(m.user_id)) {
+            seenUsers.add(m.user_id);
+            guildMemberEconomy.push(m);
+        }
+    }
     
     if (guildMemberEconomy.length) {
         for (const m of guildMemberEconomy) {
             const u = usersStore.find(user => user.user_id === m.user_id);
-            if (u && u.economy) {
-                economyFlow += Number(u.economy.balance || u.economy.coins || 0);
-                economyFlow += Number(u.economy.bank || 0);
+            const userEconomy = economyStore[m.user_id] || (u && u.economy);
+            if (userEconomy) {
+                economyFlow += Number(userEconomy.balance || userEconomy.coins || 0);
+                economyFlow += Number(userEconomy.bank || 0);
             }
         }
     } else {
         // Fallback for completely empty guilds or legacy `economy.json`
-        for (const e of Object.values(economy)) {
+        for (const e of Object.values(economyStore)) {
             economyFlow += Number(e.coins || e.balance || 0) + Number(e.bank || 0);
         }
     }
@@ -2718,13 +2742,34 @@ app.put('/api/guild/:guildId/economy-settings', authMiddleware, (req, res) => {
 
 // Economy leaderboard (top users by net worth)
 app.get('/api/guild/:guildId/economy-leaderboard', authMiddleware, (req, res) => {
-    const economy = readBotStore('economy') || {};
-    const entries = Object.entries(economy)
+    const gid = req.params.guildId;
+    const economyStore = readBotStore('economy') || {};
+    const usersStore = readBotStore('users') || [];
+    const guildMembers = readBotStore('guild_members') || [];
+    
+    const validMemberIds = new Set(
+        guildMembers.filter(m => m.guild_id === gid).map(m => m.user_id)
+    );
+
+    const mergedEconomy = { ...economyStore };
+    for (const u of usersStore) {
+        if (u.economy && (!mergedEconomy[u.user_id] || (!mergedEconomy[u.user_id].coins && !mergedEconomy[u.user_id].balance))) {
+            mergedEconomy[u.user_id] = {
+                coins: Number(u.economy.balance || u.economy.coins || 0),
+                bank: Number(u.economy.bank || 0),
+                level: 1,
+                streak: 0
+            };
+        }
+    }
+
+    const entries = Object.entries(mergedEconomy)
+        .filter(([userId]) => validMemberIds.has(userId) || validMemberIds.size === 0)
         .map(([userId, data]) => ({
             userId,
-            coins: Number(data.coins || 0),
+            coins: Number(data.coins || data.balance || 0),
             bank: Number(data.bank || 0),
-            total: Number(data.coins || 0) + Number(data.bank || 0),
+            total: Number(data.coins || data.balance || 0) + Number(data.bank || 0),
             level: Number(data.level || 1),
             streak: Number(data.dailyStreak || data.streak || 0)
         }))
