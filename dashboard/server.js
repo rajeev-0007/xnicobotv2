@@ -3740,7 +3740,7 @@ app.get('/api/guild/:guildId/:module', authMiddleware, async (req, res) => {
     const { guildId, module } = req.params;
     const defaults = MODULE_DEFAULTS[module];
     if (!defaults) return res.status(404).json({ error: 'Unknown module' });
-    const premiumModules = ["bot-customize","aichat","suggestions","feedback","vanityguard","confessions","autonick","nightmode","superthreatmode","currency","customshop","loan","profilebadge"];
+    const premiumModules = ["bot-customize","aichat","suggestions","feedback","vanityguard","confessions","autonick","nightmode","superthreatmode","customshop","loan","profilebadge"];
     if (premiumModules.includes(module) && !checkPremiumStatus(req, guildId).hasPremium) {
         return res.status(403).json({ error: 'Premium required for this module.' });
     }
@@ -3763,7 +3763,7 @@ app.put('/api/guild/:guildId/:module', authMiddleware, async (req, res) => {
     const { guildId, module } = req.params;
     const defaults = MODULE_DEFAULTS[module];
     if (!defaults) return res.status(404).json({ error: 'Unknown module' });
-    const premiumModules = ["bot-customize","aichat","suggestions","feedback","vanityguard","confessions","autonick","nightmode","superthreatmode","currency","customshop","loan","profilebadge"];
+    const premiumModules = ["bot-customize","aichat","suggestions","feedback","vanityguard","confessions","autonick","nightmode","superthreatmode","customshop","loan","profilebadge"];
     if (premiumModules.includes(module) && !checkPremiumStatus(req, guildId).hasPremium) {
         return res.status(403).json({ error: 'Premium required for this module.' });
     }

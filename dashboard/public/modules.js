@@ -496,19 +496,6 @@ window.XNICO_MODULES = [
         ]
     },
     {
-        id: 'currency',
-        name: 'Custom Currency',
-        group: 'Engagement',
-        description: 'Rename and re-emoji the server currency (gems, gold, credits \u2014 anything).',
-        icon: 'coin',
-        premium: true,
-        fields: [
-            { key: 'enabled', label: 'Enable Custom Currency', type: 'toggle' },
-            { key: 'currencyName', label: 'Currency Name', type: 'text', desc: 'e.g. Gems, Gold, Credits' },
-            { key: 'currencyEmoji', label: 'Currency Emoji', type: 'text', desc: 'Emoji to display next to amounts' }
-        ]
-    },
-    {
         id: 'customshop',
         name: 'Custom Shop',
         group: 'Engagement',
