@@ -1197,40 +1197,52 @@ app.get('/api/guild/:guildId/premium-status', authMiddleware, (req, res) => {
         if (u) discordId = u.discordId;
     }
 
-    // Check user premium (server premium discontinued — user premium only)
     let userPremium = false;
+    let serverPremium = false;
     let premiumExpiry = null;
     let premiumType = null;
 
     try {
         const premiumManager = require('../utils/premiumManager');
         userPremium = premiumManager.isPremium(discordId);
-        if (userPremium) {
+        serverPremium = premiumManager.isServerPremium(req.params.guildId);
+
+        if (serverPremium) {
+            const status = premiumManager.getServerPremiumStatus(req.params.guildId);
+            premiumExpiry = status.expiresAt;
+            premiumType = 'server';
+        } else if (userPremium) {
             const status = premiumManager.getPremiumStatus(discordId);
             premiumExpiry = status.expiresAt;
             premiumType = 'user';
         }
     } catch (error) { // nosonar
-        // premiumManager may not be available in dashboard-only mode —
-        // fall back to reading the user premium store directly.
+        // Fall back to reading stores directly
         try {
-            const premiumData = readBotStore('premium') || [];
-            const userEntry = premiumData.find(p => p.userId === discordId);
-            if (userEntry && (!userEntry.expiresAt || new Date(userEntry.expiresAt) > new Date())) {
-                userPremium = true;
-                premiumExpiry = userEntry.expiresAt;
-                premiumType = 'user';
+            const serverData = readBotStore('server-premium') || [];
+            const serverEntry = serverData.find(s => s.guildId === req.params.guildId);
+            if (serverEntry && (!serverEntry.expiresAt || new Date(serverEntry.expiresAt) > new Date())) {
+                serverPremium = true;
+                premiumExpiry = serverEntry.expiresAt;
+                premiumType = 'server';
+            } else {
+                const premiumData = readBotStore('premium') || [];
+                const userEntry = premiumData.find(p => p.userId === discordId);
+                if (userEntry && (!userEntry.expiresAt || new Date(userEntry.expiresAt) > new Date())) {
+                    userPremium = true;
+                    premiumExpiry = userEntry.expiresAt;
+                    premiumType = 'user';
+                }
             }
-        } catch (error_) { /* Failed to read premium data from store, proceed */ } // nosonar
+        } catch (error_) { /* proceed */ } // nosonar
     }
 
-    // Also check if user is a bot owner (always has premium)
     const isOwner = isBotOwner(req);
 
     res.json({
-        hasPremium: isOwner || userPremium,
+        hasPremium: isOwner || userPremium || serverPremium,
         userPremium,
-        serverPremium: false,
+        serverPremium,
         isOwner,
         premiumType: isOwner ? 'owner' : premiumType,
         expiresAt: premiumExpiry,
