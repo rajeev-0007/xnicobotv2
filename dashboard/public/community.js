@@ -13,6 +13,28 @@ async function pageAutorole() {
         api(`/api/guild/${g.id}/roles`),
     ]);
     state.roles = Array.isArray(roles) ? roles.filter(r => r.name !== '@everyone') : [];
+    if (cfg?._error && cfg?.status === 403) {
+        $('#page').innerHTML = `
+            <div class="page-h"><div><h1>Suggestions <span class="tag amber">Premium</span></h1><p>Premium feature.</p></div></div>
+            <div class="empty premium-glow" style="border-radius:var(--radius)">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M3 17l2-10 5 5 2-7 2 7 5-5 2 10"/></svg>
+                <h3>Premium Required</h3>
+                <p>Suggestions is a premium feature. Unlock it to use this module on your server.</p>
+                <a class="btn primary mt-2" href="https://discord.gg/Zs35X7Umak" target="_blank">Get Premium</a>
+            </div>`;
+        return;
+    }
+    if (cfg?._error && cfg?.status === 403) {
+        $('#page').innerHTML = `
+            <div class="page-h"><div><h1>Feedback <span class="tag amber">Premium</span></h1><p>Premium feature.</p></div></div>
+            <div class="empty premium-glow" style="border-radius:var(--radius)">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M3 17l2-10 5 5 2-7 2 7 5-5 2 10"/></svg>
+                <h3>Premium Required</h3>
+                <p>Feedback is a premium feature. Unlock it to use this module on your server.</p>
+                <a class="btn primary mt-2" href="https://discord.gg/Zs35X7Umak" target="_blank">Get Premium</a>
+            </div>`;
+        return;
+    }
     const w = cfg && !cfg._error ? cfg : { humans: [], bots: [] };
     window.__aroleWorking = structuredClone(w);
     _renderAutorolePage(g);

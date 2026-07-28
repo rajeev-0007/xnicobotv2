@@ -127,7 +127,40 @@
             api(`/api/guild/${gid()}/aichat-config`),
             loadGuildContext()
         ]);
-        if (cfg?._error) return errorScreen(cfg.error);
+        if (cfg?._error && cfg?.status === 403) {
+        $('#page').innerHTML = `
+            <div class="page-h"><div><h1>AI Chat <span class="tag amber">Premium</span></h1><p>Premium feature.</p></div></div>
+            <div class="empty premium-glow" style="border-radius:var(--radius)">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M3 17l2-10 5 5 2-7 2 7 5-5 2 10"/></svg>
+                <h3>Premium Required</h3>
+                <p>AI Chat is a premium feature. Unlock it to use this module on your server.</p>
+                <a class="btn primary mt-2" href="https://discord.gg/Zs35X7Umak" target="_blank">Get Premium</a>
+            </div>`;
+        return;
+    }
+    if (cfg?._error && cfg?.status === 403) {
+        $('#page').innerHTML = `
+            <div class="page-h"><div><h1>Vanity Guard <span class="tag amber">Premium</span></h1><p>Premium feature.</p></div></div>
+            <div class="empty premium-glow" style="border-radius:var(--radius)">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M3 17l2-10 5 5 2-7 2 7 5-5 2 10"/></svg>
+                <h3>Premium Required</h3>
+                <p>Vanity Guard is a premium feature. Unlock it to use this module on your server.</p>
+                <a class="btn primary mt-2" href="https://discord.gg/Zs35X7Umak" target="_blank">Get Premium</a>
+            </div>`;
+        return;
+    }
+    if (cfg?._error && cfg?.status === 403) {
+        $('#page').innerHTML = `
+            <div class="page-h"><div><h1>Confessions <span class="tag amber">Premium</span></h1><p>Premium feature.</p></div></div>
+            <div class="empty premium-glow" style="border-radius:var(--radius)">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M3 17l2-10 5 5 2-7 2 7 5-5 2 10"/></svg>
+                <h3>Premium Required</h3>
+                <p>Confessions is a premium feature. Unlock it to use this module on your server.</p>
+                <a class="btn primary mt-2" href="https://discord.gg/Zs35X7Umak" target="_blank">Get Premium</a>
+            </div>`;
+        return;
+    }
+    if (cfg?._error) return errorScreen(cfg.error);
         const w = { ...cfg };
         const models = [
             { v: 'llama-3.3-70b-versatile', l: 'Llama 3.3 70B Versatile (Best)' },
