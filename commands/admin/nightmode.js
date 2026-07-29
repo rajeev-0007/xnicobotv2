@@ -104,9 +104,12 @@ async function unlockChannels(guild, savedPerms, actorTag) {
 
 /* ── Panel — select menus, matching utils/panels/automodPanel.js ── */
 const NID = { system: 'nightmode:system' };
-const N_ON = '<:Toggleon:1521227758011809964>';
-const N_OFF = '<:Toggleoff:1521227763816595559>';
-const nmark = (v) => (v ? N_ON : N_OFF);
+// See utils/panelEmojis — one place to re-enable emojis for every panel.
+const { stateEmoji, stateText, annotateState } = require('../../utils/panelEmojis');
+/** For an option's `emoji` field. */
+const nmark = (v) => stateEmoji(v);
+/** For inline panel text. */
+const ntext = (v) => stateText(v);
 
 function buildNightPanel(guildConfig) {
     const cfg = guildConfig || getDefault();
@@ -116,7 +119,7 @@ function buildNightPanel(guildConfig) {
     let head = '# Night mode\n';
     head += '-# Locks every text channel by revoking Send Messages, Add\n';
     head += '-# Reactions and Create Threads for @everyone.\n\n';
-    head += nmark(on) + ' **Night mode** ' + (on ? 'ACTIVE' : 'inactive') + '\n';
+    head += ntext(on) + ' **Night mode** ' + (on ? 'ACTIVE' : 'inactive') + '\n';
     if (on) {
         if (cfg.activatedAt) {
             head += '-# Locked <t:' + Math.floor(new Date(cfg.activatedAt).getTime() / 1000) + ':R>'
@@ -143,21 +146,19 @@ function buildNightPanel(guildConfig) {
                     new StringSelectMenuOptionBuilder()
                         .setValue('activate')
                         .setLabel(on ? 'Already locked' : 'Lock all channels')
-                        .setDescription(on ? 'Deactivate first to re-run' : 'Revoke Send Messages for @everyone')
-                        .setEmoji(nmark(on)),
+                        .setDescription(annotateState(on ? 'Deactivate first to re-run' : 'Revoke Send Messages for @everyone', on)),
                     new StringSelectMenuOptionBuilder()
                         .setValue('deactivate')
                         .setLabel('Unlock all channels')
-                        .setDescription(on ? 'Restore the saved permissions' : 'Not currently locked')
-                        .setEmoji(nmark(!on))
+                        .setDescription(annotateState(on ? 'Restore the saved permissions' : 'Not currently locked', !on))
                 )
         ));
 }
 
 function buildPanel(guildConfig, guildName) {
     const statusEmoji = guildConfig.enabled
-        ? '<:Toggleon:1521227758011809964>'
-        : '<:Toggleoff:1521227763816595559>';
+        ? stateText(true)
+        : stateText(false);
     const statusText = guildConfig.enabled
         ? '**Active** — Server is in night mode'
         : '**Inactive** — Server is operating normally';

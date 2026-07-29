@@ -214,8 +214,12 @@ function buildVariablesPanel() {
  *     idempotent — unlike per-button flips, which desync if a render is missed
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-const TOGGLE_ON = '<:Toggleon:1521227758011809964>';
-const TOGGLE_OFF = '<:Toggleoff:1521227763816595559>';
+// State glyphs come from utils/panelEmojis — the single place to re-enable
+// emojis. They are empty by default, so stateEmoji() returns undefined and
+// setEmoji must be skipped rather than called with ''.
+const { stateEmoji, stateText, annotateState } = require('../../utils/panelEmojis');
+const TOGGLE_ON = stateEmoji(true);
+const TOGGLE_OFF = stateEmoji(false);
 
 const PID = {
     wChannel: 'welcomer:w:channel',
@@ -323,7 +327,6 @@ function buildTogglesRow(customId, specs, cfg) {
                 .setValue(s.value)
                 .setLabel(s.label)
                 .setDescription(s.description.slice(0, 100))
-                .setEmoji(s.get(cfg || {}) ? TOGGLE_ON : TOGGLE_OFF)
                 .setDefault(s.get(cfg || {}))))
     );
 }
@@ -361,20 +364,28 @@ function buildMenuRow(customId, placeholder, options) {
                     .setValue(o.value)
                     .setLabel(o.label);
                 if (o.description) opt.setDescription(o.description.slice(0, 100));
-                if (o.emoji) opt.setEmoji(o.emoji);
+                // `state` is the source of truth; `emoji` is only a fallback for
+                // callers that still pass one directly.
+                if (o.state !== undefined) {
+                    const g = stateEmoji(o.state);
+                    if (g) opt.setEmoji(g);
+                    else opt.setDescription(annotateState(o.description, o.state));
+                } else if (o.emoji) {
+                    opt.setEmoji(o.emoji);
+                }
                 return opt;
             }))
     );
 }
 
 /** Marks the active choice with the on/off pair instead of a colour. */
-const mark = (active) => (active ? TOGGLE_ON : TOGGLE_OFF);
+const mark = (active) => stateEmoji(active);
 
 function leaveModeOptions(c) {
     const mode = (c || {}).mode || 'components';
     return [
-        { value: 'welcomer:set:l:mode:components', label: 'Components V2', description: 'Rich container layout with images and separators', emoji: mark(mode === 'components') },
-        { value: 'welcomer:set:l:mode:embed', label: 'Embed', description: 'Classic embed with title, author and footer', emoji: mark(mode === 'embed') },
+        { value: 'welcomer:set:l:mode:components', label: 'Components V2', description: 'Rich container layout with images and separators', state: mode === 'components' },
+        { value: 'welcomer:set:l:mode:embed', label: 'Embed', description: 'Classic embed with title, author and footer', state: mode === 'embed' },
     ];
 }
 
@@ -385,9 +396,9 @@ function leaveContentOptions(c) {
         { value: 'leave_set_message', label: 'Message text', description: cfg.content ? 'Set' : 'Using the default goodbye' },
         { value: 'leave_set_styling', label: 'Accent colour', description: cfg.colorless ? 'Hidden' : (cfg.color || '#ED4245') },
         { value: 'leave_set_media', label: 'Attachment: image and thumbnail', description: (cfg.image || cfg.thumbnail) ? 'Configured' : 'No attachment set' },
-        { value: 'welcomer:set:l:imgpos:top', label: 'Attachment position: top', emoji: mark(img === 'top') },
-        { value: 'welcomer:set:l:imgpos:side', label: 'Attachment position: side thumbnail', emoji: mark(img === 'side') },
-        { value: 'welcomer:set:l:imgpos:bottom', label: 'Attachment position: bottom', emoji: mark(img === 'bottom') },
+        { value: 'welcomer:set:l:imgpos:top', label: 'Attachment position: top', state: img === 'top' },
+        { value: 'welcomer:set:l:imgpos:side', label: 'Attachment position: side thumbnail', state: img === 'side' },
+        { value: 'welcomer:set:l:imgpos:bottom', label: 'Attachment position: bottom', state: img === 'bottom' },
     ];
 }
 
@@ -401,15 +412,15 @@ function leavePartsOptions(c) {
         { value: 'leave_set_buttons', label: 'Link buttons', description: linkN ? `${linkN} configured` : 'None. Buttons that open a URL' },
         { value: 'welcomer:l:pick:btns', label: 'Action buttons', description: actN ? `${actN} attached` : 'None. Attach buttons from /button-maker' },
         { value: 'welcomer:l:pick:menus', label: 'Select menus', description: selN ? `${selN} attached` : 'None. Attach menus from /select-menu-maker' },
-        { value: 'welcomer:set:l:btnpos:top', label: 'Components above the text', emoji: mark(btn === 'top') },
-        { value: 'welcomer:set:l:btnpos:bottom', label: 'Components below the text', emoji: mark(btn === 'bottom') },
+        { value: 'welcomer:set:l:btnpos:top', label: 'Components above the text', state: btn === 'top' },
+        { value: 'welcomer:set:l:btnpos:bottom', label: 'Components below the text', state: btn === 'bottom' },
     ];
 }
 
 function leaveGoOptions(c) {
     const cfg = c || {};
     return [
-        { value: 'leave_canvas_setup', label: 'Leave card settings', description: 'Colours and text on the image card', emoji: mark(!!(cfg.canvas && cfg.canvas.enabled)) },
+        { value: 'leave_canvas_setup', label: 'Leave card settings', description: 'Colours and text on the image card', state: !!(cfg.canvas && cfg.canvas.enabled) },
         { value: 'leave_back', label: 'Back to the welcome panel', description: 'Return without losing changes' },
     ];
 }
@@ -442,7 +453,7 @@ function mapPanelInteraction(interaction) {
 }
 
 function buildCanvasPanel(canvasConfig) {
-    const statusEmoji = canvasConfig?.enabled ? '<:Toggleon:1521227758011809964>' : '<:Toggleoff:1521227763816595559>';
+    const statusEmoji = stateText(!!canvasConfig?.enabled);
 
     let content = `# <:Picture:1521227954191995024> Welcome Canvas Setup\n\n`;
     content += `**Status:** ${statusEmoji} ${canvasConfig?.enabled ? 'Enabled' : 'Disabled'}\n\n`;
@@ -518,8 +529,7 @@ function createCanvasControlRow(canvasConfig) {
             new ButtonBuilder()
                 .setCustomId('canvas_toggle')
                 .setLabel(canvasConfig?.enabled ? 'Disable Canvas' : 'Enable Canvas')
-                .setStyle(canvasConfig?.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
-                .setEmoji(canvasConfig?.enabled ? '<:Toggleoff:1521227763816595559>' : '<:Toggleon:1521227758011809964>'),
+                .setStyle(canvasConfig?.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId('canvas_back')
                 .setLabel('Back to Welcomer')
@@ -561,7 +571,7 @@ function buildCanvasContainer(canvasConfig) {
 }
 
 function buildLeaveCanvasPanel(canvasConfig) {
-    const statusEmoji = canvasConfig?.enabled ? '<:Toggleon:1521227758011809964>' : '<:Toggleoff:1521227763816595559>';
+    const statusEmoji = stateText(!!canvasConfig?.enabled);
 
     let content = `# <:Palette:1521227950601539755> Leave Canvas Card Setup\n\n`;
     content += `**Status:** ${statusEmoji} ${canvasConfig?.enabled ? 'Enabled' : 'Disabled'}\n\n`;
@@ -629,8 +639,7 @@ function createLeaveCanvasControlRow(canvasConfig) {
             new ButtonBuilder()
                 .setCustomId('leave_canvas_toggle')
                 .setLabel(canvasConfig?.enabled ? 'Disable Canvas' : 'Enable Canvas')
-                .setStyle(canvasConfig?.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
-                .setEmoji(canvasConfig?.enabled ? '<:Toggleoff:1521227763816595559>' : '<:Toggleon:1521227758011809964>'),
+                .setStyle(canvasConfig?.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId('leave_canvas_back')
                 .setLabel('Back to Leave Setup')
@@ -685,9 +694,7 @@ function buildLeaveContainer(leaveConfig, ctx) {
 
     /* Mirrors buildWelcomerContainer: header + status + live preview in ONE text
      * display, so the six control rows fit inside the 10-child container limit. */
-    const ON = '<:Toggleon:1521227758011809964>';
-    const OFF = '<:Toggleoff:1521227763816595559>';
-    const t = (v) => (v ? ON : OFF);
+    const t = (v) => stateText(v);
 
     const channelText = cfg.channelId ? `<#${cfg.channelId}>` : '`not set`';
     const preview = buildLivePreview({ ...cfg, content: cfg.content || 'Goodbye {username}!' }, ctx);
@@ -803,8 +810,8 @@ function previewCtx(interaction) {
 function welcomeModeOptions(c) {
     const mode = c.mode || 'components';
     return [
-        { value: 'welcomer:set:w:mode:components', label: 'Components V2', description: 'Rich container layout with images and separators', emoji: mark(mode === 'components') },
-        { value: 'welcomer:set:w:mode:embed', label: 'Embed', description: 'Classic embed with title, author and footer', emoji: mark(mode === 'embed') },
+        { value: 'welcomer:set:w:mode:components', label: 'Components V2', description: 'Rich container layout with images and separators', state: mode === 'components' },
+        { value: 'welcomer:set:w:mode:embed', label: 'Embed', description: 'Classic embed with title, author and footer', state: mode === 'embed' },
     ];
 }
 
@@ -815,9 +822,9 @@ function welcomeContentOptions(c) {
         { value: 'welcomer_embed_author', label: 'Title, description and author', description: (c.title || c.description || c.author) ? 'Set' : 'Not set' },
         { value: 'welcomer_set_styling', label: 'Accent colour', description: c.colorless ? 'Hidden' : (c.color || '#bcf1e4') },
         { value: 'welcomer_set_media', label: 'Attachment: image and thumbnail', description: (c.image || c.thumbnail) ? 'Configured' : 'No attachment set' },
-        { value: 'welcomer:set:w:imgpos:top', label: 'Attachment position: top', emoji: mark(img === 'top') },
-        { value: 'welcomer:set:w:imgpos:side', label: 'Attachment position: side thumbnail', emoji: mark(img === 'side') },
-        { value: 'welcomer:set:w:imgpos:bottom', label: 'Attachment position: bottom', emoji: mark(img === 'bottom') },
+        { value: 'welcomer:set:w:imgpos:top', label: 'Attachment position: top', state: img === 'top' },
+        { value: 'welcomer:set:w:imgpos:side', label: 'Attachment position: side thumbnail', state: img === 'side' },
+        { value: 'welcomer:set:w:imgpos:bottom', label: 'Attachment position: bottom', state: img === 'bottom' },
         { value: 'welcomer_embed_footer', label: 'Footer', description: c.footer ? 'Set' : 'Not set' },
     ];
 }
@@ -831,8 +838,8 @@ function welcomePartsOptions(c) {
         { value: 'welcomer_set_buttons', label: 'Link buttons', description: linkN ? `${linkN} configured` : 'None. Buttons that open a URL' },
         { value: 'welcomer:w:pick:btns', label: 'Action buttons', description: actN ? `${actN} attached` : 'None. Attach buttons from /button-maker' },
         { value: 'welcomer:w:pick:menus', label: 'Select menus', description: selN ? `${selN} attached` : 'None. Attach menus from /select-menu-maker' },
-        { value: 'welcomer:set:w:btnpos:top', label: 'Components above the text', emoji: mark(btn === 'top') },
-        { value: 'welcomer:set:w:btnpos:bottom', label: 'Components below the text', emoji: mark(btn === 'bottom') },
+        { value: 'welcomer:set:w:btnpos:top', label: 'Components above the text', state: btn === 'top' },
+        { value: 'welcomer:set:w:btnpos:bottom', label: 'Components below the text', state: btn === 'bottom' },
     ];
 }
 
@@ -840,8 +847,8 @@ function welcomeSectionsOptions(c) {
     return [
         { value: 'welcomer_autorole_humans', label: 'AutoRole \u2014 humans', description: 'Roles given to people when they join' },
         { value: 'welcomer_autorole_bots', label: 'AutoRole \u2014 bots', description: 'Roles given to bots when they join' },
-        { value: 'welcomer_leave_setup', label: 'Leave setup', description: 'Configure the goodbye message', emoji: mark(!!c.leave?.enabled) },
-        { value: 'welcomer_canvas_setup', label: 'Canvas setup', description: 'Colours and text on the welcome card', emoji: mark(!!c.canvas?.enabled) },
+        { value: 'welcomer_leave_setup', label: 'Leave setup', description: 'Configure the goodbye message', state: !!c.leave?.enabled },
+        { value: 'welcomer_canvas_setup', label: 'Canvas setup', description: 'Colours and text on the welcome card', state: !!c.canvas?.enabled },
         { value: PID.wUtility, label: 'Utility', description: 'Auto-delete, DM text, placeholders, send a test' },
     ];
 }
@@ -870,9 +877,7 @@ function buildWelcomerContainer(guildConfig, guildId, ctx) {
      * Header + status + live preview are folded into ONE text display so the six
      * control rows and an optional preview image all fit:
      *   1 text + 1 image (optional) + 1 separator + 6 rows = 9 or 10. */
-    const ON = '<:Toggleon:1521227758011809964>';
-    const OFF = '<:Toggleoff:1521227763816595559>';
-    const t = (v) => (v ? ON : OFF);
+    const t = (v) => stateText(v);
 
     const channelText = guildConfig.channelId ? `<#${guildConfig.channelId}>` : '`not set`';
     const preview = buildLivePreview(guildConfig, ctx);
@@ -927,9 +932,7 @@ function buildUtilityContainer(guildConfig, guildId, ctx) {
     if (!guildConfig.colorless) {
         container.setAccentColor(isNaN(colorValue) ? 0xCAD7E6 : colorValue);
     }
-    const ON = '<:Toggleon:1521227758011809964>';
-    const OFF = '<:Toggleoff:1521227763816595559>';
-    const t = (v) => (v ? ON : OFF);
+    const t = (v) => stateText(v);
 
     let head = '# Welcomer \u2014 utility\n';
     head += '-# Everything that is not part of the message itself.\n\n';

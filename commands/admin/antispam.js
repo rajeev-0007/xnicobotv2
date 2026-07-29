@@ -96,9 +96,14 @@ const VALID_ACTIONS = ['timeout', 'kick', 'ban', 'warn'];
  * triggers, which allow only one rule each per guild.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-const TOGGLE_ON = '<:Toggleon:1521227758011809964>';
-const TOGGLE_OFF = '<:Toggleoff:1521227763816595559>';
-const mark = (v) => (v ? TOGGLE_ON : TOGGLE_OFF);
+// See utils/panelEmojis — one place to re-enable emojis for every panel.
+const { stateEmoji, stateText, annotateState } = require('../../utils/panelEmojis');
+const TOGGLE_ON = stateEmoji(true);
+const TOGGLE_OFF = stateEmoji(false);
+/** For an option's `emoji` field: undefined when emojis are off. */
+const mark = (v) => stateEmoji(v);
+/** For inline panel text: falls back to a readable marker. */
+const tmark = (v) => stateText(v);
 
 const AID = {
     filters: 'antispam:filters',
@@ -138,7 +143,15 @@ function menuRow(customId, placeholder, options, { min = 1, max = 1 } = {}) {
             .addOptions(options.slice(0, 25).map((o) => {
                 const opt = new StringSelectMenuOptionBuilder().setValue(o.value).setLabel(o.label.slice(0, 100));
                 if (o.description) opt.setDescription(o.description.slice(0, 100));
-                if (o.emoji) opt.setEmoji(o.emoji);
+                // `state` is the source of truth; `emoji` is only a fallback for
+                // callers that still pass one directly.
+                if (o.state !== undefined) {
+                    const g = stateEmoji(o.state);
+                    if (g) opt.setEmoji(g);
+                    else opt.setDescription(annotateState(o.description, o.state));
+                } else if (o.emoji) {
+                    opt.setEmoji(o.emoji);
+                }
                 if (o.default) opt.setDefault(true);
                 return opt;
             }))
@@ -156,7 +169,7 @@ function buildAntispamContainer(guildConfig) {
     let head = '# Anti-spam\n';
     head += '-# Catches flooding, mass mentions, duplicate text and other spam.\n';
     head += '-# Enforced by the bot, independently of /automod.\n\n';
-    head += mark(cfg.enabled) + ' **Anti-spam**  \u00b7  punish `' + (cfg.action || 'timeout') + '`';
+    head += tmark(cfg.enabled) + ' **Anti-spam**  \u00b7  punish `' + (cfg.action || 'timeout') + '`';
     head += '  \u00b7  log ' + (cfg.logChannel ? '<#' + cfg.logChannel + '>' : '`not set`') + '\n';
     if (!cfg.enabled) {
         head += '-# Turn it on from the Protection menu below.\n';
@@ -180,22 +193,22 @@ function buildAntispamContainer(guildConfig) {
             value: k,
             label: FILTER_INFO[k].label,
             description: filterSummary(k, filters[k]),
-            emoji: mark(!!(filters[k] && filters[k].enabled)),
+            state: !!(filters[k] && filters[k].enabled),
             default: !!(filters[k] && filters[k].enabled),
         })), { min: 0, max: keys.length }));
 
     container.addActionRowComponents(menuRow(AID.system, 'Protection', [
-        { value: 'antispam:set:enabled:on', label: 'Enable anti-spam', description: 'Start acting on spam', emoji: mark(!!cfg.enabled) },
-        { value: 'antispam:set:enabled:off', label: 'Disable anti-spam', description: 'Stop acting, keep the settings', emoji: mark(!cfg.enabled) },
+        { value: 'antispam:set:enabled:on', label: 'Enable anti-spam', description: 'Start acting on spam', state: !!cfg.enabled },
+        { value: 'antispam:set:enabled:off', label: 'Disable anti-spam', description: 'Stop acting, keep the settings', state: !cfg.enabled },
         { value: 'antispam:reset', label: 'Reset all settings', description: 'Back to defaults' },
     ]));
 
     const act = cfg.action || 'timeout';
     container.addActionRowComponents(menuRow(AID.action, 'Punishment', [
-        { value: 'antispam:set:action:warn', label: 'Warn', description: 'Delete and notify only', emoji: mark(act === 'warn') },
-        { value: 'antispam:set:action:timeout', label: 'Timeout', description: 'Mute for ' + Math.round((cfg.timeoutDuration || 60000) / 1000) + 's', emoji: mark(act === 'timeout') },
-        { value: 'antispam:set:action:kick', label: 'Kick', description: 'Remove from the server', emoji: mark(act === 'kick') },
-        { value: 'antispam:set:action:ban', label: 'Ban', description: 'Permanent removal', emoji: mark(act === 'ban') },
+        { value: 'antispam:set:action:warn', label: 'Warn', description: 'Delete and notify only', state: act === 'warn' },
+        { value: 'antispam:set:action:timeout', label: 'Timeout', description: 'Mute for ' + Math.round((cfg.timeoutDuration || 60000) / 1000) + 's', state: act === 'timeout' },
+        { value: 'antispam:set:action:kick', label: 'Kick', description: 'Remove from the server', state: act === 'kick' },
+        { value: 'antispam:set:action:ban', label: 'Ban', description: 'Permanent removal', state: act === 'ban' },
     ]));
 
     container.addActionRowComponents(menuRow(AID.configure, 'Adjust a filter\u2019s thresholds',
@@ -203,7 +216,7 @@ function buildAntispamContainer(guildConfig) {
             value: k,
             label: FILTER_INFO[k].label,
             description: filterSummary(k, filters[k]),
-            emoji: mark(!!(filters[k] && filters[k].enabled)),
+            state: !!(filters[k] && filters[k].enabled),
         }))));
 
     container.addActionRowComponents(new ActionRowBuilder().addComponents(
@@ -639,7 +652,7 @@ function showConfigurePanel(message, guildConfig, filterName) {
     const filter = guildConfig.filters?.[filterName] || {};
     const info = FILTER_INFO[filterName];
     let t = '# ' + info.emoji + ' ' + info.label + ' Settings\n\n';
-    t += '**Status:** ' + (filter.enabled ? '<:Toggleon:1521227758011809964> Enabled' : '<:Toggleoff:1521227763816595559> Disabled') + '\n\n';
+    t += '**Status:** ' + stateText(!!filter.enabled) + (filter.enabled ? ' Enabled' : ' Disabled') + '\n\n';
     switch (filterName) {
         case 'messageSpam': t += '**Max Messages:** ' + (filter.maxMessages||5) + '\n**Time Window:** ' + ((filter.interval||5000)/1000) + 's'; break;
         case 'emojiSpam': t += '**Max Emojis:** ' + (filter.maxEmojis||10); break;

@@ -205,8 +205,10 @@ function replacePlaceholders(text, user, guild, channel) {
  *     lookup table can drift out of sync
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-const B_ON = '<:Toggleon:1521227758011809964>';
-const B_OFF = '<:Toggleoff:1521227763816595559>';
+// See utils/panelEmojis — one place to re-enable emojis for every panel.
+const { stateEmoji, stateText, annotateState } = require('../../utils/panelEmojis');
+const B_ON = stateEmoji(true);
+const B_OFF = stateEmoji(false);
 
 const BID = {
     mode: 'msgbuilder:mode',
@@ -220,7 +222,7 @@ const BID = {
     data: 'msgbuilder:data',
 };
 
-const bMark = (active) => (active ? B_ON : B_OFF);
+const bMark = (active) => stateEmoji(active);
 
 function bMenuRow(customId, placeholder, options) {
     return new ActionRowBuilder().addComponents(
@@ -232,7 +234,15 @@ function bMenuRow(customId, placeholder, options) {
             .addOptions(options.slice(0, 25).map((o) => {
                 const opt = new StringSelectMenuOptionBuilder().setValue(o.value).setLabel(o.label);
                 if (o.description) opt.setDescription(o.description.slice(0, 100));
-                if (o.emoji) opt.setEmoji(o.emoji);
+                // `state` is the source of truth; `emoji` is only a fallback for
+                // callers that still pass one directly.
+                if (o.state !== undefined) {
+                    const g = stateEmoji(o.state);
+                    if (g) opt.setEmoji(g);
+                    else opt.setDescription(annotateState(o.description, o.state));
+                } else if (o.emoji) {
+                    opt.setEmoji(o.emoji);
+                }
                 return opt;
             }))
     );
@@ -300,8 +310,8 @@ function buildBuilderPreview(data, ctx) {
 function builderModeOptions(d) {
     const mode = d.mode || 'components';
     return [
-        { value: 'msgbuilder:set:mode:components', label: 'Components V2', description: 'Rich container layout with images and separators', emoji: bMark(mode === 'components') },
-        { value: 'msgbuilder:set:mode:embed', label: 'Embed', description: 'Classic embed with title, author and footer', emoji: bMark(mode === 'embed') },
+        { value: 'msgbuilder:set:mode:components', label: 'Components V2', description: 'Rich container layout with images and separators', state: mode === 'components' },
+        { value: 'msgbuilder:set:mode:embed', label: 'Embed', description: 'Classic embed with title, author and footer', state: mode === 'embed' },
     ];
 }
 
@@ -314,12 +324,12 @@ function builderContentOptions(d) {
         { value: 'msgbuilder_set_basic', label: 'Title and description', description: (d.title || d.description) ? 'Set' : 'Not set' },
         { value: 'msgbuilder_set_styling', label: 'Accent colour and footer', description: d.colorless ? 'Colour hidden' : (d.color || '#bcf1e4') },
         { value: 'msgbuilder_set_media', label: 'Attachment: images and thumbnail', description: (imgN || d.thumbnail) ? `${imgN} image(s)${d.thumbnail ? ' + thumbnail' : ''}` : 'No attachment set' },
-        { value: 'msgbuilder:set:imgpos:top', label: 'Attachment position: top', emoji: bMark(img === 'top') },
-        { value: 'msgbuilder:set:imgpos:side', label: 'Attachment position: side thumbnail', emoji: bMark(img === 'side') },
-        { value: 'msgbuilder:set:imgpos:bottom', label: 'Attachment position: bottom', emoji: bMark(img === 'bottom') },
+        { value: 'msgbuilder:set:imgpos:top', label: 'Attachment position: top', state: img === 'top' },
+        { value: 'msgbuilder:set:imgpos:side', label: 'Attachment position: side thumbnail', state: img === 'side' },
+        { value: 'msgbuilder:set:imgpos:bottom', label: 'Attachment position: bottom', state: img === 'bottom' },
         { value: 'msgbuilder_add_field', label: 'Add a field', description: `${fieldN} field(s) so far` },
-        { value: 'msgbuilder:set:colorless:on', label: 'Hide the accent colour', description: 'Remove the coloured bar', emoji: bMark(!!d.colorless) },
-        { value: 'msgbuilder:set:colorless:off', label: 'Show the accent colour', description: 'Keep the coloured bar', emoji: bMark(!d.colorless) },
+        { value: 'msgbuilder:set:colorless:on', label: 'Hide the accent colour', description: 'Remove the coloured bar', state: !!d.colorless },
+        { value: 'msgbuilder:set:colorless:off', label: 'Show the accent colour', description: 'Keep the coloured bar', state: !d.colorless },
     ];
     if (fieldN > 0) {
         opts.push({ value: 'msgbuilder_clear_fields', label: 'Clear all fields', description: `Removes all ${fieldN}` });
@@ -336,8 +346,8 @@ function builderPartsOptions(d) {
         { value: 'msgbuilder_set_buttons', label: 'Link buttons', description: linkN ? `${linkN} configured` : 'None. Buttons that open a URL' },
         { value: 'msgbuilder:parts:actionbtns', label: 'Action buttons', description: actN ? `${actN} attached` : 'None. Attach buttons from /button-maker' },
         { value: 'msgbuilder:parts:menus', label: 'Select menus', description: menuN ? `${menuN} attached` : 'None. Attach menus from /select-menu-maker' },
-        { value: 'msgbuilder:set:btnpos:top', label: 'Components above the text', emoji: bMark(btn === 'top') },
-        { value: 'msgbuilder:set:btnpos:bottom', label: 'Components below the text', emoji: bMark(btn === 'bottom') },
+        { value: 'msgbuilder:set:btnpos:top', label: 'Components above the text', state: btn === 'top' },
+        { value: 'msgbuilder:set:btnpos:bottom', label: 'Components below the text', state: btn === 'bottom' },
     ];
 }
 
@@ -351,7 +361,7 @@ function builderSendOptions(d) {
             value: 'msgbuilder_push_edit',
             label: 'Push edit to the loaded message',
             description: d.editingMessageId ? `Updates ${d.editingMessageId}` : 'Load a message first',
-            emoji: bMark(!!d.editingMessageId),
+            state: !!d.editingMessageId,
         },
     ];
 }
@@ -375,7 +385,7 @@ function builderSendOptions(d) {
             value: 'msgbuilder_push_edit',
             label: 'Push edit to the loaded message',
             description: d.editingMessageId ? `Updates message ${d.editingMessageId}` : 'Load a message first',
-            emoji: bMark(!!d.editingMessageId),
+            state: !!d.editingMessageId,
         },
     ];
 }
@@ -851,7 +861,6 @@ module.exports = {
                         const o = new StringSelectMenuOptionBuilder()
                             .setValue(id)
                             .setLabel(id.slice(0, 100))
-                            .setEmoji(current.includes(id) ? B_ON : B_OFF)
                             .setDefault(current.includes(id));
                         const d2 = isMenus ? stored[id]?.placeholder : stored[id]?.label;
                         if (d2) o.setDescription(String(d2).slice(0, 100));

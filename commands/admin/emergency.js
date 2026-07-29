@@ -41,8 +41,7 @@ const { createFooterText } = require('../../utils/theme');
 
 const E = {
     shield:      '<:Shield:1521227694677692467>',
-    on:          '<:Toggleon:1521227758011809964>',
-    off:         '<:Toggleoff:1521227763816595559>',
+    // on/off removed: unused, and panel state now comes from utils/panelEmojis
     ok:          '<:Checkedbox:1521227734943269077>',
     cancel:      '<:Cancel:1521227723916181644>',
     info:        '<:Inforect:1521228008285929532>',
@@ -197,9 +196,12 @@ const EID = {
     pickUsers: 'emergency:pick:users',
 };
 
-const TOGGLE_ON = '<:Toggleon:1521227758011809964>';
-const TOGGLE_OFF = '<:Toggleoff:1521227763816595559>';
-const emark = (v) => (v ? TOGGLE_ON : TOGGLE_OFF);
+// See utils/panelEmojis — one place to re-enable emojis for every panel.
+const { stateEmoji, stateText, annotateState } = require('../../utils/panelEmojis');
+/** For an option's `emoji` field. */
+const emark = (v) => stateEmoji(v);
+/** For inline panel text. */
+const etext = (v) => stateText(v);
 
 function emergencyMenuRow(customId, placeholder, options, { min = 1, max = 1 } = {}) {
     return new ActionRowBuilder().addComponents(
@@ -213,7 +215,15 @@ function emergencyMenuRow(customId, placeholder, options, { min = 1, max = 1 } =
                     .setValue(o.value)
                     .setLabel(o.label.slice(0, 100));
                 if (o.description) opt.setDescription(o.description.slice(0, 100));
-                if (o.emoji) opt.setEmoji(o.emoji);
+                // `state` is the source of truth; `emoji` is only a fallback for
+                // callers that still pass one directly.
+                if (o.state !== undefined) {
+                    const g = stateEmoji(o.state);
+                    if (g) opt.setEmoji(g);
+                    else opt.setDescription(annotateState(o.description, o.state));
+                } else if (o.emoji) {
+                    opt.setEmoji(o.emoji);
+                }
                 return opt;
             }))
     );
@@ -229,7 +239,7 @@ function buildEmergencyPanel(gc, guild, picker) {
     let head = '# Emergency mode\n';
     head += '-# Strips dangerous permissions from the targeted roles so a\n';
     head += '-# compromised account cannot damage the server.\n\n';
-    head += emark(on) + ' **Emergency mode** ' + (on ? 'ACTIVE' : 'inactive') + '\n';
+    head += etext(on) + ' **Emergency mode** ' + (on ? 'ACTIVE' : 'inactive') + '\n';
     if (on && cfg.activatedAt) {
         head += '-# Activated <t:' + Math.floor(new Date(cfg.activatedAt).getTime() / 1000) + ':R>'
             + (cfg.activatedBy ? ' by <@' + cfg.activatedBy + '>' : '') + '\n';
@@ -250,8 +260,8 @@ function buildEmergencyPanel(gc, guild, picker) {
         .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
 
     container.addActionRowComponents(emergencyMenuRow(EID.access, 'Manage access\u2026', [
-        { value: 'roles', label: 'Targeted roles', description: roles.length + ' role(s) will be stripped', emoji: emark(roles.length > 0) },
-        { value: 'users', label: 'Authorised users', description: auth.length + ' user(s) may activate', emoji: emark(auth.length > 0) },
+        { value: 'roles', label: 'Targeted roles', description: roles.length + ' role(s) will be stripped', state: roles.length > 0 },
+        { value: 'users', label: 'Authorised users', description: auth.length + ' user(s) may activate', state: auth.length > 0 },
     ]));
 
     container.addActionRowComponents(emergencyMenuRow(EID.system, 'System settings\u2026', [
@@ -259,13 +269,13 @@ function buildEmergencyPanel(gc, guild, picker) {
             value: 'activate',
             label: on ? 'Already active' : 'Activate emergency mode',
             description: on ? 'Deactivate first to re-run' : 'Strip permissions from the targeted roles',
-            emoji: emark(on),
+            state: on,
         },
         {
             value: 'deactivate',
             label: 'Deactivate emergency mode',
             description: on ? 'Restore the saved permissions' : 'Not currently active',
-            emoji: emark(!on),
+            state: !on,
         },
     ]));
 
