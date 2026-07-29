@@ -1160,7 +1160,7 @@ module.exports = {
         registerSession(reply.id, {
             channelId: interaction.channel.id,
             guildId: interaction.guild.id,
-            type: 'config',
+            type: 'panel',
             userId: interaction.user.id,
         });
 
@@ -1240,7 +1240,7 @@ module.exports = {
     async _handleInteractionInner(interaction, customId) {
 
         // Check if config session has expired
-        if (await checkAndExpire(interaction, 'config')) return true;
+        if (await checkAndExpire(interaction, 'panel')) return true;
 
         // Check session ownership (skip if interaction has no source message, e.g., modal submits)
         const sourceMessageId = interaction.message?.id;

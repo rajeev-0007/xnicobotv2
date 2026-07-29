@@ -2,6 +2,7 @@ const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, MessageFlags,
 const { buildErrorResponse, COLORS, EMOJIS } = require('../../utils/responseBuilder');
 
 const jsonStore = require('../../utils/jsonStore');
+const { checkAndExpire, registerSession } = require('../../utils/panelExpiration');
 const { createFooterText } = require('../../utils/theme');
 
 function loadConfig() {
@@ -323,7 +324,11 @@ module.exports = {
 
             if (sub === 'enable') { config[interaction.guild.id].enabled = true; saveConfig(config); return interaction.reply({ components: [buildOk('Anti-Spam Enabled', 'Messages triggering spam filters will result in **' + guildConfig.action + '**.')], flags: MessageFlags.IsComponentsV2 }); }
             if (sub === 'disable') { config[interaction.guild.id].enabled = false; saveConfig(config); return interaction.reply({ components: [buildOk('Anti-Spam Disabled', 'Spam protection has been turned off.')], flags: MessageFlags.IsComponentsV2 }); }
-            if (sub === 'status') { return interaction.reply({ components: [buildAntispamContainer(guildConfig)], flags: MessageFlags.IsComponentsV2 }); }
+            if (sub === 'status') {
+                const sent = await interaction.reply({ components: [buildAntispamContainer(guildConfig)], flags: MessageFlags.IsComponentsV2, fetchReply: true });
+                try { registerSession(sent.id, { channelId: interaction.channel?.id, guildId: interaction.guild.id, type: 'panel', userId: interaction.user.id }); } catch { }
+                return sent;
+            }
 
             if (sub === 'action') {
                 const type = interaction.options.getString('type');
@@ -469,6 +474,8 @@ module.exports = {
         if (!isPanel && !rawId.startsWith('antispam_')) return false;
 
         if (!interaction.guild || !interaction.member) return false;
+        // Panels expire after 5 minutes of inactivity (TIMEOUTS.panel).
+        if (await checkAndExpire(interaction, 'panel')) return true;
         if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
             await interaction.reply({ content: EMOJIS.ERROR + ' You need Manage Server permission.', flags: MessageFlags.Ephemeral });
             return true;

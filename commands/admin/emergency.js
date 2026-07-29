@@ -417,9 +417,15 @@ module.exports = {
                 content: `${E.cancel} You are not authorised to use emergency commands.`,
                 flags: MessageFlags.Ephemeral });
         }
-        return interaction.reply({
+        const sent = await interaction.reply({
             components: [buildEmergencyPanel(gc, interaction.guild, null)],
-            flags: MessageFlags.IsComponentsV2 });
+            flags: MessageFlags.IsComponentsV2, fetchReply: true });
+        // Register so the panel expires after 5 minutes of inactivity.
+        try {
+            const { registerSession } = require('../../utils/panelExpiration');
+            registerSession(sent.id, { channelId: interaction.channel?.id, guildId: interaction.guild.id, type: 'panel', userId: interaction.user.id });
+        } catch { }
+        return sent;
     },
 
     async executePrefix(message, args) {
@@ -807,7 +813,7 @@ module.exports = {
 
         if (id !== 'emergency_enable' && id !== 'emergency_disable') return false;
 
-        if (await checkAndExpire(interaction, 'config')) return true;
+        if (await checkAndExpire(interaction, 'panel')) return true;
 
         const { config, gc } = getGuildConfig(interaction.guild.id);
 

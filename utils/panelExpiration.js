@@ -12,6 +12,11 @@ const TIMEOUTS = {
     setup: 15 * 60 * 1000,     // 15 minutes — setup wizards (quicksetup, ticket-setup, etc.)
     game: 10 * 60 * 1000,      // 10 minutes — games (hangman, blackjack, ttt, akinator)
     menu: 5 * 60 * 1000,       // 5 minutes  — menus (help, variables, shop)
+    panel: 5 * 60 * 1000,      // 5 minutes  — select-menu config panels (welcomer,
+                               //               message-builder, antispam, emergency,
+                               //               nightmode). Separate from `config` so
+                               //               shortening it cannot affect the older
+                               //               30-minute panels still using `config`.
 };
 
 // Global storage: messageId -> { timestamp, type, channelId, guildId }
@@ -62,6 +67,7 @@ function buildExpiredContainer(type = 'config') {
         setup: { title: 'Setup Session Expired', desc: 'This setup session has expired due to inactivity (15 minutes). Please run the command again to restart setup.', icon: '<:Timer:1521227971590095070>' },
         game: { title: 'Game Session Expired', desc: 'This game has expired due to inactivity (10 minutes). Start a new game to play again.', icon: '<:Timer:1521227971590095070>' },
         menu: { title: 'Menu Expired', desc: 'This menu has expired due to inactivity (5 minutes). Please run the command again to open a new menu.', icon: '<:Timer:1521227971590095070>' },
+        panel: { title: 'Panel Expired', desc: 'This panel has expired after 5 minutes of inactivity. Run the command again to open a fresh one — your saved settings are untouched.', icon: '<:Timer:1521227971590095070>' },
     };
 
     const info = labels[type] || labels.config;

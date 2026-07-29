@@ -4,6 +4,7 @@ const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacing
 const { COLORS } = require('../../utils/responseBuilder');
 const trust = require('../../utils/trustManager');
 const jsonStore = require('../../utils/jsonStore');
+const { checkAndExpire, registerSession } = require('../../utils/panelExpiration');
 
 function loadConfig() {
     if (!jsonStore.has('nightmode')) {
@@ -221,15 +222,19 @@ module.exports = {
         }
         const config = loadConfig();
         if (!config[interaction.guild.id]) config[interaction.guild.id] = getDefault();
-        return interaction.reply({
+        const sent = await interaction.reply({
             components: [buildNightPanel(config[interaction.guild.id])],
-            flags: MessageFlags.IsComponentsV2 });
+            flags: MessageFlags.IsComponentsV2, fetchReply: true });
+        try { registerSession(sent.id, { channelId: interaction.channel?.id, guildId: interaction.guild.id, type: 'panel', userId: interaction.user.id }); } catch { }
+        return sent;
     },
 
     async handleInteraction(interaction) {
         const id = interaction.customId || '';
         if (!id.startsWith('nightmode:')) return false;
         if (!interaction.guild) return false;
+        // Panels expire after 5 minutes of inactivity (TIMEOUTS.panel).
+        if (await checkAndExpire(interaction, 'panel')) return true;
 
         // Same gate as execute/executePrefix — re-checked because a custom id can
         // be replayed by anyone who can see the message.

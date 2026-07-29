@@ -751,7 +751,7 @@ module.exports = {
         registerSession(messageId, {
             channelId: interaction.channel.id,
             guildId: interaction.guild.id,
-            type: 'builder',
+            type: 'panel',
             userId: interaction.user.id,
         });
 
@@ -806,7 +806,7 @@ module.exports = {
         const customId = mapBuilderInteraction(interaction) || rawId;
 
         // Check if builder session has expired
-        if (await checkAndExpire(interaction, 'builder')) return true;
+        if (await checkAndExpire(interaction, 'panel')) return true;
 
         const session = interaction.message ? builderSessions.get(interaction.message.id) : null;
         if (session && session.userId !== interaction.user.id) {
