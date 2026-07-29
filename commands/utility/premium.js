@@ -331,7 +331,9 @@ function buildView(view, ctx) {
 module.exports = {
     name: 'premium',
     prefix: 'premium',
-    aliases: ['premiumstatus', 'checkpremium', 'perks', 'premiumperks', 'premiumfeatures', 'getpremium'],
+    // `serverpremium` is aliased here (rather than being its own command)
+    // because the status view already renders a dedicated Server Premium block.
+    aliases: ['premiumstatus', 'checkpremium', 'perks', 'premiumperks', 'premiumfeatures', 'getpremium', 'serverpremium'],
     description: 'View premium status, features, and how to get premium',
     usage: 'premium [status|features|pricing] [@user]',
     category: 'utility',

@@ -2120,8 +2120,15 @@ async function pagePremium() {
     }
     const keys = data?.keys || [];
 
+    // Read `type` first: that is the field the bot actually reads when deciding
+    // redeemkey vs redeemserverkey. `tier` is only kept as a fallback for
+    // legacy rows written before the two names converged — reading `tier` alone
+    // made every server key render as "user" and pinned the Server-tier
+    // counter to 0.
+    const keyTier = (k) => (k.type || k.tier || 'user');
+
     const tierStats = keys.reduce((acc, k) => {
-        const t = k.tier || 'user';
+        const t = keyTier(k);
         acc[t] = (acc[t] || 0) + 1;
         if (k.redeemed) acc.redeemed++;
         else acc.unredeemed++;
@@ -2171,7 +2178,7 @@ async function pagePremium() {
                 <tbody>${keys.map(k => `
                     <tr>
                         <td class="mono">${esc(k.key)}</td>
-                        <td><span class="tag ${k.tier === 'server' ? 'cyan' : 'purple'}">${esc(k.tier || 'user')}</span></td>
+                        <td><span class="tag ${keyTier(k) === 'server' ? 'cyan' : 'purple'}">${esc(keyTier(k))}</span></td>
                         <td>${esc(k.duration || '—')}</td>
                         <td>${k.redeemed
             ? `<span class="tag green">Redeemed${k.redeemedBy ? ' by ' + esc(k.redeemedBy) : ''}</span>` // nosonar
@@ -2185,15 +2192,21 @@ async function pagePremium() {
 
     $('#pk-gen').onclick = async () => {
         const btn = $('#pk-gen'); btn.disabled = true;
+        const chosenTier = $('#pk-tier').value;
         const r = await api('/api/premium/generate', {
             method: 'POST',
-            body: JSON.stringify({ tier: $('#pk-tier').value, duration: $('#pk-dur').value })
+            body: JSON.stringify({ tier: chosenTier, duration: $('#pk-dur').value })
         });
         btn.disabled = false;
         if (r?._error) return toast(r.error || 'Generation failed', 'error');
+        // Name the redeem command that matches the tier — the two are not
+        // interchangeable and the bot rejects a mismatch.
+        const redeemHint = chosenTier === 'server'
+            ? 'Send it to a server admin. They redeem with <code>/redeemserverkey</code> (needs <b>Manage Server</b>) to unlock premium for every member.'
+            : 'Send via DM and tell the user to redeem with <code>/redeemkey</code>.';
         $('#pk-out').innerHTML = `
             <div class="tag green" style="font-size:1rem;padding:.5rem 1rem;font-family:monospace;letter-spacing:.05em">${esc(r.key)}</div>
-            <p class="text-sm text-mute mt-1">Copied to clipboard. Send via DM and tell the user to redeem with <code>/redeemkey</code>.</p>`;
+            <p class="text-sm text-mute mt-1">Copied to clipboard. ${redeemHint}</p>`;
         try { await navigator.clipboard.writeText(r.key); } catch { }
         toast('Key generated and copied', 'success');
         // Refresh after a short pause
