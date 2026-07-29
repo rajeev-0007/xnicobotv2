@@ -638,129 +638,53 @@ async function handleWelcomerButtons(interaction) {
     }
 }
 
+/**
+ * Legacy entry point for anti-nuke panel interactions.
+ *
+ * The panel is owned by commands/utility/antinuke.js, which index.js now routes
+ * to first. This remains only as a safety net for any call path that still
+ * reaches here, and simply delegates.
+ *
+ * It previously carried ~90 lines of duplicated fallback handlers, including its
+ * own hardcoded copy of the protection key list. That copy was one of the eleven
+ * that made adding a protection a multi-file change (and silently dropped
+ * whatever it did not know about) — it is now gone.
+ */
 async function handleAntiNukeButtons(interaction) {
     if (!interaction || !interaction.guild) return;
 
-    // Check if config session has expired
-    if (await checkAndExpire(interaction, 'config')) return;
-
-    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) && !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)
+        && !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
         return interaction.reply({
             content: '<:Cancel:1521227723916181644> You need **Administrator** or **Manage Guild** permission to configure Anti-Nuke!',
             flags: MessageFlags.Ephemeral
         });
     }
 
-    const { buildAntiNukePanel, loadConfig, saveConfig } = require('./panels/antinukePanel');
-    const guildId = interaction.guild.id;
-
-    // Delegate to the antinuke command's handleInteraction
     const antinukeCmd = interaction.client.commands.get('antinuke');
-    if (antinukeCmd && antinukeCmd.handleInteraction) {
+    if (antinukeCmd?.handleInteraction) {
         try {
-            await antinukeCmd.handleInteraction(interaction);
-            return;
+            if (await antinukeCmd.handleInteraction(interaction)) return;
         } catch (error) {
             log.error('Anti-Nuke Interaction Error:', error);
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: '<:Cancel:1521227723916181644> There was an error processing the Anti-Nuke interaction.', flags: MessageFlags.Ephemeral }).catch(() => {});
+                await interaction.reply({
+                    content: '<:Cancel:1521227723916181644> There was an error processing the Anti-Nuke interaction.',
+                    flags: MessageFlags.Ephemeral
+                }).catch(() => {});
             }
             return;
         }
     }
 
-    // Fallback handlers if command handler is not loaded
-    if (interaction.customId === 'antinuke_toggle') {
-        const config = loadConfig();
-        const guildConfig = config[guildId];
-
-        if (!guildConfig) {
-            return interaction.reply({ content: '<:Cancel:1521227723916181644> Anti-Nuke configuration not found!', flags: MessageFlags.Ephemeral });
-        }
-
-        guildConfig.enabled = !guildConfig.enabled;
-        config[guildId] = guildConfig;
-        saveConfig(config);
-
-        const container = buildAntiNukePanel(guildConfig);
-        await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
-        return;
-    }
-
-    if (interaction.customId === 'antinuke_enable_all' || interaction.customId === 'antinuke_disable_all') {
-        const config = loadConfig();
-        const guildConfig = config[guildId];
-
-        if (!guildConfig) {
-            return interaction.reply({ content: '<:Cancel:1521227723916181644> Anti-Nuke configuration not found!', flags: MessageFlags.Ephemeral });
-        }
-
-        const enabled = interaction.customId === 'antinuke_enable_all';
-        const protections = ['banProtection', 'kickProtection', 'channelDelete', 'channelCreate', 'roleDelete', 'roleCreate', 'webhookCreate', 'botAdd'];
-        protections.forEach(protection => {
-            if (guildConfig[protection]) {
-                guildConfig[protection].enabled = enabled;
-            }
-        });
-
-        config[guildId] = guildConfig;
-        saveConfig(config);
-
-        const container = buildAntiNukePanel(guildConfig);
-        await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
-        return;
-    }
-
-    if (interaction.customId === 'antinuke_power') {
-        const config = loadConfig();
-        const guildConfig = config[guildId];
-        if (!guildConfig) {
-            return interaction.reply({ content: '<:Cancel:1521227723916181644> Anti-Nuke configuration not found!', flags: MessageFlags.Ephemeral });
-        }
-        // Toggle all three "Max Power" flags together: zero-tolerance,
-        // instant quarantine, and auto-restore.
-        const currentlyOn = guildConfig.zeroTolerance && guildConfig.instantQuarantine && guildConfig.autoRestore;
-        const next = !currentlyOn;
-        guildConfig.zeroTolerance = next;
-        guildConfig.instantQuarantine = next;
-        guildConfig.autoRestore = next;
-        config[guildId] = guildConfig;
-        saveConfig(config);
-        const container = buildAntiNukePanel(guildConfig);
-        await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
-        return;
-    }
-
-    if (interaction.customId === 'antinuke_protection_select') {
-        const config = loadConfig();
-        const guildConfig = config[guildId];
-        const selectedProtections = interaction.values;
-        const protectionMap = {
-            'ban': 'banProtection',
-            'kick': 'kickProtection',
-            'channel_delete': 'channelDelete',
-            'channel_create': 'channelCreate',
-            'role_delete': 'roleDelete',
-            'role_create': 'roleCreate',
-            'webhook': 'webhookCreate',
-            'bot_add': 'botAdd'
-        };
-
-        for (const protection of selectedProtections) {
-            const configKey = protectionMap[protection];
-            if (configKey && guildConfig[configKey]) {
-                guildConfig[configKey].enabled = !guildConfig[configKey].enabled;
-            }
-        }
-
-        config[guildId] = guildConfig;
-        saveConfig(config);
-
-        const container = buildAntiNukePanel(guildConfig);
-        await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
-        return;
+    if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+            content: '<:Cancel:1521227723916181644> This anti-nuke panel is outdated. Run `/antinuke` again.',
+            flags: MessageFlags.Ephemeral
+        }).catch(() => {});
     }
 }
+
 
 async function handleEmbedButtons(interaction) {
     if (!interaction || !interaction.guild) return;

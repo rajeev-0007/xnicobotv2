@@ -37,6 +37,12 @@ const { AsyncLocalStorage } = require('node:async_hooks');
 const requestStore = new AsyncLocalStorage();
 
 const app = express();
+
+// Derived from the bot's utils/antinukeSchema (no discord.js dependency, so it
+// is safe to require from the dashboard process). Keeping a second hand-written
+// copy here is what let the dashboard silently drop protections the engine had
+// gained — a config saved from the dashboard would omit them entirely.
+const _anSchema = require('../utils/antinukeSchema');
 app.disable('x-powered-by');
 const PORT = process.env.DASHBOARD_PORT || 3500;
 // JWT_SECRET MUST be set in production. The hardcoded fallback below
@@ -1107,20 +1113,7 @@ const MODULE_DEFAULTS = {
         mode: 'bot', webhooks: {}, filters: {},
     }),
     music: () => ({ enabled: true, defaultVolume: 80, maxQueueSize: 100, djRoleId: null, voteSkip: true, announce: true }),
-    antinuke: () => ({
-        enabled: false,
-        banProtection: { enabled: false, limit: 3, timeWindow: 60000, action: 'remove_roles' },
-        kickProtection: { enabled: false, limit: 3, timeWindow: 60000, action: 'remove_roles' },
-        channelDelete: { enabled: false, limit: 2, timeWindow: 60000, action: 'remove_roles' },
-        channelCreate: { enabled: false, limit: 3, timeWindow: 60000, action: 'remove_roles' },
-        roleDelete: { enabled: false, limit: 2, timeWindow: 60000, action: 'remove_roles' },
-        roleCreate: { enabled: false, limit: 3, timeWindow: 60000, action: 'remove_roles' },
-        webhookCreate: { enabled: false, limit: 2, timeWindow: 60000, action: 'remove_roles' },
-        botAdd: { enabled: false, action: 'kick_bot' },
-        whitelistedUsers: [],
-        bypassRoleId: null,
-        logChannel: null
-    }),
+    antinuke: () => _anSchema.getDefaultConfig(),
     broadcaster: () => ({ enabled: false, channelId: null }),
     verification: () => ({ enabled: false, type: 'button', roleId: null, channelId: null, message: 'Click the button below to verify yourself!', logChannel: null }),
     starboard: () => ({ enabled: false, channelId: null, minStars: 3, emoji: '⭐', selfStar: false, ignoredChannels: [] }),
@@ -2820,27 +2813,11 @@ app.delete('/api/guild/:guildId/economy-user/:userId', authMiddleware, (req, res
 });
 
 // â”€â”€ AntiNuke CRUD (protection modules, whitelist, bypass) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const ANTINUKE_KEYS = ['banProtection', 'kickProtection', 'channelDelete', 'channelCreate', 'roleDelete', 'roleCreate', 'webhookCreate', 'botAdd'];
-const ANTINUKE_PUNISH = new Set(['remove_roles', 'kick', 'ban', 'timeout', 'kick_bot', 'kick_both', 'ban_bot']);
+const ANTINUKE_KEYS = _anSchema.PROTECTION_KEYS;
+const ANTINUKE_PUNISH = new Set(Object.keys(_anSchema.PUNISHMENT_LABELS));
 
 function getAntinukeDefaults() {
-    return {
-        enabled: false,
-        banProtection: { enabled: false, limit: 3, timeWindow: 60000, action: 'remove_roles' },
-        kickProtection: { enabled: false, limit: 3, timeWindow: 60000, action: 'remove_roles' },
-        channelDelete: { enabled: false, limit: 2, timeWindow: 60000, action: 'remove_roles' },
-        channelCreate: { enabled: false, limit: 3, timeWindow: 60000, action: 'remove_roles' },
-        roleDelete: { enabled: false, limit: 2, timeWindow: 60000, action: 'remove_roles' },
-        roleCreate: { enabled: false, limit: 3, timeWindow: 60000, action: 'remove_roles' },
-        webhookCreate: { enabled: false, limit: 2, timeWindow: 60000, action: 'remove_roles' },
-        botAdd: { enabled: false, action: 'kick_bot' },
-        whitelistedUsers: [],
-        bypassRoleId: null,
-        logChannel: null,
-        zeroTolerance: false,
-        instantQuarantine: false,
-        autoRestore: false
-    };
+    return _anSchema.getDefaultConfig();
 }
 
 app.get('/api/guild/:guildId/antinuke', authMiddleware, (req, res) => {

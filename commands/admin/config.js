@@ -29,24 +29,18 @@ function buildConfigPanel(guild, an, ar) {
         ? `${THEME.EMOJIS.SUCCESS} **Anti-Nuke:** Active`
         : `${THEME.EMOJIS.OFFLINE} **Anti-Nuke:** Inactive`;
 
-    const protections = [
-        { key: 'banProtection', label: 'Ban Protection', emoji: '<:banhammer:1521227777083314529>' },
-        { key: 'kickProtection', label: 'Kick Protection', emoji: '<:Userblock:1521227822641975366>' },
-        { key: 'channelDelete', label: 'Channel Delete', emoji: '<:Trash:1521227750420254820>' },
-        { key: 'channelCreate', label: 'Channel Create', emoji: '<:Add:1521227828199293152>' },
-        { key: 'roleDelete', label: 'Role Delete', emoji: '<:Userplus:1521227719621218477>' },
-        { key: 'roleCreate', label: 'Role Create', emoji: '<:Userplus:1521227719621218477>' },
-        { key: 'webhookCreate', label: 'Webhook', emoji: '<:Bookmark:1521227835526742066>' },
-        { key: 'botAdd', label: 'Bot Add', emoji: '<:bots:1521227848101396610>' }
-    ];
+    // Derived from utils/antinukeSchema so this overview lists every protection
+    // the engine supports, rather than a stale hand-written subset.
+    const { PROTECTION_KEYS: _anKeys, PROTECTIONS: _anDefs } = require('../../utils/antinukeSchema');
+    const protections = _anKeys.map(key => ({ key, label: _anDefs[key].label }));
 
     let anGrid = '### <:Shield:1521227694677692467> Anti-Nuke Limits\n';
     for (const p of protections) {
         const prot = an?.[p.key];
         const s = formatCheck(prot?.enabled);
         anGrid += p.key === 'botAdd'
-            ? `${s} ${p.emoji} **${p.label}** → \`${prot?.action || 'kick_bot'}\`\n`
-            : `${s} ${p.emoji} **${p.label}** — Limit: \`${prot?.limit || '—'}\` • Window: \`${prot?.timeWindow ? (prot.timeWindow / 1000) + 's' : '—'}\` • Action: \`${prot?.action || 'remove_roles'}\`\n`;
+            ? `${s} **${p.label}** → \`${prot?.action || 'kick_bot'}\`\n`
+            : `${s} **${p.label}** — Limit: \`${prot?.limit || '—'}\` • Window: \`${prot?.timeWindow ? (prot.timeWindow / 1000) + 's' : '—'}\` • Action: \`${prot?.action || 'remove_roles'}\`\n`;
     }
 
     const anSettings = `<:Caretright:1521227704953864202> **Whitelisted Users:** \`${an?.whitelistedUsers?.length || 0}\`\n` +

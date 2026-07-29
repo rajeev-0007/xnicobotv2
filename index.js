@@ -422,11 +422,24 @@ function updateAutomodCache(guildId, data) {
     } catch (e) { }
 }
 
+// Anti-nuke configs are merged over the schema defaults on every cache write.
+//
+// This is a correctness requirement, not tidiness. Guild rows already in
+// PostgreSQL predate the channelUpdate/roleUpdate protections, so they have no
+// such key. checkAntiNuke reads `config[action]?.enabled`, which would be
+// undefined for every existing server — the edit protections would silently
+// never fire for anyone who had already configured anti-nuke. Merging here
+// backfills them without needing a data migration.
+//
+// (This mirrors what automodCache already does via automodPanel.getGuildConfig;
+// antinukeCache was storing raw rows, which is why new sub-modules never
+// reached existing guilds.)
 async function loadAntinukeConfig() {
     try {
+        const { withDefaults } = require('./utils/antinukeSchema');
         const config = jsonStore.read('antinuke');
         for (const [guildId, data] of Object.entries(config)) {
-            if (data) antinukeCache.set(guildId, data);
+            if (data) antinukeCache.set(guildId, withDefaults(data));
         }
         const activeCount = [...antinukeCache.values()].filter(d => d.enabled).length;
         log.success(`AntiNuke: Loaded ${antinukeCache.size} configs (${activeCount} active)`);
@@ -437,7 +450,12 @@ async function loadAntinukeConfig() {
 
 function updateAntinukeCache(guildId, data) {
     if (data) {
-        antinukeCache.set(guildId, data);
+        try {
+            const { withDefaults } = require('./utils/antinukeSchema');
+            antinukeCache.set(guildId, withDefaults(data));
+        } catch {
+            antinukeCache.set(guildId, data);
+        }
     } else {
         antinukeCache.delete(guildId);
     }
@@ -445,8 +463,10 @@ function updateAntinukeCache(guildId, data) {
 
 function reloadAntinukeCache(config) {
     antinukeCache.clear();
+    let withDefaults = (d) => d;
+    try { ({ withDefaults } = require('./utils/antinukeSchema')); } catch { }
     for (const [guildId, data] of Object.entries(config)) {
-        if (data) antinukeCache.set(guildId, data);
+        if (data) antinukeCache.set(guildId, withDefaults(data));
     }
 }
 
@@ -2122,7 +2142,8 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         const antinukeCmd = client.commands.get('antinuke');
-        if (antinukeCmd && antinukeCmd.handleModal && interaction.customId.startsWith('antinuke_modal_')) {
+        if (antinukeCmd && antinukeCmd.handleModal
+            && (interaction.customId.startsWith('antinuke:modal:') || interaction.customId.startsWith('antinuke_modal_'))) {
             try {
                 await antinukeCmd.handleModal(interaction);
             } catch (error) {
@@ -3751,7 +3772,18 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 return;
             }
-            if (interaction.customId.startsWith('antinuke_')) {
+            if (isAntinukeInteractionId(interaction.customId)) {
+                // The command owns the panel, so it routes first. The
+                // interactionHandlers fallback is kept for anything it declines.
+                const anCmd = client.commands.get('antinuke');
+                if (anCmd?.handleInteraction) {
+                    try {
+                        if (await anCmd.handleInteraction(interaction)) return;
+                    } catch (error) {
+                        log.error(`Anti-Nuke button: ${error.message}`, error);
+                        return;
+                    }
+                }
                 const { handleAntiNukeButtons } = require('./utils/interactionHandlers');
                 return handleAntiNukeButtons(interaction);
             }
@@ -7905,14 +7937,21 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
 
-            // Handle antinuke select menus
-            if (interaction.customId === 'antinuke_protection_select' || interaction.customId === 'antinuke_action_select' || interaction.customId === 'antinuke_power_select') {
+            // Handle antinuke select menus. Matched by prefix rather than by an
+            // explicit ID list: the panel is generated from the protection
+            // schema, so per-module IDs like `antinuke:mod:limit:roleUpdate`
+            // cannot be enumerated here without drifting again.
+            if (isAntinukeInteractionId(interaction.customId)) {
                 try {
+                    const anCmd = client.commands.get('antinuke');
+                    if (anCmd?.handleInteraction) {
+                        if (await anCmd.handleInteraction(interaction)) return;
+                    }
                     await handleAntiNukeButtons(interaction);
                 } catch (error) {
                     log.error(`Anti-Nuke select: ${error.message}`, error);
-                    if (!interaction.replied) {
-                        await interaction.reply({ content: '<:Cancel:1521227723916181644> There was an error!', flags: MessageFlags.Ephemeral });
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ content: '<:Cancel:1521227723916181644> There was an error!', flags: MessageFlags.Ephemeral }).catch(() => { });
                     }
                 }
                 return;
@@ -8012,7 +8051,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             // Anti-Nuke channel select menus
-            if (interaction.customId.startsWith('antinuke_select_')) {
+            if (interaction.customId.startsWith('antinuke_select_') || interaction.customId.startsWith('antinuke:pick:')) {
                 const antinukeCmd = client.commands.get('antinuke');
                 if (antinukeCmd && antinukeCmd.handleInteraction) {
                     try {
@@ -8201,7 +8240,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             // Anti-Nuke role select menus
-            if (interaction.customId.startsWith('antinuke_select_')) {
+            if (interaction.customId.startsWith('antinuke_select_') || interaction.customId.startsWith('antinuke:pick:')) {
                 const antinukeCmd = client.commands.get('antinuke');
                 if (antinukeCmd && antinukeCmd.handleInteraction) {
                     try {
@@ -10895,26 +10934,30 @@ async function executeAntiNukePunishment(guild, member, actionType, action, exec
     }
 }
 
-const ANTINUKE_ACTION_LABELS = {
-    banProtection: { label: 'Ban Protection', emoji: '<:banhammer:1521227777083314529>' },
-    kickProtection: { label: 'Kick Protection', emoji: '<:Userblock:1521227822641975366>' },
-    channelDelete: { label: 'Channel Delete', emoji: '<:Trash:1521227750420254820>' },
-    channelCreate: { label: 'Channel Create', emoji: '<:Add:1521227828199293152>' },
-    roleDelete: { label: 'Role Delete', emoji: '<:Trash:1521227750420254820>' },
-    roleCreate: { label: 'Role Create', emoji: '<:Add:1521227828199293152>' },
-    webhookCreate: { label: 'Webhook Protection', emoji: '<:Bookmark:1521227835526742066>' },
-    botAdd: { label: 'Bot Add Protection', emoji: '<:bots:1521227848101396610>' }
-};
+// Derived from utils/antinukeSchema so a newly added protection can never be
+// missing a label here. Log lines keep a small decorative emoji map of their
+// own; the CONFIG PANELS are restricted to enable/disable icons only.
+const ANTINUKE_ACTION_LABELS = (() => {
+    const { PROTECTION_KEYS, PROTECTIONS } = require('./utils/antinukeSchema');
+    const LOG_EMOJIS = {
+        banProtection: '<:banhammer:1521227777083314529>',
+        kickProtection: '<:Userblock:1521227822641975366>',
+        channelDelete: '<:Trash:1521227750420254820>',
+        channelCreate: '<:Add:1521227828199293152>',
+        channelUpdate: '<:Editalt:1521227921673556019>',
+        roleDelete: '<:Trash:1521227750420254820>',
+        roleCreate: '<:Add:1521227828199293152>',
+        roleUpdate: '<:Editalt:1521227921673556019>',
+        webhookCreate: '<:Bookmark:1521227835526742066>',
+        botAdd: '<:bots:1521227848101396610>',
+    };
+    return Object.fromEntries(PROTECTION_KEYS.map(k => [k, {
+        label: PROTECTIONS[k].label,
+        emoji: LOG_EMOJIS[k] || '<:Shield:1521227694677692467>',
+    }]));
+})();
 
-const ANTINUKE_PUNISH_LABELS = {
-    remove_roles: 'Strip Roles',
-    kick: 'Kick',
-    ban: 'Ban',
-    timeout: 'Timeout',
-    kick_bot: 'Kick Bot',
-    kick_both: 'Kick Bot & User',
-    ban_bot: 'Ban Bot'
-};
+const ANTINUKE_PUNISH_LABELS = require('./utils/antinukeSchema').PUNISHMENT_LABELS;
 
 const ANTINUKE_PUNISH_COLORS = { ban: 0xFF0000, kick: 0xFF6600, remove_roles: 0xFFA500, timeout: 0xFFCC00, kick_bot: 0xFF6600, kick_both: 0xFF0000, ban_bot: 0xFF0000 };
 
@@ -11031,7 +11074,16 @@ async function antiNukeRestore(guild, kind, resource) {
     }
 }
 
-async function checkAntiNuke(guild, action, executor, target = null) {
+/**
+ * @param {object}  [opts]
+ * @param {boolean} [opts.critical]  Bypass the rate limit and punish on this
+ *   single occurrence. Used for permission escalation on a role edit: granting
+ *   Administrator once is already fatal and happens far below any sane
+ *   "N edits per minute" threshold, so counting it like a normal edit would
+ *   let the most dangerous action through.
+ * @param {string}  [opts.reason]    Extra detail for the security log.
+ */
+async function checkAntiNuke(guild, action, executor, target = null, opts = {}) {
     if (!guild || !executor?.id) return;
 
     const config = antinukeCache.get(guild.id);
@@ -11046,7 +11098,7 @@ async function checkAntiNuke(guild, action, executor, target = null) {
     const key = `${guild.id}-${executor.id}-${action}`;
     const now = Date.now();
     const timeWindow = protectionConfig.timeWindow || 60000;
-    const zeroTolerance = !!config.zeroTolerance;
+    const zeroTolerance = !!config.zeroTolerance || !!opts.critical;
     // Zero-tolerance mode punishes on the FIRST destructive action.
     const limit = zeroTolerance ? 1 : (protectionConfig.limit || 3);
 
@@ -11175,7 +11227,55 @@ async function checkAntiNuke(guild, action, executor, target = null) {
     }
 }
 
-async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetName, maxAge = 5000, deletedResource = null, restoreKind = null) {
+/**
+ * How many audit entries to pull when attributing an event to an executor.
+ *
+ * This used to be 1, which quietly broke detection exactly when it mattered
+ * most. Discord's audit log is shared across the whole guild and lags slightly
+ * behind gateway events, so during a fast nuke (twenty channels deleted in a
+ * second) the newest entry frequently is NOT the resource whose event we are
+ * currently handling. The old code compared `entry.target?.id !== targetId` and
+ * returned, dropping the violation entirely — so the faster the attack, the
+ * fewer violations were counted.
+ *
+ * Fetching a small page and scanning it for the matching target fixes that
+ * while staying well inside the rate limits.
+ */
+const ANTINUKE_AUDIT_FETCH_LIMIT = 10;
+
+/**
+ * Named audit log event types. The wiring below used bare integers
+ * (`checkAuditLogAntiNuke(guild, 12, …)`); 12 is CHANNEL_DELETE and 32 is
+ * ROLE_DELETE, which is trivial to transpose and impossible to review.
+ */
+const AUDIT_EVENTS = require('./utils/antinukeSchema').AUDIT;
+
+/**
+ * Does this custom ID belong to the anti-nuke panel?
+ *
+ * The current panel namespaces with colons (`antinuke:modules`); the previous
+ * button-based panel used underscores (`antinuke_toggle`). Panels already posted
+ * in servers still carry the old components, so both must route — the command's
+ * handler answers legacy IDs with a "re-run /antinuke" notice instead of
+ * silently doing nothing.
+ */
+function isAntinukeInteractionId(id) {
+    return typeof id === 'string' && (id.startsWith('antinuke:') || id.startsWith('antinuke_'));
+}
+
+/**
+ * Attribute a gateway event to its executor via the audit log, then run the
+ * anti-nuke check.
+ *
+ * @param {number|number[]} auditType  audit event type, or several alternates
+ *   to search for ONE violation (webhook create/update/delete all surface as a
+ *   single `webhookUpdate` gateway event).
+ * @param {object} [extra]
+ * @param {boolean} [extra.critical]   escalate past the rate limit
+ * @param {string}  [extra.reason]     detail for the security log
+ * @param {(entry:any)=>boolean} [extra.match]  additional entry predicate
+ */
+async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetName, maxAge = 5000, deletedResource = null, restoreKind = null, extra = {}) {
     if (!guild) return;
 
     const config = antinukeCache.get(guild.id);
@@ -11185,16 +11285,30 @@ async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetN
     const botMember = guild.members.me;
     if (!botMember?.permissions.has(PermissionFlagsBits.ViewAuditLog)) return;
 
+    const auditTypes = Array.isArray(auditType) ? auditType : [auditType];
+
     try {
-        const auditLogs = await guild.fetchAuditLogs({ type: auditType, limit: 1 });
-        const entry = auditLogs.entries.first();
+        let entry = null;
+
+        for (const type of auditTypes) {
+            const auditLogs = await guild.fetchAuditLogs({ type, limit: ANTINUKE_AUDIT_FETCH_LIMIT });
+
+            // Scan the page for the freshest entry that matches this target and
+            // is recent enough, instead of only inspecting the newest entry.
+            for (const candidate of auditLogs.entries.values()) {
+                if (Date.now() - candidate.createdTimestamp > maxAge) continue;
+                if (targetId && candidate.target?.id !== targetId) continue;
+                if (typeof extra.match === 'function' && !extra.match(candidate)) continue;
+                if (!candidate.executor?.id) continue;
+                entry = candidate;
+                break;
+            }
+            if (entry) break; // first matching alternate wins — count once only
+        }
+
         if (!entry) return;
-        if (targetId && entry.target?.id !== targetId) return;
-        if (Date.now() - entry.createdTimestamp > maxAge) return;
 
         const executor = entry.executor;
-        if (!executor?.id) return;
-
         const botId = botMember.id || client.user?.id;
         if (executor.id === botId) return;
         if (executor.bot) return;
@@ -11206,7 +11320,10 @@ async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetN
             antiNukeRestore(guild, restoreKind, deletedResource).catch(() => { });
         }
 
-        await checkAntiNuke(guild, action, executor, targetName);
+        await checkAntiNuke(guild, action, executor, targetName, {
+            critical: !!extra.critical,
+            reason: extra.reason,
+        });
     } catch (error) {
         if (error.code !== 10004 && error.code !== 50013) {
             log.error(`Anti-Nuke ${action} audit error:`, error);
@@ -13162,7 +13279,7 @@ client.on('channelCreate', async (channel) => {
     // Update server stats channels
     try { await updateServerStats(channel.guild); } catch { }
 
-    await checkAuditLogAntiNuke(channel.guild, 10, 'channelCreate', channel.id, channel.name);
+    await checkAuditLogAntiNuke(channel.guild, AUDIT_EVENTS.CHANNEL_CREATE, 'channelCreate', channel.id, channel.name);
 });
 
 client.on('channelDelete', async (channel) => {
@@ -13184,7 +13301,7 @@ client.on('channelDelete', async (channel) => {
         }
     }
 
-    await checkAuditLogAntiNuke(channel.guild, 12, 'channelDelete', channel.id, channel.name, 5000, channel, 'channel');
+    await checkAuditLogAntiNuke(channel.guild, AUDIT_EVENTS.CHANNEL_DELETE, 'channelDelete', channel.id, channel.name, 5000, channel, 'channel');
 });
 
 client.on('channelUpdate', async (oldChannel, newChannel) => {
@@ -13193,7 +13310,69 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
     if (newChannel.guild && oldChannel.type !== newChannel.type) {
         try { await updateServerStats(newChannel.guild); } catch { }
     }
+
+    // ── Anti-nuke: channel edit ──
+    // This handler previously only logged. An attacker could rewrite the
+    // permission overwrites on every channel — e.g. deny ViewChannel to
+    // @everyone server-wide, which kills the server as effectively as deleting
+    // them — without incrementing a single anti-nuke counter.
+    if (!newChannel.guild) return;
+    try {
+        const { AUDIT } = require('./utils/antinukeSchema');
+        const cfg = antinukeCache.get(newChannel.guild.id);
+        const mod = cfg?.channelUpdate;
+        if (!cfg?.enabled || !mod?.enabled) return;
+
+        // When permissionsOnly is set (the default), ignore cosmetic edits.
+        // Renaming a channel or editing a topic is routine admin work; only a
+        // permission-overwrite rewrite is treated as an attack. Without this the
+        // protection would punish moderators for ordinary housekeeping.
+        if (mod.permissionsOnly !== false && !didChannelPermissionsChange(oldChannel, newChannel)) return;
+
+        await checkAuditLogAntiNuke(
+            newChannel.guild,
+            // A permission-overwrite edit can surface as CHANNEL_UPDATE or as a
+            // dedicated CHANNEL_OVERWRITE_* entry depending on what changed.
+            [AUDIT.CHANNEL_UPDATE, AUDIT.CHANNEL_OVERWRITE_UPDATE, AUDIT.CHANNEL_OVERWRITE_CREATE, AUDIT.CHANNEL_OVERWRITE_DELETE],
+            'channelUpdate',
+            null, // overwrite entries target the channel, but CHANNEL_UPDATE may not resolve a target object
+            newChannel.name,
+            5000,
+            null,
+            null,
+            { reason: 'Channel permission overwrites changed' }
+        );
+    } catch (e) {
+        log.debug('antinuke channelUpdate: ' + (e?.message || e));
+    }
 });
+
+/**
+ * Did this channel edit actually change permissions?
+ *
+ * Compares the permission-overwrite collections by (id, allow, deny) so a pure
+ * rename/topic/slowmode edit is not mistaken for a permission rewrite.
+ */
+function didChannelPermissionsChange(oldChannel, newChannel) {
+    try {
+        const serialize = (ch) => {
+            const ow = ch?.permissionOverwrites?.cache;
+            if (!ow) return null;
+            return [...ow.values()]
+                .map(o => `${o.id}:${String(o.allow?.bitfield ?? o.allow ?? 0)}:${String(o.deny?.bitfield ?? o.deny ?? 0)}`)
+                .sort()
+                .join('|');
+        };
+        const before = serialize(oldChannel);
+        const after = serialize(newChannel);
+        // If we can't read overwrites on either side we cannot prove it was
+        // cosmetic — fail open so a real attack is still caught.
+        if (before === null || after === null) return true;
+        return before !== after;
+    } catch {
+        return true;
+    }
+}
 
 client.on('roleCreate', async (role) => {
     await logRoleCreate(role);
@@ -13201,7 +13380,7 @@ client.on('roleCreate', async (role) => {
     // Update server stats channels
     try { await updateServerStats(role.guild); } catch { }
 
-    await checkAuditLogAntiNuke(role.guild, 30, 'roleCreate', role.id, role.name);
+    await checkAuditLogAntiNuke(role.guild, AUDIT_EVENTS.ROLE_CREATE, 'roleCreate', role.id, role.name);
 });
 
 client.on('roleDelete', async (role) => {
@@ -13210,7 +13389,7 @@ client.on('roleDelete', async (role) => {
     // Update server stats channels
     try { await updateServerStats(role.guild); } catch { }
 
-    await checkAuditLogAntiNuke(role.guild, 32, 'roleDelete', role.id, role.name, 5000, role, 'role');
+    await checkAuditLogAntiNuke(role.guild, AUDIT_EVENTS.ROLE_DELETE, 'roleDelete', role.id, role.name, 5000, role, 'role');
 });
 
 client.on('guildBanAdd', async ({ guild, user }) => {
@@ -13218,7 +13397,7 @@ client.on('guildBanAdd', async ({ guild, user }) => {
     // Ban = member leaves → update member/human/bot counts
     try { await updateServerStats(guild); } catch { }
 
-    await checkAuditLogAntiNuke(guild, 22, 'banProtection', user.id, user.username);
+    await checkAuditLogAntiNuke(guild, AUDIT_EVENTS.MEMBER_BAN_ADD, 'banProtection', user.id, user.username);
 });
 
 client.on('guildBanRemove', async ({ guild, user }) => {
@@ -13230,10 +13409,25 @@ client.on('webhookUpdate', async (channel) => {
     if (!channel.guild) return;
     await logWebhookUpdate(channel);
 
-    // Check all webhook audit types: create(50), update(51), delete(52)
-    for (const auditType of [50, 51, 52]) {
-        await checkAuditLogAntiNuke(channel.guild, auditType, 'webhookCreate', null, channel.name);
-    }
+    // Webhook create/update/delete all surface as this ONE gateway event, so
+    // all three audit types are searched — but as alternates for a single
+    // violation, not as three separate checks.
+    //
+    // Previously this looped `for (const auditType of [50,51,52])` and awaited
+    // checkAuditLogAntiNuke each time with targetId=null. Because the target
+    // guard is skipped when targetId is null, every iteration matched some
+    // recent entry and pushed its own hit into antinukeTracker — so a single
+    // webhook action counted as up to 3 violations. With webhookCreate's
+    // default limit of 2, creating one legitimate webhook was enough to trigger
+    // a punishment.
+    const { AUDIT } = require('./utils/antinukeSchema');
+    await checkAuditLogAntiNuke(
+        channel.guild,
+        [AUDIT.WEBHOOK_CREATE, AUDIT.WEBHOOK_UPDATE, AUDIT.WEBHOOK_DELETE],
+        'webhookCreate',
+        null,
+        channel.name
+    );
 });
 
 // ═══════ User Profile Update (avatar, username, display name, banner) ═══════
@@ -13405,6 +13599,51 @@ client.on('guildUpdate', async (oldGuild, newGuild) => {
 client.on('roleUpdate', async (oldRole, newRole) => {
     await logRoleUpdate(oldRole, newRole);
     // Role count doesn't change on update, but if a role is used in stats display, refresh
+
+    // ── Anti-nuke: role edit / permission escalation ──
+    // This handler previously only logged, which left the single most dangerous
+    // move in the game completely unprotected: a user with Manage Roles editing
+    // a role they already hold to grant it Administrator. That is one API call,
+    // it defeats every other protection, and nothing counted it.
+    if (!newRole?.guild) return;
+    try {
+        const { AUDIT, addedDangerousPermissions } = require('./utils/antinukeSchema');
+        const cfg = antinukeCache.get(newRole.guild.id);
+        const mod = cfg?.roleUpdate;
+        if (!cfg?.enabled || !mod?.enabled) return;
+
+        const oldBits = oldRole?.permissions?.bitfield ?? 0n;
+        const newBits = newRole?.permissions?.bitfield ?? 0n;
+        const escalated = addedDangerousPermissions(oldBits, newBits);
+        const permsChanged = String(oldBits) !== String(newBits);
+
+        // Cosmetic edits (name, colour, icon, hoist, position) are ignored when
+        // permissionsOnly is set, so routine role management isn't punished.
+        if (mod.permissionsOnly !== false && !permsChanged) return;
+
+        // A dangerous grant fires immediately rather than waiting for the rate
+        // limit — see checkAntiNuke's `critical` option.
+        const isCritical = escalated.length > 0 && mod.escalationInstant !== false;
+
+        await checkAuditLogAntiNuke(
+            newRole.guild,
+            AUDIT.ROLE_UPDATE,
+            'roleUpdate',
+            newRole.id,
+            newRole.name,
+            5000,
+            null,
+            null,
+            {
+                critical: isCritical,
+                reason: escalated.length
+                    ? `Granted ${escalated.join(', ')} to @${newRole.name}`
+                    : `Permissions changed on @${newRole.name}`,
+            }
+        );
+    } catch (e) {
+        log.debug('antinuke roleUpdate: ' + (e?.message || e));
+    }
 });
 
 // ═══════ Emoji Logs ═══════
@@ -13705,7 +13944,7 @@ client.on('guildMemberRemove', async (member) => {
         log.error('Leave message error', error);
     }
 
-    await checkAuditLogAntiNuke(member.guild, 20, 'kickProtection', member.id, member.user?.username || member.id, 3000);
+    await checkAuditLogAntiNuke(member.guild, AUDIT_EVENTS.MEMBER_KICK, 'kickProtection', member.id, member.user?.username || member.id, 3000);
 });
 
 client.on('messageReactionAdd', async (reaction, user) => {

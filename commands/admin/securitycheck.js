@@ -48,11 +48,17 @@ module.exports = {
             maxScore += 20;
             if (antinuke?.enabled) {
                 score += 15;
-                const activeProtections = ['banProtection', 'kickProtection', 'channelDelete', 'channelCreate', 'roleDelete', 'roleCreate', 'webhookCreate', 'botAdd']
-                    .filter(k => antinuke[k]?.enabled).length;
-                if (activeProtections >= 6) score += 5;
-                checks.push(`<:Toggleon:1521227758011809964> **Antinuke** — Active (${activeProtections}/8 protections)`);
-                if (activeProtections < 6) recommendations.push('Enable all antinuke protections for full coverage');
+                // Derived from the schema so the score reflects newly added
+                // protections instead of silently ignoring them.
+                const { PROTECTION_KEYS } = require('../../utils/antinukeSchema');
+                const totalProtections = PROTECTION_KEYS.length;
+                const activeProtections = PROTECTION_KEYS.filter(k => antinuke[k]?.enabled).length;
+                // "Good coverage" is proportional rather than a fixed 6, which
+                // would silently get easier every time a protection is added.
+                const goodCoverage = Math.ceil(totalProtections * 0.75);
+                if (activeProtections >= goodCoverage) score += 5;
+                checks.push(`<:Toggleon:1521227758011809964> **Antinuke** — Active (${activeProtections}/${totalProtections} protections)`);
+                if (activeProtections < goodCoverage) recommendations.push('Enable all antinuke protections for full coverage');
                 if (!antinuke.logChannel) recommendations.push('Set an antinuke log channel for audit trail');
             } else {
                 checks.push(`<:Toggleoff:1521227763816595559> **Antinuke** — Disabled`);

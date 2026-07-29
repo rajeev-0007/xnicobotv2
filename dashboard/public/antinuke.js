@@ -1,16 +1,23 @@
 /* =========================================================
    xNico Dashboard — antinuke.js
-   8 protection modules + whitelist + bypass role + log channel.
+   Protection modules + whitelist + bypass role + log channel.
    Syncs to jsonStore 'antinuke' read live by bot's event handlers.
+
+   NOTE: this list must stay in step with utils/antinukeSchema.js. It cannot
+   require() it (browser code), so the two are kept aligned by name. The server
+   derives its own copy from the schema, so a mismatch here only affects which
+   modules are *displayed* — it can no longer drop them from a saved config.
    ========================================================= */
 
 const ANTINUKE_MODULES = [
     { key: 'banProtection',  label: 'Ban Protection',   desc: 'Detect mass member bans.',        icon: 'shield', hasLimit: true  },
     { key: 'kickProtection', label: 'Kick Protection',  desc: 'Detect mass member kicks.',       icon: 'user-x', hasLimit: true  },
-    { key: 'channelDelete',  label: 'Channel Delete',   desc: 'Detect mass channel deletions.',  icon: 'grid',   hasLimit: true  },
     { key: 'channelCreate',  label: 'Channel Create',   desc: 'Detect mass channel creation.',   icon: 'grid',   hasLimit: true  },
-    { key: 'roleDelete',     label: 'Role Delete',      desc: 'Detect mass role deletions.',     icon: 'crown',  hasLimit: true  },
+    { key: 'channelDelete',  label: 'Channel Delete',   desc: 'Detect mass channel deletions.',  icon: 'grid',   hasLimit: true  },
+    { key: 'channelUpdate',  label: 'Channel Edit',     desc: 'Detect mass channel permission rewrites.', icon: 'edit', hasLimit: true },
     { key: 'roleCreate',     label: 'Role Create',      desc: 'Detect mass role creation.',      icon: 'crown',  hasLimit: true  },
+    { key: 'roleDelete',     label: 'Role Delete',      desc: 'Detect mass role deletions.',     icon: 'crown',  hasLimit: true  },
+    { key: 'roleUpdate',     label: 'Role Edit',        desc: 'Detect role permission escalation and mass role edits.', icon: 'edit', hasLimit: true },
     { key: 'webhookCreate',  label: 'Webhook Protection', desc: 'Detect rogue webhook activity.', icon: 'link',  hasLimit: true  },
     { key: 'botAdd',         label: 'Bot Add',          desc: 'Block unauthorized bots joining.', icon: 'user-plus', hasLimit: false },
 ];
