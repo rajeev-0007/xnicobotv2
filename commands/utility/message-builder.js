@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder, MessageFlags, AttachmentBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder, MessageFlags, AttachmentBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 
 
 const jsonStore = require('../../utils/jsonStore');
@@ -216,194 +216,129 @@ function buildMainPanel(data) {
     return header;
 }
 
-function createModeRow(currentMode) {
-    const isComponents = currentMode === 'components';
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_mode_components')
-                .setLabel('Components V2')
-                .setStyle(isComponents ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Fire:1521227907647668374>')
-                .setDisabled(isComponents),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_mode_embed')
-                .setLabel('Embed Mode')
-                .setStyle(!isComponents ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Document:1521227875016114266>')
-                .setDisabled(!isComponents)
-        );
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PANEL CONTROLS — one select menu per row
+ *
+ * The panel previously stacked five action rows holding 22 buttons and ~15
+ * different decorative emojis, and it swapped its own contents based on mode.
+ * That hid options rather than disabling them: msgbuilder_set_buttons appeared
+ * only in components mode, so an embed could not be given buttons at all, and
+ * Clear Fields appeared only in embed mode AND only once fields existed.
+ *
+ * Four select menus replace all of it. Conventions match welcomer.js:
+ *   - ids are `msgbuilder:<control>`; discrete setters are
+ *     `msgbuilder:set:<field>:<value>`
+ *   - the ONLY emojis are the enable/disable pair, used to mark which choice in
+ *     a group is active. State is never carried by a button colour
+ *   - option VALUES on the edit/send/data menus are the action ids the handler
+ *     chain already implements, so mapping is the identity function and no
+ *     lookup table can drift out of sync
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
-function createSetupRow(data) {
-    const mode = data.mode || 'components';
-    const isComponents = mode === 'components';
+const B_ON = '<:Toggleon:1521227758011809964>';
+const B_OFF = '<:Toggleoff:1521227763816595559>';
 
-    if (isComponents) {
-        return new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_content')
-                    .setLabel('Content')
-                    .setStyle(data.content ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Edit:1521227886634205298>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_media')
-                    .setLabel('Media')
-                    .setStyle(data.images?.length || data.thumbnail ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Picture:1521227954191995024>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_styling')
-                    .setLabel('Styling')
-                    .setStyle(data.color && data.color !== '#bcf1e4' ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Palette:1521227950601539755>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_add_field')
-                    .setLabel(`Fields (${data.fields?.length || 0})`)
-                    .setStyle(data.fields?.length ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Bookopen:1521227911137595605>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_buttons')
-                    .setLabel((() => {
-                        const total = (data.buttons?.length || 0) + (data.actionButtons?.length || 0);
-                        const pos = data.buttonPosition || 'bottom';
-                        return total > 0 ? `Buttons (${total} · ${pos === 'top' ? 'Top' : 'Bottom'})` : 'Buttons';
-                    })())
-                    .setStyle((data.buttons?.length || data.actionButtons?.length) ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Attach:1521228039135170722>')
-            );
-    } else {
-        return new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_basic')
-                    .setLabel('Title & Desc')
-                    .setStyle(data.title || data.description ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Edit:1521227886634205298>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_media')
-                    .setLabel('Media')
-                    .setStyle(data.images?.length || data.image || data.thumbnail ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Picture:1521227954191995024>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_styling')
-                    .setLabel('Color & Footer')
-                    .setStyle(data.color && data.color !== '#bcf1e4' ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Palette:1521227950601539755>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_add_field')
-                    .setLabel(`Fields (${data.fields?.length || 0})`)
-                    .setStyle(data.fields?.length ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Bookopen:1521227911137595605>')
-            );
-    }
-}
+const BID = {
+    edit: 'msgbuilder:edit',
+    layout: 'msgbuilder:layout',
+    send: 'msgbuilder:send',
+    data: 'msgbuilder:data',
+};
 
-function createExtraRow(data) {
-    const mode = data.mode || 'components';
-    const buttons = [];
+const bMark = (active) => (active ? B_ON : B_OFF);
 
-    if (mode === 'components') {
-        const pos = data.imagePosition || 'bottom';
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_image_position')
-                .setLabel(`Image: ${pos === 'top' ? '\u2b06\ufe0f Top' : pos === 'side' ? '\u2194\ufe0f Side' : '\u2b07\ufe0f Bottom'}`)
-                .setStyle(pos === 'bottom' ? ButtonStyle.Secondary : ButtonStyle.Primary)
-        );
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_colorless')
-                .setLabel('Colorless')
-                .setStyle(data.colorless ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Commentblock:1521227898101432331>')
-        );
-    }
-    if (mode === 'embed' && data.fields?.length) {
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_clear_fields')
-                .setLabel('Clear Fields')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:Trash:1521227750420254820>')
-        );
-    }
-    buttons.push(
-        new ButtonBuilder()
-            .setCustomId('msgbuilder_show_variables')
-            .setLabel('Variables')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('<:Clipboard:1521228175298920448>'),
-        new ButtonBuilder()
-            .setCustomId('msgbuilder_export_json')
-            .setLabel('Export')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('<:Upload:1521228365120405537>'),
-        new ButtonBuilder()
-            .setCustomId('msgbuilder_import_json')
-            .setLabel('Import')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('<:Download:1521228191899975810>')
+function bMenuRow(customId, placeholder, options) {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder(placeholder)
+            .setMinValues(1)
+            .setMaxValues(1)
+            .addOptions(options.slice(0, 25).map((o) => {
+                const opt = new StringSelectMenuOptionBuilder().setValue(o.value).setLabel(o.label);
+                if (o.description) opt.setDescription(o.description.slice(0, 100));
+                if (o.emoji) opt.setEmoji(o.emoji);
+                return opt;
+            }))
     );
-    return new ActionRowBuilder().addComponents(...buttons);
 }
 
-function createActionRow(data) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_preview')
-                .setLabel('Preview')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Eye:1521227940480815156>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_send_here')
-                .setLabel('Send Here')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('<:Image:1521227966435037255>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_send_channel')
-                .setLabel('Send to Channel')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('<:Bullhorn:1521227936575914016>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_edit_message')
-                .setLabel('Edit Message')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Editalt:1521227921673556019>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_push_edit')
-                .setLabel('Push Edit')
-                .setStyle(data.editingMessageId ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:rocket:1521228374805057756>')
-                .setDisabled(!data.editingMessageId)
-        );
+function builderEditOptions(d) {
+    const fieldCount = (d.fields || []).length;
+    const btnCount = (d.buttons || []).length + (d.actionButtons || []).length;
+    const imgCount = (d.images || []).length;
+    const opts = [
+        { value: 'msgbuilder_set_content', label: 'Message text', description: d.content ? 'Set. Body text and footer' : 'Empty. Body text and footer' },
+        { value: 'msgbuilder_set_basic', label: 'Title and description', description: (d.title || d.description) ? 'Set' : 'Not set' },
+        { value: 'msgbuilder_set_media', label: 'Images and thumbnail', description: (imgCount || d.thumbnail) ? `${imgCount} image(s)${d.thumbnail ? ' + thumbnail' : ''}` : 'None set' },
+        { value: 'msgbuilder_set_styling', label: 'Colour and footer', description: `Accent ${d.color || 'default'}` },
+        { value: 'msgbuilder_set_buttons', label: 'Buttons', description: btnCount ? `${btnCount} configured` : 'None configured' },
+        { value: 'msgbuilder_add_field', label: 'Add a field', description: `${fieldCount} field(s) so far` },
+    ];
+    // Only offer the destructive action when there is something to destroy.
+    if (fieldCount > 0) {
+        opts.push({ value: 'msgbuilder_clear_fields', label: 'Clear all fields', description: `Removes all ${fieldCount}` });
+    }
+    return opts;
 }
 
-function createTemplateRow() {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_save_template')
-                .setLabel('Save')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Save:1521228186229276734>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_load_template')
-                .setLabel('Load')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Folderopen:1521227986966417642>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_delete_template')
-                .setLabel('Delete')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:Trash:1521227750420254820>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_reset')
-                .setLabel('Reset All')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:Refresh:1521227946441052420>')
-        );
+function builderLayoutOptions(d) {
+    const mode = d.mode || 'components';
+    const img = d.imagePosition || 'bottom';
+    const btn = d.buttonPosition || 'bottom';
+    return [
+        { value: 'msgbuilder:set:mode:components', label: 'Mode: Components V2', description: 'Rich container layout', emoji: bMark(mode === 'components') },
+        { value: 'msgbuilder:set:mode:embed', label: 'Mode: Embed', description: 'Classic embed layout', emoji: bMark(mode === 'embed') },
+        { value: 'msgbuilder:set:imgpos:top', label: 'Image: top', emoji: bMark(img === 'top') },
+        { value: 'msgbuilder:set:imgpos:side', label: 'Image: side thumbnail', emoji: bMark(img === 'side') },
+        { value: 'msgbuilder:set:imgpos:bottom', label: 'Image: bottom', emoji: bMark(img === 'bottom') },
+        { value: 'msgbuilder:set:btnpos:top', label: 'Buttons: above text', emoji: bMark(btn === 'top') },
+        { value: 'msgbuilder:set:btnpos:bottom', label: 'Buttons: below text', emoji: bMark(btn === 'bottom') },
+        { value: 'msgbuilder:set:colorless:on', label: 'Hide accent colour', description: 'Remove the coloured bar', emoji: bMark(!!d.colorless) },
+        { value: 'msgbuilder:set:colorless:off', label: 'Show accent colour', description: 'Keep the coloured bar', emoji: bMark(!d.colorless) },
+    ];
+}
+
+function builderSendOptions(d) {
+    return [
+        { value: 'msgbuilder_preview', label: 'Preview', description: 'Show it privately before sending' },
+        { value: 'msgbuilder_send_here', label: 'Send in this channel', description: 'Post it where the panel is' },
+        { value: 'msgbuilder_send_channel', label: 'Send to another channel', description: 'Pick a destination' },
+        { value: 'msgbuilder_edit_message', label: 'Load an existing message', description: 'Pull one in by id to edit it' },
+        {
+            value: 'msgbuilder_push_edit',
+            label: 'Push edit to the loaded message',
+            description: d.editingMessageId ? `Updates message ${d.editingMessageId}` : 'Load a message first',
+            emoji: bMark(!!d.editingMessageId),
+        },
+    ];
+}
+
+function builderDataOptions() {
+    return [
+        { value: 'msgbuilder_save_template', label: 'Save as template' },
+        { value: 'msgbuilder_load_template', label: 'Load a template' },
+        { value: 'msgbuilder_delete_template', label: 'Delete a template' },
+        { value: 'msgbuilder_export_json', label: 'Export JSON', description: 'Copy this design out' },
+        { value: 'msgbuilder_import_json', label: 'Import JSON', description: 'Paste a design in' },
+        { value: 'msgbuilder_show_variables', label: 'Placeholder reference', description: 'Every {placeholder} you can use' },
+        { value: 'msgbuilder_reset', label: 'Reset everything', description: 'Back to an empty draft' },
+    ];
+}
+
+/**
+ * Translates a new-panel interaction into the action id the existing handler
+ * chain understands, or null when the id is not ours. The edit/send/data menus
+ * carry legacy action ids as their values, so this is a pass-through.
+ */
+function mapBuilderInteraction(interaction) {
+    const id = interaction.customId;
+    if (typeof id !== 'string' || !id.startsWith('msgbuilder:')) return null;
+    if (id === BID.edit || id === BID.send || id === BID.data || id === BID.layout) {
+        const chosen = interaction.values && interaction.values[0];
+        return chosen || id;
+    }
+    return id;
 }
 
 // Sanitize a URL for the in-builder live preview.
@@ -593,11 +528,10 @@ function buildContainer(data, ctx = null) {
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
 
-    container.addActionRowComponents(createModeRow(data.mode));
-    container.addActionRowComponents(createSetupRow(data));
-    container.addActionRowComponents(createExtraRow(data));
-    container.addActionRowComponents(createActionRow(data));
-    container.addActionRowComponents(createTemplateRow());
+    container.addActionRowComponents(bMenuRow(BID.edit, 'Edit content', builderEditOptions(data)));
+    container.addActionRowComponents(bMenuRow(BID.layout, 'Layout and mode', builderLayoutOptions(data)));
+    container.addActionRowComponents(bMenuRow(BID.send, 'Preview or send', builderSendOptions(data)));
+    container.addActionRowComponents(bMenuRow(BID.data, 'Templates and data', builderDataOptions()));
 
     return container;
 }
@@ -974,8 +908,13 @@ module.exports = {
     async handleInteraction(interaction) {
         if (!interaction.guild || !interaction.member) return false;
 
-        const customId = interaction.customId;
-        if (!customId.startsWith('msgbuilder_')) return false;
+        const rawId = interaction.customId;
+        if (!rawId.startsWith('msgbuilder:') && !rawId.startsWith('msgbuilder_')) return false;
+
+        // New select-menu panel ids become the action ids the chain below already
+        // implements. Legacy button ids pass through untouched, so builder panels
+        // already posted in channels keep working.
+        const customId = mapBuilderInteraction(interaction) || rawId;
 
         // Check if builder session has expired
         if (await checkAndExpire(interaction, 'builder')) return true;
@@ -1000,6 +939,45 @@ module.exports = {
         const key = draftKey(interaction);
         let data = builderData.get(key) || { ...getDefaultData() };
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
+
+        /* ── New panel: discrete value setters ──
+         * `msgbuilder:set:<field>:<value>`. Custom ids come from the client, so
+         * field and value are both whitelisted rather than written through —
+         * otherwise a crafted id could assign arbitrary draft keys. This also
+         * replaces the old cycling Image button, which needed three clicks to
+         * get back to 'bottom' and could not target a value directly. */
+        if (customId.startsWith('msgbuilder:set:')) {
+            const parts = customId.split(':');
+            const field = parts[2];
+            const value = parts[3];
+
+            const ALLOWED = {
+                mode: ['components', 'embed'],
+                imgpos: ['top', 'side', 'bottom'],
+                btnpos: ['top', 'bottom'],
+                colorless: ['on', 'off'],
+            };
+            if (!ALLOWED[field] || !ALLOWED[field].includes(value)) {
+                await interaction.reply({
+                    content: '<:Cancel:1521227723916181644> That option is not recognised. Re-open the builder with `/message-builder`.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return true;
+            }
+
+            if (field === 'mode') data.mode = value;
+            else if (field === 'imgpos') data.imagePosition = value;
+            else if (field === 'btnpos') data.buttonPosition = value;
+            else if (field === 'colorless') data.colorless = (value === 'on');
+
+            builderData.set(key, data);
+            const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
+            await interaction.update({
+                components: [buildContainer(data, ctx)],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
 
         if (customId === 'msgbuilder_mode_components') {
             data.mode = 'components';
