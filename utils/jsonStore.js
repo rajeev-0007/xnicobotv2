@@ -104,7 +104,7 @@ const CRITICAL_STORES = new Set([
     'autoresponder', 'autoreact', 'autorole', 'autonick', 'voiceautorole',
     'reactionroles', 'starboard', 'suggestions', 'feedback', 'giveaways', 'giveaway-settings',
     'media-only', 'sticky', 'simple-sticky', 'booster-notify', 'social-notify', 'social-notify-cache',
-    'button-commands', 'select-menus', 'customcmds', 'welcomer', 'welcomer-templates',
+    'button-commands', 'select-menus', 'customcmds', 'welcomer',
     // Games / submissions config that must survive restarts
     'counting', 'screenshot-verify', 'screenshot-verify-submissions',
     // Verification / invites / join2create / serverstats
@@ -117,7 +117,7 @@ const CRITICAL_STORES = new Set([
     'servertag-users', 'vote-config',
     // Misc high-value config
     'birthdays', 'confessions', 'reminders', 'spotify-links', 'marriages',
-    'reputation', 'user-templates', 'voicebans',
+    'reputation', 'voicebans',
     // Owner: temporarily disabled commands
     'disabled-commands',
 ]);

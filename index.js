@@ -2308,7 +2308,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         const welcomerCmd = client.commands.get('welcomer');
-        if (welcomerCmd && welcomerCmd.handleModalSubmit && (interaction.customId.startsWith('welcomer_modal_') || interaction.customId.startsWith('welcomer_template_') || interaction.customId.startsWith('leave_modal_') || interaction.customId.startsWith('leave_canvas_') || interaction.customId.startsWith('canvas_'))) {
+        if (welcomerCmd && welcomerCmd.handleModalSubmit && (interaction.customId.startsWith('welcomer_modal_') || interaction.customId.startsWith('leave_modal_') || interaction.customId.startsWith('leave_canvas_') || interaction.customId.startsWith('canvas_'))) {
             try {
                 const handled = await welcomerCmd.handleModalSubmit(interaction);
                 if (handled) return;
@@ -6509,6 +6509,49 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
+            /* Anti-spam panel (antispam:*). Routed by PREFIX so adding a menu to
+             * the panel cannot silently produce an unrouted component. */
+            if (interaction.customId.startsWith('antispam:')) {
+                const antispamCmd = client.commands.get('antispam');
+                if (antispamCmd?.handleInteraction) {
+                    try {
+                        const handled = await antispamCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`AntiSpam Panel: ${e.message}`, e); }
+                }
+                return;
+            }
+
+            /* Select-menu config panels (welcomer:*, msgbuilder:*).
+             *
+             * Routed by PREFIX, not by an allowlist of exact ids. The legacy
+             * routes below match exact ids or narrow prefixes like
+             * 'welcomer_select_', which means adding a menu to a panel silently
+             * produces an unrouted component — the user just sees "This
+             * interaction failed". The llb_periods case commented above was
+             * exactly that. A colon namespace also cannot collide with the
+             * legacy underscore ids. */
+            if (interaction.customId.startsWith('welcomer:')) {
+                const welcomerCmd = client.commands.get('welcomer');
+                if (welcomerCmd?.handleInteraction) {
+                    try {
+                        const handled = await welcomerCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`Welcomer Panel Select: ${e.message}`, e); }
+                }
+                return;
+            }
+            if (interaction.customId.startsWith('msgbuilder:')) {
+                const msgBuilderCmd = client.commands.get('message-builder');
+                if (msgBuilderCmd?.handleInteraction) {
+                    try {
+                        const handled = await msgBuilderCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`Message Builder Panel Select: ${e.message}`, e); }
+                }
+                return;
+            }
+
             // Live Leaderboard string selects: multi-period picker, legacy
             // single period, and entry-count. (llb_periods/llb_count were added
             // to the command but weren't routed here — that unrouted select was
@@ -7315,24 +7358,8 @@ client.on('interactionCreate', async (interaction) => {
                 }
             }
 
-            // Handle message-builder template select menus
-            if (interaction.customId.startsWith('msgbuilder_select_')) {
-                const msgBuilderCmd = client.commands.get('message-builder');
-                if (msgBuilderCmd && msgBuilderCmd.handleSelectMenu) {
-                    try {
-                        const handled = await msgBuilderCmd.handleSelectMenu(interaction);
-                        if (handled) return;
-                    } catch (error) {
-                        log.error(`Message Builder Select: ${error.message} — ${JSON.stringify(error.rawError?.errors || error.errors || {})}`, error);
-                        if (!interaction.replied && !interaction.deferred) {
-                            await interaction.reply({ content: '<:Cancel:1521227723916181644> Something went wrong loading that template. Please try again.', flags: MessageFlags.Ephemeral }).catch(() => { });
-                        }
-                    }
-                }
-            }
-
             // Handle welcomer template select menus
-            if (interaction.customId.startsWith('welcomer_template_') || interaction.customId.startsWith('welcomer_select_') || interaction.customId.startsWith('leave_template_')) {
+            if (interaction.customId.startsWith('welcomer_select_')) {
                 const welcomerCmd = client.commands.get('welcomer');
                 if (welcomerCmd && welcomerCmd.handleInteraction) {
                     try {
@@ -8007,6 +8034,49 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isChannelSelectMenu()) {
+            /* Anti-spam panel (antispam:*). Routed by PREFIX so adding a menu to
+             * the panel cannot silently produce an unrouted component. */
+            if (interaction.customId.startsWith('antispam:')) {
+                const antispamCmd = client.commands.get('antispam');
+                if (antispamCmd?.handleInteraction) {
+                    try {
+                        const handled = await antispamCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`AntiSpam Panel: ${e.message}`, e); }
+                }
+                return;
+            }
+
+            /* Select-menu config panels (welcomer:*, msgbuilder:*).
+             *
+             * Routed by PREFIX, not by an allowlist of exact ids. The legacy
+             * routes below match exact ids or narrow prefixes like
+             * 'welcomer_select_', which means adding a menu to a panel silently
+             * produces an unrouted component — the user just sees "This
+             * interaction failed". The llb_periods case commented above was
+             * exactly that. A colon namespace also cannot collide with the
+             * legacy underscore ids. */
+            if (interaction.customId.startsWith('welcomer:')) {
+                const welcomerCmd = client.commands.get('welcomer');
+                if (welcomerCmd?.handleInteraction) {
+                    try {
+                        const handled = await welcomerCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`Welcomer Panel Select: ${e.message}`, e); }
+                }
+                return;
+            }
+            if (interaction.customId.startsWith('msgbuilder:')) {
+                const msgBuilderCmd = client.commands.get('message-builder');
+                if (msgBuilderCmd?.handleInteraction) {
+                    try {
+                        const handled = await msgBuilderCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`Message Builder Panel Select: ${e.message}`, e); }
+                }
+                return;
+            }
+
             // Live Leaderboard channel selects
             if (interaction.customId === 'llb_channels' || interaction.customId === 'llb_target') {
                 const llbCmd = client.commands.get('liveleaderboard');
@@ -8244,6 +8314,19 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isRoleSelectMenu()) {
+            /* Anti-spam panel (antispam:*). Routed by PREFIX so adding a menu to
+             * the panel cannot silently produce an unrouted component. */
+            if (interaction.customId.startsWith('antispam:')) {
+                const antispamCmd = client.commands.get('antispam');
+                if (antispamCmd?.handleInteraction) {
+                    try {
+                        const handled = await antispamCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`AntiSpam Panel: ${e.message}`, e); }
+                }
+                return;
+            }
+
             // J2C allowed-roles picker (premium-only feature)
             if (interaction.customId.startsWith('j2cset_select_roles_')) {
                 const j2cCmd = client.commands.get('join2create-setup');
@@ -11805,7 +11888,11 @@ client.on('guildMemberAdd', async (member) => {
                                     const md = menuConfig[gId][menuId];
                                     if (!md) continue;
                                     const sm = new StringSelectMenuBuilder()
-                                        .setCustomId(`sm_cmd_${gId}_${menuId}`)
+                                        // Must be select_cmd_ : that is the prefix the
+                                        // isStringSelectMenu router handles. sm_cmd_ was
+                                        // created here and handled nowhere, so every select
+                                        // menu attached to a welcome message failed on click.
+                                        .setCustomId(`select_cmd_${gId}_${menuId}`)
                                         .setPlaceholder(md.placeholder || 'Select an option...')
                                         .setMinValues(md.minValues || 1)
                                         .setMaxValues(md.maxValues || 1);
@@ -13591,6 +13678,36 @@ client.on('guildMemberRemove', async (member) => {
                                             }
                                         }
                                     } catch (e) { log.error('Leave action buttons: ' + e.message); }
+                                }
+                                // Select menus attached to the leave message. The
+                                // dashboard has had a picker for leave.actionMenus for
+                                // a while, but nothing rendered it, so attaching one
+                                // silently did nothing. customId must be select_cmd_ —
+                                // the prefix the isStringSelectMenu router handles.
+                                if (leaveConfig.actionMenus?.length > 0) {
+                                    try {
+                                        if (jsonStore.has('select-menus')) {
+                                            const menuConfig = jsonStore.peek('select-menus') || {};
+                                            const gId = member.guild.id;
+                                            const guildMenus = menuConfig[gId] || {};
+                                            for (const menuId of leaveConfig.actionMenus.slice(0, 5)) {
+                                                const md = guildMenus[menuId];
+                                                if (!md || !md.options?.length) continue;
+                                                const sm = new StringSelectMenuBuilder()
+                                                    .setCustomId(`select_cmd_${gId}_${menuId}`)
+                                                    .setPlaceholder(md.placeholder || 'Select an option...')
+                                                    .setMinValues(md.minValues ?? 1)
+                                                    .setMaxValues(md.maxValues ?? 1);
+                                                sm.addOptions(md.options.slice(0, 25).map(o => ({
+                                                    label: String(o.label ?? 'Option').slice(0, 100),
+                                                    value: String(o.value ?? o.label ?? 'option').slice(0, 100),
+                                                    description: o.description ? String(o.description).slice(0, 100) : undefined,
+                                                    emoji: o.emoji || undefined
+                                                })));
+                                                container.addActionRowComponents(new ActionRowBuilder().addComponents(sm));
+                                            }
+                                        }
+                                    } catch (e) { log.error('Leave action menus: ' + e.message); }
                                 }
                             }
 
