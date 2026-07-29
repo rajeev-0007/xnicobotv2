@@ -105,28 +105,6 @@ async function updatePanelMessage(interaction, container, flags) {
     }
 }
 
-function loadTemplates() {
-    if (!jsonStore.has('welcomer-templates')) {
-        jsonStore.write('welcomer-templates', {});
-        return {};
-    }
-    return jsonStore.read('welcomer-templates');
-}
-
-function saveTemplatesFile(templates) {
-    jsonStore.write('welcomer-templates', templates);
-}
-
-function getBuiltInWelcomerTemplates() {
-    // Built-in templates were intentionally removed — every server
-    // should design and save its own templates instead of falling
-    // back to a generic stock library that doesn't fit the brand.
-    // Returning `{}` keeps the loader UI rendering an empty section
-    // gracefully (it already handles "no templates" via user-only
-    // listings).
-    return {};
-}
-
 function loadConfig() {
     if (!jsonStore.has('welcomer')) {
         jsonStore.write('welcomer', {});
@@ -162,6 +140,7 @@ function getDefaultConfig() {
         autoDelete: 0,
         buttons: [],
         actionButtons: [],
+        actionMenus: [],
         buttonPosition: 'bottom',
         imagePosition: 'bottom',
         canvas: { enabled: false, backgroundColor: null, accentColor: null, customMessage: null },
@@ -195,47 +174,47 @@ function buildMainPanel(guildConfig, guildId) {
     const mode = guildConfig.mode || 'components';
     const isComponents = mode === 'components';
 
-    // Consistent status glyphs
+    /* The enable/disable pair are the ONLY emojis in this panel. Everything else
+     * is plain text or inline code. Previously the header, every section heading
+     * and every "not set" marker carried its own emoji - Userplus, Picture,
+     * Settings, Hashtag, Fire, Document, Checkedbox, Cancel - so decoration
+     * competed with the actual state indicators and the panel read as noise.
+     * State is the only thing worth an icon. */
     const ON = '<:Toggleon:1521227758011809964>';
     const OFF = '<:Toggleoff:1521227763816595559>';
-    const YES = '<:Checkedbox:1521227734943269077>';
-    const NO = '<:Cancel:1521227723916181644>';
-    const toggle = v => (v ? ON : OFF);
-    const mark = v => (v ? YES : NO);
+    const t = (v) => (v ? ON : OFF);
 
-    const statusText = guildConfig.enabled ? `${ON} Enabled` : `${OFF} Disabled`;
-    const channelText = guildConfig.channelId ? `<#${guildConfig.channelId}>` : '`Not set`';
-    const modeText = isComponents ? '<:Fire:1521227907647668374> Components V2' : '<:Document:1521227875016114266> Embed';
-
+    const channelText = guildConfig.channelId ? `<#${guildConfig.channelId}>` : '`not set`';
     const btnCount = (guildConfig.buttons?.length || 0) + (guildConfig.actionButtons?.length || 0);
     const imgPos = guildConfig.imagePosition || 'bottom';
-    const posLabel = imgPos === 'top' ? 'Top' : imgPos === 'side' ? 'Side' : 'Bottom';
+    const btnPos = guildConfig.buttonPosition || 'bottom';
+    const modeLabel = isComponents ? 'Components V2' : 'Embed';
 
-    let content = `# <:Userplus:1521227719621218477> Welcomer\n`;
-    content += `-# Greet new members with a custom message, image card, or embed.\n\n`;
-    content += `**Status** ${statusText}   **Channel** ${channelText}   **Mode** ${modeText}\n`;
+    let c = '# Welcomer\n';
+    c += '-# Greet new members with a message, image card, or embed.\n\n';
+    c += t(guildConfig.enabled) + ' **Welcomer**  \u00b7  channel ' + channelText + '  \u00b7  mode `' + modeLabel + '`\n';
 
-    content += `\n### <:Picture:1521227954191995024> Appearance\n`;
+    c += '\n**Appearance**\n';
     if (isComponents) {
-        const welcomeBtnPos = guildConfig.buttonPosition || 'bottom';
-        content += `${mark(guildConfig.image)} Media Gallery   ${mark(guildConfig.thumbnail)} Thumbnail   \`Image: ${posLabel}\`\n`;
-        content += `${mark(btnCount > 0)} Buttons${btnCount > 0 ? ` \`${btnCount} · ${welcomeBtnPos === 'top' ? 'Top' : 'Bottom'}\`` : ''}   ${toggle(guildConfig.canvas?.enabled)} Canvas\n`;
-        content += `${toggle(guildConfig.colorless)} Colorless   \`Accent: ${guildConfig.colorless ? 'None' : (guildConfig.color || '#bcf1e4')}\`\n`;
+        c += t(!!guildConfig.image) + ' Image  ' + t(!!guildConfig.thumbnail) + ' Thumbnail  `position: ' + imgPos + '`\n';
+        c += t(btnCount > 0) + ' Buttons' + (btnCount > 0 ? ' `' + btnCount + ', ' + btnPos + '`' : '') + '  ' + t(!!guildConfig.canvas?.enabled) + ' Welcome card\n';
+        c += t(!!guildConfig.colorless) + ' Accent hidden  `' + (guildConfig.colorless ? 'none' : (guildConfig.color || '#bcf1e4')) + '`\n';
     } else {
-        const title = guildConfig.title ? guildConfig.title.substring(0, 30) + (guildConfig.title.length > 30 ? '…' : '') : '';
-        content += `${mark(guildConfig.title)} Title${title ? ` \`${title}\`` : ''}   ${mark(guildConfig.image)} Image   ${mark(guildConfig.thumbnail)} Thumbnail\n`;
-        content += `${mark(guildConfig.footer)} Footer   \`Color: ${guildConfig.color || '#bcf1e4'}\`\n`;
+        const raw = guildConfig.title || '';
+        const title = raw ? raw.substring(0, 30) + (raw.length > 30 ? '\u2026' : '') : '';
+        c += t(!!guildConfig.title) + ' Title' + (title ? ' `' + title + '`' : '') + '  ' + t(!!guildConfig.image) + ' Image  ' + t(!!guildConfig.thumbnail) + ' Thumbnail\n';
+        c += t(!!guildConfig.author) + ' Author  ' + t(!!guildConfig.footer) + ' Footer  `colour: ' + (guildConfig.color || '#bcf1e4') + '`\n';
     }
 
-    content += `\n### <:Settings:1521227767780343879> Extras\n`;
-    const autoDel = guildConfig.autoDelete > 0 ? `\`${guildConfig.autoDelete}s\`` : OFF;
-    content += `${toggle(guildConfig.pingUser)} Ping User   ${toggle(guildConfig.dmWelcome?.enabled)} DM Welcome   ${autoDel} Auto-Delete\n`;
+    c += '\n**Extras**\n';
+    c += t(!!guildConfig.pingUser) + ' Ping member  ' + t(!!guildConfig.dmWelcome?.enabled) + ' Welcome DM  ';
+    c += t(guildConfig.autoDelete > 0) + ' Auto-delete' + (guildConfig.autoDelete > 0 ? ' `' + guildConfig.autoDelete + 's`' : '') + '\n';
 
-    content += `\n### <:Hashtag:1521227771957870604> Message Preview\n`;
-    const preview = (guildConfig.content || guildConfig.message || 'Welcome {user} to {server}!');
-    content += `> ${preview.substring(0, 240).split('\n').join('\n> ')}${preview.length > 240 ? ' …' : ''}`;
+    c += '\n**Message**\n';
+    const preview = guildConfig.content || guildConfig.message || 'Welcome {user} to {server}!';
+    c += '> ' + preview.substring(0, 240).split('\n').join('\n> ') + (preview.length > 240 ? ' \u2026' : '');
 
-    return content;
+    return c;
 }
 
 function buildVariablesPanel() {
@@ -258,109 +237,281 @@ function buildVariablesPanel() {
         `Use \`{useravatar}\` or \`{servericon}\` in Thumbnail/Image fields!`;
 }
 
-function createModeRow(currentMode) {
-    const isComponents = currentMode === 'components';
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('welcomer_mode_components')
-                .setLabel('Components V2')
-                .setStyle(isComponents ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Fire:1521227907647668374>')
-                .setDisabled(isComponents),
-            new ButtonBuilder()
-                .setCustomId('welcomer_mode_embed')
-                .setLabel('Embed Mode')
-                .setStyle(!isComponents ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Document:1521227875016114266>')
-                .setDisabled(!isComponents)
-        );
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PANEL CONTROLS — one select menu per row
+ *
+ * The welcome panel previously stacked SIX action rows holding 22 buttons and
+ * ~14 different decorative emojis; the leave panel held 4 rows and 16 buttons.
+ * Because action rows are a scarce resource, mutually exclusive options had to
+ * be hidden behind the mode switch — Author/Footer were unreachable in
+ * components mode, and Canvas Setup + Leave Setup were unreachable in embed
+ * mode, so a server on embed mode had NO route to the leave panel at all. One
+ * select menu holds 25 options in a single row, so nothing needs hiding.
+ *
+ * Conventions used throughout:
+ *   - ids are `welcomer:<section>:<control>`; section w = welcome, l = leave
+ *   - the ONLY emojis are the enable/disable pair. State is never carried by a
+ *     button colour or a decorative icon, because neither is readable at a
+ *     glance and colour is invisible to some users
+ *   - "edit" and "go" option VALUES are literally the action ids the handler
+ *     chain already implements, so the mapping is the identity function and
+ *     there is no lookup table that can drift out of sync with the handlers
+ *   - the toggle row is a multi-select whose SELECTION IS THE STATE. Submitting
+ *     it applies every flag absolutely (applyToggleSelection), so it is
+ *     idempotent — unlike per-button flips, which desync if a render is missed
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const TOGGLE_ON = '<:Toggleon:1521227758011809964>';
+const TOGGLE_OFF = '<:Toggleoff:1521227763816595559>';
+
+const PID = {
+    wChannel: 'welcomer:w:channel',
+    wMode: 'welcomer:w:mode',
+    wContent: 'welcomer:w:content',
+    wParts: 'welcomer:w:parts',
+    wSections: 'welcomer:w:sections',
+    wToggles: 'welcomer:w:toggles',
+    wUtility: 'welcomer:w:utility',
+    wEdit: 'welcomer:w:edit',
+    wLayout: 'welcomer:w:layout',
+    wGo: 'welcomer:w:go',
+    lChannel: 'welcomer:l:channel',
+    lToggles: 'welcomer:l:toggles',
+    lEdit: 'welcomer:l:edit',
+    lLayout: 'welcomer:l:layout',
+    lGo: 'welcomer:l:go',
+};
+
+// Every id this module's NEW panel can emit. Used by handleInteraction to
+// recognise the namespace and by the test harness to assert there are no
+// orphans in either direction.
+const PANEL_IDS = Object.values(PID);
+
+/* ── Toggle specs ──
+ * Each spec owns both the read and the write for one flag, so the rendered
+ * state and the applied state can never disagree. */
+const WELCOME_TOGGLES = [
+    {
+        value: 'enabled',
+        label: 'Welcomer',
+        description: 'Post a message when someone joins',
+        get: (c) => !!c.enabled,
+        set: (c, on) => { c.enabled = on; },
+    },
+    {
+        value: 'pingUser',
+        label: 'Ping the member',
+        description: 'Mention them so they get a notification',
+        get: (c) => !!c.pingUser,
+        set: (c, on) => { c.pingUser = on; },
+    },
+    {
+        value: 'dmWelcome',
+        label: 'Welcome DM',
+        description: 'Also send the member a direct message',
+        get: (c) => !!(c.dmWelcome && c.dmWelcome.enabled),
+        set: (c, on) => {
+            if (!c.dmWelcome) c.dmWelcome = { enabled: false, content: getDefaultConfig().dmWelcome.content };
+            c.dmWelcome.enabled = on;
+        },
+    },
+    {
+        value: 'canvas',
+        label: 'Welcome card image',
+        description: 'Draw an image card. Components mode only',
+        get: (c) => !!(c.canvas && c.canvas.enabled),
+        set: (c, on) => {
+            if (!c.canvas) c.canvas = { enabled: false, backgroundColor: null, accentColor: null, customMessage: null };
+            c.canvas.enabled = on;
+        },
+    },
+    {
+        value: 'colorless',
+        label: 'Hide accent colour',
+        description: 'Remove the coloured bar down the side',
+        get: (c) => !!c.colorless,
+        set: (c, on) => { c.colorless = on; },
+    },
+];
+
+const LEAVE_TOGGLES = [
+    {
+        value: 'enabled',
+        label: 'Leave message',
+        description: 'Post a message when someone leaves',
+        get: (c) => !!(c && c.enabled),
+        set: (c, on) => { c.enabled = on; },
+    },
+    {
+        value: 'colorless',
+        label: 'Hide accent colour',
+        description: 'Remove the coloured bar down the side',
+        get: (c) => !!(c && c.colorless),
+        set: (c, on) => { c.colorless = on; },
+    },
+];
+
+/**
+ * Renders a toggle row. Selected options ARE the enabled flags: the option is
+ * marked default when the flag is on, so the closed menu reads as a checklist.
+ */
+function buildTogglesRow(customId, specs, cfg) {
+    const on = specs.filter((s) => s.get(cfg || {})).length;
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder(`Features — ${on} of ${specs.length} enabled`)
+            .setMinValues(0)
+            .setMaxValues(specs.length)
+            .addOptions(specs.map((s) => new StringSelectMenuOptionBuilder()
+                .setValue(s.value)
+                .setLabel(s.label)
+                .setDescription(s.description.slice(0, 100))
+                .setEmoji(s.get(cfg || {}) ? TOGGLE_ON : TOGGLE_OFF)
+                .setDefault(s.get(cfg || {}))))
+    );
 }
 
-function createSetupRow1(guildConfig) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('welcomer_set_channel')
-                .setLabel('Channel')
-                .setStyle(guildConfig.channelId ? ButtonStyle.Success : ButtonStyle.Primary)
-                .setEmoji('<:Bullhorn:1521227936575914016>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_set_message')
-                .setLabel('Message')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Hashtag:1521227771957870604>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_set_styling')
-                .setLabel('Styling')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Palette:1521227950601539755>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_set_media')
-                .setLabel('Media')
-                .setStyle(guildConfig.image || guildConfig.thumbnail ? ButtonStyle.Success : ButtonStyle.Primary)
-                .setEmoji('<:Picture:1521227954191995024>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_set_buttons')
-                .setLabel(`Buttons${(guildConfig.buttons?.length || guildConfig.actionButtons?.length) ? ' (' + ((guildConfig.buttons?.length || 0) + (guildConfig.actionButtons?.length || 0)) + ')' : ''}`)
-                .setStyle((guildConfig.buttons?.length || guildConfig.actionButtons?.length) ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Attach:1521228039135170722>')
-        );
-}
-
-function createSetupRow2(guildConfig) {
-    const mode = guildConfig.mode || 'components';
-    const isComponents = mode === 'components';
-
-    if (isComponents) {
-        return new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('welcomer_canvas_setup')
-                    .setLabel('Canvas Setup')
-                    .setStyle(guildConfig.canvas?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Picture:1521227954191995024>'),
-                new ButtonBuilder()
-                    .setCustomId('welcomer_autorole_humans')
-                    .setLabel('AutoRole Humans')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('<:User:1521227714227343380>'),
-                new ButtonBuilder()
-                    .setCustomId('welcomer_autorole_bots')
-                    .setLabel('AutoRole Bots')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('<:bots:1521227848101396610>'),
-                new ButtonBuilder()
-                    .setCustomId('welcomer_leave_setup')
-                    .setLabel('Leave Setup')
-                    .setStyle(guildConfig.leave?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Userplus:1521227719621218477>')
-            );
-    } else {
-        return new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('welcomer_embed_author')
-                    .setLabel('Author')
-                    .setStyle(guildConfig.author ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Editalt:1521227921673556019>'),
-                new ButtonBuilder()
-                    .setCustomId('welcomer_embed_footer')
-                    .setLabel('Footer')
-                    .setStyle(guildConfig.footer ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Edit:1521227886634205298>'),
-                new ButtonBuilder()
-                    .setCustomId('welcomer_autorole_humans')
-                    .setLabel('AutoRole Humans')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('<:User:1521227714227343380>'),
-                new ButtonBuilder()
-                    .setCustomId('welcomer_autorole_bots')
-                    .setLabel('AutoRole Bots')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('<:bots:1521227848101396610>')
-            );
+/**
+ * Applies a toggle submission absolutely. `selected` is the complete set the
+ * user wants enabled, so this is idempotent and order-independent — replaying
+ * the same submission is a no-op rather than a flip.
+ * Returns the human-readable list of what actually changed.
+ */
+function applyToggleSelection(specs, cfg, selected) {
+    const want = new Set(selected || []);
+    const changed = [];
+    for (const spec of specs) {
+        const before = spec.get(cfg);
+        const after = want.has(spec.value);
+        if (before !== after) {
+            spec.set(cfg, after);
+            changed.push(`${after ? TOGGLE_ON : TOGGLE_OFF} ${spec.label}`);
+        }
     }
+    return changed;
+}
+
+/** Plain single-choice menu. `options` are {value,label,description,emoji?}. */
+function buildMenuRow(customId, placeholder, options) {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder(placeholder)
+            .setMinValues(1)
+            .setMaxValues(1)
+            .addOptions(options.slice(0, 25).map((o) => {
+                const opt = new StringSelectMenuOptionBuilder()
+                    .setValue(o.value)
+                    .setLabel(o.label);
+                if (o.description) opt.setDescription(o.description.slice(0, 100));
+                if (o.emoji) opt.setEmoji(o.emoji);
+                return opt;
+            }))
+    );
+}
+
+/** Marks the active choice with the on/off pair instead of a colour. */
+const mark = (active) => (active ? TOGGLE_ON : TOGGLE_OFF);
+
+function welcomeEditOptions(c) {
+    const linkCount = (c.buttons || []).length;
+    const actionCount = (c.actionButtons || []).length;
+    return [
+        { value: 'welcomer_set_message', label: 'Message content', description: 'Body text, title and description' },
+        { value: 'welcomer_set_styling', label: 'Styling', description: `Accent colour — currently ${c.color || 'default'}` },
+        { value: 'welcomer_set_media', label: 'Image and thumbnail', description: (c.image || c.thumbnail) ? 'Configured' : 'Not set' },
+        { value: 'welcomer_set_buttons', label: 'Buttons', description: `${linkCount} link, ${actionCount} action` },
+        { value: 'welcomer_embed_author', label: 'Author line', description: c.author ? 'Configured. Embed mode only' : 'Not set. Embed mode only' },
+        { value: 'welcomer_embed_footer', label: 'Footer line', description: c.footer ? 'Configured. Embed mode only' : 'Not set. Embed mode only' },
+        { value: 'welcomer_dm_edit', label: 'Welcome DM text', description: 'Needs the Welcome DM feature enabled' },
+        { value: 'welcomer_auto_delete', label: 'Auto-delete timer', description: c.autoDelete > 0 ? `Deletes after ${c.autoDelete}s` : 'Off — message is kept' },
+    ];
+}
+
+function welcomeLayoutOptions(c) {
+    const mode = c.mode || 'components';
+    const img = c.imagePosition || 'bottom';
+    const btn = c.buttonPosition || 'bottom';
+    return [
+        { value: 'welcomer:set:w:mode:components', label: 'Mode: Components V2', description: 'Rich container layout', emoji: mark(mode === 'components') },
+        { value: 'welcomer:set:w:mode:embed', label: 'Mode: Embed', description: 'Classic embed layout', emoji: mark(mode === 'embed') },
+        { value: 'welcomer:set:w:imgpos:top', label: 'Image: top', emoji: mark(img === 'top') },
+        { value: 'welcomer:set:w:imgpos:side', label: 'Image: side thumbnail', emoji: mark(img === 'side') },
+        { value: 'welcomer:set:w:imgpos:bottom', label: 'Image: bottom', emoji: mark(img === 'bottom') },
+        { value: 'welcomer:set:w:btnpos:top', label: 'Buttons: above text', emoji: mark(btn === 'top') },
+        { value: 'welcomer:set:w:btnpos:bottom', label: 'Buttons: below text', emoji: mark(btn === 'bottom') },
+    ];
+}
+
+function welcomeGoOptions(c) {
+    return [
+        { value: 'welcomer_preview', label: 'Preview', description: 'Show the message as members will see it' },
+        { value: 'welcomer_test', label: 'Send a test', description: 'Post a real welcome for yourself' },
+        { value: 'welcomer_canvas_setup', label: 'Welcome card settings', description: 'Colours and text on the image card', emoji: mark(!!(c.canvas && c.canvas.enabled)) },
+        { value: 'welcomer_leave_setup', label: 'Leave message settings', description: 'Configure the goodbye message', emoji: mark(!!(c.leave && c.leave.enabled)) },
+        { value: 'welcomer_autorole_humans', label: 'AutoRole — humans', description: 'Roles given to people on join' },
+        { value: 'welcomer_autorole_bots', label: 'AutoRole — bots', description: 'Roles given to bots on join' },
+        { value: 'welcomer_show_variables', label: 'Placeholder reference', description: 'Every {placeholder} you can use' },
+    ];
+}
+
+function leaveEditOptions(c) {
+    const cfg = c || {};
+    return [
+        { value: 'leave_set_message', label: 'Message content', description: 'Body text, title and description' },
+        { value: 'leave_set_styling', label: 'Styling', description: `Accent colour — currently ${cfg.color || 'default'}` },
+        { value: 'leave_set_media', label: 'Image and thumbnail', description: (cfg.image || cfg.thumbnail) ? 'Configured' : 'Not set' },
+        { value: 'leave_set_buttons', label: 'Buttons', description: `${(cfg.buttons || []).length} configured` },
+    ];
+}
+
+function leaveLayoutOptions(c) {
+    const cfg = c || {};
+    const mode = cfg.mode || 'components';
+    const img = cfg.imagePosition || 'bottom';
+    return [
+        { value: 'welcomer:set:l:mode:components', label: 'Mode: Components V2', description: 'Rich container layout', emoji: mark(mode === 'components') },
+        { value: 'welcomer:set:l:mode:embed', label: 'Mode: Embed', description: 'Classic embed layout', emoji: mark(mode === 'embed') },
+        { value: 'welcomer:set:l:imgpos:top', label: 'Image: top', emoji: mark(img === 'top') },
+        { value: 'welcomer:set:l:imgpos:side', label: 'Image: side thumbnail', emoji: mark(img === 'side') },
+        { value: 'welcomer:set:l:imgpos:bottom', label: 'Image: bottom', emoji: mark(img === 'bottom') },
+    ];
+}
+
+function leaveGoOptions(c) {
+    const cfg = c || {};
+    return [
+        { value: 'leave_preview', label: 'Preview', description: 'Show the message as members will see it' },
+        { value: 'leave_canvas_setup', label: 'Leave card settings', description: 'Colours and text on the image card', emoji: mark(!!(cfg.canvas && cfg.canvas.enabled)) },
+        { value: 'leave_back', label: 'Back to the welcome panel', description: 'Return without losing changes' },
+    ];
+}
+
+/**
+ * Translates a new-panel interaction into the action id the existing handler
+ * chain understands. Returns null when the id is not ours.
+ *
+ * The "edit"/"go" menus carry legacy action ids as their option values, so this
+ * is a pass-through rather than a translation table — deliberately, so adding a
+ * menu entry cannot create an id the handlers do not implement.
+ */
+function mapPanelInteraction(interaction) {
+    const id = interaction.customId;
+    if (typeof id !== 'string' || !id.startsWith('welcomer:')) return null;
+
+    if (id === PID.wEdit || id === PID.wGo || id === PID.lEdit || id === PID.lGo
+        || id === PID.wLayout || id === PID.lLayout
+        || id === PID.wMode || id === PID.wContent || id === PID.wParts
+        || id === PID.wSections || id === PID.wUtility) {
+        const chosen = interaction.values && interaction.values[0];
+        return chosen || id;
+    }
+    if (id === PID.wChannel) return 'welcomer_select_channel_unified';
+    if (id === PID.lChannel) return 'leave_select_channel_unified';
+    // Toggle rows keep their own id: they need the whole values array, which a
+    // single action id cannot express.
+    return id;
 }
 
 function buildCanvasPanel(canvasConfig) {
@@ -483,42 +634,41 @@ function buildCanvasContainer(canvasConfig) {
 }
 
 function buildLeavePanel(leaveConfig) {
-    const mode = leaveConfig?.mode || 'components';
-    const isComponents = mode === 'components';
-    const statusEmoji = leaveConfig?.enabled ? '<:Toggleon:1521227758011809964>' : '<:Toggleoff:1521227763816595559>';
-    const channelText = leaveConfig?.channelId ? `<#${leaveConfig.channelId}>` : '*Not set*';
-    const modeText = isComponents ? '**Components V2**' : '**Embed**';
-    const modeEmoji = isComponents ? '<:Fire:1521227907647668374>' : '<:Document:1521227875016114266>';
+    const cfg = leaveConfig || {};
+    const isComponents = (cfg.mode || 'components') === 'components';
 
-    let content = `# <:Userplus:1521227719621218477> Leave Message Setup\n\n`;
-    content += `**Status:** ${statusEmoji} ${leaveConfig?.enabled ? 'Enabled' : 'Disabled'}\n`;
-    content += `**Channel:** ${channelText}\n`;
-    content += `**Mode:** ${modeEmoji} ${modeText}\n`;
-    content += `**Canvas Card:** ${leaveConfig?.canvas?.enabled ? '<:Toggleon:1521227758011809964> Enabled' : '<:Toggleoff:1521227763816595559> Disabled'}\n\n`;
+    // Same rule as buildMainPanel: the toggle pair is the only emoji here.
+    const ON = '<:Toggleon:1521227758011809964>';
+    const OFF = '<:Toggleoff:1521227763816595559>';
+    const t = (v) => (v ? ON : OFF);
 
+    const channelText = cfg.channelId ? `<#${cfg.channelId}>` : '`not set`';
+    const btnCount = (cfg.buttons?.length || 0) + (cfg.actionButtons?.length || 0);
+    const imgPos = cfg.imagePosition || 'bottom';
+    const btnPos = cfg.buttonPosition || 'bottom';
+    const modeLabel = isComponents ? 'Components V2' : 'Embed';
+
+    let c = '# Leave message\n';
+    c += '-# Say goodbye when a member leaves the server.\n\n';
+    c += t(cfg.enabled) + ' **Leave message**  \u00b7  channel ' + channelText + '  \u00b7  mode `' + modeLabel + '`\n';
+
+    c += '\n**Appearance**\n';
     if (isComponents) {
-        const btnCount = (leaveConfig?.buttons?.length || 0) + (leaveConfig?.actionButtons?.length || 0);
-        const imgPos = leaveConfig?.imagePosition || 'bottom';
-        content += `### Components V2 Features:\n`;
-        content += `- **Media Gallery:** ${leaveConfig?.image ? '<:Checkedbox:1521227734943269077> Set' : '<:Cancel:1521227723916181644> Not set'}\n`;
-        content += `- **Thumbnail:** ${leaveConfig?.thumbnail ? '<:Checkedbox:1521227734943269077> Set' : '<:Cancel:1521227723916181644> Not set'}\n`;
-        content += `- **Image Position:** ${imgPos === 'top' ? '<:Upload:1521228365120405537> Top' : imgPos === 'side' ? '<:Caretright:1521227704953864202> Side' : '<:Download:1521228191899975810> Bottom'}\n`;
-        const leaveBtnPos = leaveConfig?.buttonPosition || 'bottom';
-        content += `- **Buttons:** ${btnCount > 0 ? '<:Checkedbox:1521227734943269077> ' + btnCount + ' button' + (btnCount > 1 ? 's' : '') + ' · ' + (leaveBtnPos === 'top' ? '<:Upload:1521228365120405537> Top' : '<:Download:1521228191899975810> Bottom') : '<:Cancel:1521227723916181644> None'}\n`;
-        content += `- **Colorless:** ${leaveConfig?.colorless ? '<:Toggleon:1521227758011809964> Enabled' : '<:Toggleoff:1521227763816595559> Disabled'}\n`;
-        content += `- **Accent Color:** ${leaveConfig?.colorless ? '*None (colorless)*' : (leaveConfig?.color || '#ED4245')}\n\n`;
+        c += t(!!cfg.image) + ' Image  ' + t(!!cfg.thumbnail) + ' Thumbnail  `position: ' + imgPos + '`\n';
+        c += t(btnCount > 0) + ' Buttons' + (btnCount > 0 ? ' `' + btnCount + ', ' + btnPos + '`' : '') + '  ' + t(!!cfg.canvas?.enabled) + ' Leave card\n';
+        c += t(!!cfg.colorless) + ' Accent hidden  `' + (cfg.colorless ? 'none' : (cfg.color || '#ED4245')) + '`\n';
     } else {
-        content += `### Embed Features:\n`;
-        content += `- **Title:** ${leaveConfig?.title || '*Not set*'}\n`;
-        content += `- **Color:** ${leaveConfig?.color || '#ED4245'}\n`;
-        content += `- **Image:** ${leaveConfig?.image ? '<:Checkedbox:1521227734943269077> Set' : '<:Cancel:1521227723916181644> Not set'}\n`;
-        content += `- **Thumbnail:** ${leaveConfig?.thumbnail ? '<:Checkedbox:1521227734943269077> Set' : '<:Cancel:1521227723916181644> Not set'}\n`;
-        content += `- **Footer:** ${leaveConfig?.footer || '*Not set*'}\n\n`;
+        const raw = cfg.title || '';
+        const title = raw ? raw.substring(0, 30) + (raw.length > 30 ? '\u2026' : '') : '';
+        c += t(!!cfg.title) + ' Title' + (title ? ' `' + title + '`' : '') + '  ' + t(!!cfg.image) + ' Image  ' + t(!!cfg.thumbnail) + ' Thumbnail\n';
+        c += t(!!cfg.footer) + ' Footer  `colour: ' + (cfg.color || '#ED4245') + '`\n';
     }
 
-    content += `### Message Preview:\n\`\`\`\n${(leaveConfig?.content || 'Goodbye {username}!').substring(0, 200)}${(leaveConfig?.content || '').length > 200 ? '...' : ''}\n\`\`\``;
+    c += '\n**Message**\n';
+    const preview = cfg.content || 'Goodbye {username}!';
+    c += '> ' + preview.substring(0, 240).split('\n').join('\n> ') + (preview.length > 240 ? ' \u2026' : '');
 
-    return content;
+    return c;
 }
 
 function buildLeaveCanvasPanel(canvasConfig) {
@@ -635,104 +785,6 @@ function buildLeaveCanvasContainer(canvasConfig) {
     return container;
 }
 
-function createLeaveModeRow(currentMode) {
-    const isComponents = currentMode === 'components';
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('leave_mode_components')
-                .setLabel('Components V2')
-                .setStyle(isComponents ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Fire:1521227907647668374>')
-                .setDisabled(isComponents),
-            new ButtonBuilder()
-                .setCustomId('leave_mode_embed')
-                .setLabel('Embed Mode')
-                .setStyle(!isComponents ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Document:1521227875016114266>')
-                .setDisabled(!isComponents)
-        );
-}
-
-function createLeaveSetupRow(leaveConfig) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('leave_set_channel')
-                .setLabel('Channel')
-                .setStyle(leaveConfig?.channelId ? ButtonStyle.Success : ButtonStyle.Primary)
-                .setEmoji('<:Bullhorn:1521227936575914016>'),
-            new ButtonBuilder()
-                .setCustomId('leave_set_message')
-                .setLabel('Message')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Hashtag:1521227771957870604>'),
-            new ButtonBuilder()
-                .setCustomId('leave_set_media')
-                .setLabel('Media')
-                .setStyle(leaveConfig?.image || leaveConfig?.thumbnail ? ButtonStyle.Success : ButtonStyle.Primary)
-                .setEmoji('<:Picture:1521227954191995024>'),
-            new ButtonBuilder()
-                .setCustomId('leave_set_styling')
-                .setLabel('Styling')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Palette:1521227950601539755>'),
-            new ButtonBuilder()
-                .setCustomId('leave_colorless')
-                .setLabel(leaveConfig?.colorless ? 'Disable Colorless' : 'Enable Colorless')
-                .setStyle(leaveConfig?.colorless ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji(leaveConfig?.colorless ? '<:Checkedbox:1521227734943269077>' : '<:Commentblock:1521227898101432331>')
-        );
-}
-
-function createLeaveControlRow(leaveConfig) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('leave_preview')
-                .setLabel('Preview')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Eye:1521227940480815156>'),
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_setup')
-                .setLabel('Canvas Card')
-                .setStyle(leaveConfig?.canvas?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Picture:1521227954191995024>'),
-            new ButtonBuilder()
-                .setCustomId('leave_templates')
-                .setLabel('Templates')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Document:1521227875016114266>'),
-            new ButtonBuilder()
-                .setCustomId('leave_toggle')
-                .setLabel(leaveConfig?.enabled ? 'Disable Leave' : 'Enable Leave')
-                .setStyle(leaveConfig?.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
-                .setEmoji(leaveConfig?.enabled ? '<:Toggleoff:1521227763816595559>' : '<:Toggleon:1521227758011809964>'),
-            new ButtonBuilder()
-                .setCustomId('leave_back')
-                .setLabel('Back')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Caretleft:1521227977495543838>')
-        );
-}
-
-function createLeaveExtraRow(leaveConfig) {
-    const imgPos = leaveConfig?.imagePosition || 'bottom';
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('leave_image_position')
-                .setLabel(`Image: ${imgPos === 'top' ? 'Top' : imgPos === 'side' ? 'Side' : 'Bottom'}`)
-                .setStyle(imgPos === 'bottom' ? ButtonStyle.Secondary : ButtonStyle.Primary)
-                .setEmoji(imgPos === 'top' ? '<:Upload:1521228365120405537>' : imgPos === 'side' ? '<:Caretright:1521227704953864202>' : '<:Download:1521228191899975810>'),
-            new ButtonBuilder()
-                .setCustomId('leave_set_buttons')
-                .setLabel(`Buttons${leaveConfig?.buttons?.length ? ' (' + leaveConfig.buttons.length + ')' : ''}`)
-                .setStyle(leaveConfig?.buttons?.length ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Attach:1521228039135170722>')
-        );
-}
-
 function buildLeaveContainer(leaveConfig) {
     const container = new ContainerBuilder();
     if (!leaveConfig?.colorless) {
@@ -747,26 +799,151 @@ function buildLeaveContainer(leaveConfig) {
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
 
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('### <:Settings:1521227767780343879> Configuration')
+    container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+            new ChannelSelectMenuBuilder()
+                .setCustomId(PID.lChannel)
+                .setPlaceholder('Destination channel')
+                .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+                .setMinValues(1)
+                .setMaxValues(1)
+        )
     );
-    container.addActionRowComponents(createLeaveModeRow(leaveConfig?.mode));
-    container.addActionRowComponents(createLeaveSetupRow(leaveConfig));
-    container.addActionRowComponents(createLeaveExtraRow(leaveConfig));
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-
-    container.addActionRowComponents(createLeaveControlRow(leaveConfig));
+    container.addActionRowComponents(buildTogglesRow(PID.lToggles, LEAVE_TOGGLES, leaveConfig));
+    container.addActionRowComponents(buildMenuRow(PID.lEdit, 'Edit content', leaveEditOptions(leaveConfig)));
+    container.addActionRowComponents(buildMenuRow(PID.lLayout, 'Layout and mode', leaveLayoutOptions(leaveConfig)));
+    container.addActionRowComponents(buildMenuRow(PID.lGo, 'Open or run', leaveGoOptions(leaveConfig)));
 
     return container;
 }
 
-function buildWelcomerContainer(guildConfig, guildId) {
+/* ── Live preview ──
+ * Renders the welcome message as members will actually receive it, resolved
+ * against whoever opened the panel. Previously the only way to see it was the
+ * separate Preview button, so the panel showed a checklist of field names while
+ * the thing being configured was invisible.
+ *
+ * Returns { text, imageUrl } rather than components, because a Components V2
+ * CONTAINER accepts at most 10 child components. Folding the whole preview into
+ * one text display keeps the budget available for the control rows. */
+function buildLivePreview(guildConfig, ctx) {
+    const member = ctx?.member || null;
+    const guild = ctx?.guild || null;
+    const count = ctx?.memberCount ?? guild?.memberCount ?? 0;
+
+    const resolve = (s) => {
+        if (!s) return '';
+        try {
+            return replacePlaceholders(s, member, guild, count, { skipSeparators: true }) || '';
+        } catch {
+            return s;
+        }
+    };
+
+    const isComponents = (guildConfig.mode || 'components') === 'components';
+    const lines = [];
+
+    if (!isComponents && guildConfig.author) lines.push(`-# ${resolve(guildConfig.author)}`);
+    if (guildConfig.title) lines.push(`**${resolve(guildConfig.title)}**`);
+
+    const body = resolve(guildConfig.content || guildConfig.message || 'Welcome {user} to {server}!');
+    if (body) lines.push(body);
+    if (guildConfig.description) lines.push(resolve(guildConfig.description));
+    if (guildConfig.footer) lines.push(`-# ${resolve(guildConfig.footer)}`);
+
+    // Interactive parts are described rather than rendered: putting live buttons
+    // in a config panel means clicking the preview would fire real actions.
+    const parts = [];
+    const linkN = (guildConfig.buttons || []).length;
+    const actN = (guildConfig.actionButtons || []).length;
+    const selN = (guildConfig.actionMenus || []).length;
+    if (linkN) parts.push(`${linkN} link button${linkN > 1 ? 's' : ''}`);
+    if (actN) parts.push(`${actN} action button${actN > 1 ? 's' : ''}`);
+    if (selN) parts.push(`${selN} select menu${selN > 1 ? 's' : ''}`);
+    if (guildConfig.canvas?.enabled) parts.push('welcome card image');
+
+    let imageUrl = null;
+    if (!guildConfig.canvas?.enabled && guildConfig.image) {
+        const u = resolve(guildConfig.image);
+        if (/^https?:\/\//.test(u)) imageUrl = u;
+    }
+
+    let text = lines.join('\n');
+    if (parts.length) text += `\n-# attached: ${parts.join(', ')}`;
+    if (guildConfig.thumbnail) text += `\n-# thumbnail set`;
+
+    return { text: text || '*nothing configured yet*', imageUrl };
+}
+
+/** Context for the live preview, so it resolves for whoever opened the panel. */
+function previewCtx(interaction) {
+    if (!interaction?.guild) return null;
+    return {
+        member: interaction.member || null,
+        guild: interaction.guild,
+        memberCount: interaction.guild.memberCount,
+    };
+}
+
+function welcomeModeOptions(c) {
+    const mode = c.mode || 'components';
+    return [
+        { value: 'welcomer:set:w:mode:components', label: 'Components V2', description: 'Rich container layout with images and separators', emoji: mark(mode === 'components') },
+        { value: 'welcomer:set:w:mode:embed', label: 'Embed', description: 'Classic embed with title, author and footer', emoji: mark(mode === 'embed') },
+    ];
+}
+
+function welcomeContentOptions(c) {
+    const img = c.imagePosition || 'bottom';
+    return [
+        { value: 'welcomer:w:go:message', label: 'Message text', description: c.content ? 'Set' : 'Using the default greeting' },
+        { value: 'welcomer_embed_author', label: 'Title, description and author', description: (c.title || c.description || c.author) ? 'Set' : 'Not set' },
+        { value: 'welcomer_set_styling', label: 'Accent colour', description: c.colorless ? 'Hidden' : (c.color || '#bcf1e4') },
+        { value: 'welcomer_set_media', label: 'Attachment: image and thumbnail', description: (c.image || c.thumbnail) ? 'Configured' : 'No attachment set' },
+        { value: 'welcomer:set:w:imgpos:top', label: 'Attachment position: top', emoji: mark(img === 'top') },
+        { value: 'welcomer:set:w:imgpos:side', label: 'Attachment position: side thumbnail', emoji: mark(img === 'side') },
+        { value: 'welcomer:set:w:imgpos:bottom', label: 'Attachment position: bottom', emoji: mark(img === 'bottom') },
+        { value: 'welcomer_embed_footer', label: 'Footer', description: c.footer ? 'Set' : 'Not set' },
+    ];
+}
+
+function welcomePartsOptions(c) {
+    const btn = c.buttonPosition || 'bottom';
+    const linkN = (c.buttons || []).length;
+    const actN = (c.actionButtons || []).length;
+    const selN = (c.actionMenus || []).length;
+    return [
+        { value: 'welcomer_set_buttons', label: 'Link buttons', description: linkN ? `${linkN} configured` : 'None. Buttons that open a URL' },
+        { value: 'welcomer:w:go:actionbtns', label: 'Action buttons', description: actN ? `${actN} attached` : 'None. Attach buttons from /button-maker' },
+        { value: 'welcomer:w:go:selectmenus', label: 'Select menus', description: selN ? `${selN} attached` : 'None. Attach menus from /select-menu-maker' },
+        { value: 'welcomer:set:w:btnpos:top', label: 'Components above the text', emoji: mark(btn === 'top') },
+        { value: 'welcomer:set:w:btnpos:bottom', label: 'Components below the text', emoji: mark(btn === 'bottom') },
+    ];
+}
+
+function welcomeSectionsOptions(c) {
+    return [
+        { value: 'welcomer_autorole_humans', label: 'AutoRole \u2014 humans', description: 'Roles given to people when they join' },
+        { value: 'welcomer_autorole_bots', label: 'AutoRole \u2014 bots', description: 'Roles given to bots when they join' },
+        { value: 'welcomer_leave_setup', label: 'Leave setup', description: 'Configure the goodbye message', emoji: mark(!!c.leave?.enabled) },
+        { value: 'welcomer_canvas_setup', label: 'Canvas setup', description: 'Colours and text on the welcome card', emoji: mark(!!c.canvas?.enabled) },
+        { value: PID.wUtility, label: 'Utility', description: 'Auto-delete, DM text, placeholders, send a test' },
+    ];
+}
+
+function welcomeUtilityOptions(c) {
+    return [
+        { value: 'welcomer_test', label: 'Send a test welcome', description: 'Posts a real welcome for you in the channel' },
+        { value: 'welcomer_auto_delete', label: 'Auto-delete timer', description: c.autoDelete > 0 ? `Deletes after ${c.autoDelete}s` : 'Off, the message is kept' },
+        { value: 'welcomer_dm_edit', label: 'Welcome DM text', description: 'Needs the Welcome DM feature enabled' },
+        { value: 'welcomer_show_variables', label: 'Placeholder reference', description: 'Every {placeholder} you can use' },
+        { value: 'welcomer:w:go:back', label: 'Back to the main panel' },
+    ];
+}
+
+function buildWelcomerContainer(guildConfig, guildId, ctx) {
     const mode = guildConfig.mode || 'components';
     const isComponents = mode === 'components';
-
     const colorValue = guildConfig.color ? parseInt(guildConfig.color.replace('#', ''), 16) : 0xCAD7E6;
 
     const container = new ContainerBuilder();
@@ -774,330 +951,96 @@ function buildWelcomerContainer(guildConfig, guildId) {
         container.setAccentColor(isNaN(colorValue) ? 0xCAD7E6 : colorValue);
     }
 
+    /* COMPONENT BUDGET: a Components V2 container holds at most 10 children.
+     * Header + status + live preview are folded into ONE text display so the six
+     * control rows and an optional preview image all fit:
+     *   1 text + 1 image (optional) + 1 separator + 6 rows = 9 or 10. */
+    const ON = '<:Toggleon:1521227758011809964>';
+    const OFF = '<:Toggleoff:1521227763816595559>';
+    const t = (v) => (v ? ON : OFF);
+
+    const channelText = guildConfig.channelId ? `<#${guildConfig.channelId}>` : '`not set`';
+    const preview = buildLivePreview(guildConfig, ctx);
+
+    let head = '# Welcomer\n';
+    head += '-# Greets every new member automatically. Set a channel, write the\n';
+    head += '-# message, then add images, buttons or select menus to it.\n\n';
+    head += t(guildConfig.enabled) + ' **Welcomer**  \u00b7  channel ' + channelText + '  \u00b7  mode `' + (isComponents ? 'Components V2' : 'Embed') + '`\n';
+    if (!guildConfig.channelId) {
+        head += '-# Pick a channel below to start greeting people.\n';
+    }
+    head += '\n### Live preview\n';
+    head += preview.text;
+
     container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(safeContent(buildMainPanel(guildConfig, guildId)))
+        new TextDisplayBuilder().setContent(safeContent(head))
     );
+
+    if (preview.imageUrl) {
+        container.addMediaGalleryComponents(
+            new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(preview.imageUrl))
+        );
+    }
 
     container.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
 
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('### <:Settings:1521227767780343879> Configuration')
+    container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+            new ChannelSelectMenuBuilder()
+                .setCustomId(PID.wChannel)
+                .setPlaceholder('Where should I greet people?')
+                .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+                .setMinValues(1)
+                .setMaxValues(1)
+        )
     );
-    container.addActionRowComponents(createModeRow(mode));
-    container.addActionRowComponents(createSetupRow1(guildConfig));
-    container.addActionRowComponents(createSetupRow2(guildConfig));
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-
-    // Extra features row
-    const imgPos = guildConfig.imagePosition || 'bottom';
-    const extraRow = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('welcomer_ping_user')
-                .setLabel(guildConfig.pingUser ? 'Ping: ON' : 'Ping: OFF')
-                .setStyle(guildConfig.pingUser ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Bullhorn:1521227936575914016>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_dm_welcome')
-                .setLabel(guildConfig.dmWelcome?.enabled ? 'DM: ON' : 'DM: OFF')
-                .setStyle(guildConfig.dmWelcome?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Hashtag:1521227771957870604>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_dm_edit')
-                .setLabel('Edit DM')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Edit:1521227886634205298>')
-                .setDisabled(!guildConfig.dmWelcome?.enabled),
-            new ButtonBuilder()
-                .setCustomId('welcomer_auto_delete')
-                .setLabel(guildConfig.autoDelete > 0 ? `Delete: ${guildConfig.autoDelete}s` : 'Auto-Delete')
-                .setStyle(guildConfig.autoDelete > 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Trash:1521227750420254820>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_image_position')
-                .setLabel(`Image: ${imgPos === 'top' ? 'Top' : imgPos === 'side' ? 'Side' : 'Bottom'}`)
-                .setStyle(imgPos === 'bottom' ? ButtonStyle.Secondary : ButtonStyle.Primary)
-                .setEmoji(imgPos === 'top' ? '<:Upload:1521228365120405537>' : imgPos === 'side' ? '<:Caretright:1521227704953864202>' : '<:Download:1521228191899975810>')
-        );
-
-    container.addActionRowComponents(extraRow);
-
-    const extraRow2 = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('welcomer_test')
-                .setLabel('Test Welcome')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Lightningalt:1521227851796447472>')
-        );
-
-    container.addActionRowComponents(extraRow2);
-
-    const controlRow = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('welcomer_toggle')
-                .setLabel(guildConfig.enabled ? 'Disable Welcomer' : 'Enable Welcomer')
-                .setStyle(guildConfig.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
-                .setEmoji(guildConfig.enabled ? '<:Toggleoff:1521227763816595559>' : '<:Toggleon:1521227758011809964>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_colorless')
-                .setLabel(guildConfig.colorless ? 'Disable Colorless' : 'Enable Colorless')
-                .setStyle(guildConfig.colorless ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji(guildConfig.colorless ? '<:Checkedbox:1521227734943269077>' : '<:Commentblock:1521227898101432331>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_preview')
-                .setLabel('Preview')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Eye:1521227940480815156>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_show_variables')
-                .setLabel('Variables')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Clipboard:1521228175298920448>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_templates')
-                .setLabel('Templates')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Document:1521227875016114266>')
-        );
-
-    container.addActionRowComponents(controlRow);
+    container.addActionRowComponents(buildMenuRow(PID.wMode, 'Display mode', welcomeModeOptions(guildConfig)));
+    container.addActionRowComponents(buildMenuRow(PID.wContent, 'Message and attachment', welcomeContentOptions(guildConfig)));
+    container.addActionRowComponents(buildMenuRow(PID.wParts, 'Buttons and select menus', welcomePartsOptions(guildConfig)));
+    container.addActionRowComponents(buildMenuRow(PID.wSections, 'AutoRole, leave, canvas, utility', welcomeSectionsOptions(guildConfig)));
+    container.addActionRowComponents(buildTogglesRow(PID.wToggles, WELCOME_TOGGLES, guildConfig));
 
     return container;
 }
 
-function buildTemplateManagementPanel(userId) {
-    const templates = loadTemplates();
-    const userTemplates = templates[userId] || {};
-    const templateCount = Object.keys(userTemplates).length;
-    const builtInTemplates = getBuiltInWelcomerTemplates();
-    const builtInEntries = Object.values(builtInTemplates);
-    const builtInCount = builtInEntries.length;
-    const builtInComponentsCount = builtInEntries.filter(t => t.template?.mode === 'components').length;
-    const builtInEmbedCount = builtInEntries.filter(t => t.template?.mode === 'embed').length;
-
-    let content = `# <:Document:1521227875016114266> Welcomer Templates\n\n`;
-    content += `You have **${templateCount}** saved template(s).\n`;
-    content += `Built-in templates: **${builtInCount}** (**${builtInComponentsCount}** Components V2 + **${builtInEmbedCount}** Embed).\n\n`;
-    content += `### <:Star:1521227981685526568> Built-in Starter Templates\n`;
-    for (const item of builtInEntries) {
-        const modeIcon = item.template?.mode === 'components' ? '<:Fire:1521227907647668374>' : '<:Invoice:1521227903956811836>';
-        content += `• **${item.name}** ${modeIcon}\n`;
+/** The Utility sub-panel, reached from the sections menu. */
+function buildUtilityContainer(guildConfig, guildId, ctx) {
+    const colorValue = guildConfig.color ? parseInt(guildConfig.color.replace('#', ''), 16) : 0xCAD7E6;
+    const container = new ContainerBuilder();
+    if (!guildConfig.colorless) {
+        container.setAccentColor(isNaN(colorValue) ? 0xCAD7E6 : colorValue);
     }
-    content += `\n`;
+    const ON = '<:Toggleon:1521227758011809964>';
+    const OFF = '<:Toggleoff:1521227763816595559>';
+    const t = (v) => (v ? ON : OFF);
 
-    if (templateCount > 0) {
-        content += `### <:Clipboard:1521228175298920448> Your Templates:\n`;
-        for (const [name, template] of Object.entries(userTemplates)) {
-            const mode = template.mode === 'components' ? '<:Fire:1521227907647668374>' : '<:Document:1521227875016114266>';
-            const canvas = template.canvas?.enabled ? '<:Picture:1521227954191995024>' : '';
-            content += `• **${name}** ${mode} ${canvas}\n`;
-        }
-        content += `\n### <:Infocircle:1521227700835057685> Instructions:\n`;
-        content += `- Use the dropdown below to **load** a template\n`;
-        content += `- Click **Save Current** to save your current configuration\n`;
-        content += `- Click **Delete** to remove a template\n`;
-    } else {
-        content += `### <:Lightbulbalt:1521227880703463675> Getting Started\n`;
-        content += `Templates allow you to save your current welcomer configuration and quickly apply it later.\n\n`;
-        content += `Click **Save Current** below to save your first template!`;
-    }
+    let head = '# Welcomer \u2014 utility\n';
+    head += '-# Everything that is not part of the message itself.\n\n';
+    head += t(guildConfig.autoDelete > 0) + ' Auto-delete' + (guildConfig.autoDelete > 0 ? ' `' + guildConfig.autoDelete + 's`' : '') + '\n';
+    head += t(!!guildConfig.dmWelcome?.enabled) + ' Welcome DM\n';
 
-    return content;
-}
-
-function createTemplateSelectMenu(userId) {
-    const templates = loadTemplates();
-    const userTemplates = templates[userId] || {};
-    const builtInTemplates = getBuiltInWelcomerTemplates();
-    const builtInEntries = Object.entries(builtInTemplates);
-    const entries = Object.entries(userTemplates);
-
-    if (entries.length === 0 && builtInEntries.length === 0) {
-        return null;
-    }
-
-    const select = new StringSelectMenuBuilder()
-        .setCustomId('welcomer_template_select')
-        .setPlaceholder('Select a template to load...')
-        .setMaxValues(1)
-        .setMinValues(1);
-
-    builtInEntries.slice(0, 25).forEach(([key, payload]) => {
-        const template = payload.template || {};
-        const mode = template.mode === 'components' ? 'Built-in • Components V2' : 'Built-in • Embed';
-        const canvas = template.canvas?.enabled ? ' • Canvas' : '';
-        select.addOptions(
-            new StringSelectMenuOptionBuilder()
-                .setLabel(payload.name.substring(0, 100))
-                .setValue(`default:${key}`)
-                .setDescription(`${mode}${canvas}`.substring(0, 100))
-        );
-    });
-
-    entries.slice(0, Math.max(0, 25 - builtInEntries.length)).forEach(([name, template]) => {
-        const mode = template.mode === 'components' ? 'Saved • Components V2' : 'Saved • Embed';
-        const canvas = template.canvas?.enabled ? ' • Canvas' : '';
-        select.addOptions(
-            new StringSelectMenuOptionBuilder()
-                .setLabel(name.substring(0, 100))
-                .setValue(`user:${name}`)
-                .setDescription(`${mode}${canvas}`.substring(0, 100))
-        );
-    });
-
-    return new ActionRowBuilder().addComponents(select);
-}
-
-function createTemplateManagementRow() {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('welcomer_template_save')
-                .setLabel('Save Current')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('<:Save:1521228186229276734>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_template_delete')
-                .setLabel('Delete')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:Trash:1521227750420254820>'),
-            new ButtonBuilder()
-                .setCustomId('welcomer_template_back')
-                .setLabel('Back')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Caretleft:1521227977495543838>')
-        );
-}
-
-function getBuiltInLeaveTemplates() {
-    // Built-in leave templates were intentionally removed — every
-    // server should design its own farewell message. The leave panel
-    // gracefully handles an empty template list.
-    return {};
-}
-
-function buildLeaveTemplateManagementPanel() {
-    const builtInTemplates = getBuiltInLeaveTemplates();
-    const entries = Object.values(builtInTemplates);
-    const componentsCount = entries.filter(t => t.template?.mode === 'components').length;
-    const embedCount = entries.filter(t => t.template?.mode === 'embed').length;
-
-    let content = `# <:Document:1521227875016114266> Leave Templates\n\n`;
-    content += `Built-in templates: **${entries.length}** (**${componentsCount}** Components V2 + **${embedCount}** Embed).\n\n`;
-    content += `### <:Star:1521227981685526568> Built-in Leave Templates\n`;
-    for (const item of entries) {
-        const modeIcon = item.template?.mode === 'components' ? '<:Fire:1521227907647668374>' : '<:Invoice:1521227903956811836>';
-        const canvasIcon = item.template?.canvas?.enabled ? ' <:Picture:1521227954191995024>' : '';
-        content += `• **${item.name}** ${modeIcon}${canvasIcon}\n`;
-    }
-    content += `\n### <:Infocircle:1521227700835057685> Instructions\n`;
-    content += `- Use the dropdown below to apply a leave template\n`;
-    content += `- Leave channel and leave enabled state are preserved\n`;
-    content += `- You can still edit message/media/styling after applying`;
-
-    return content;
-}
-
-function createLeaveTemplateSelectMenu() {
-    const builtInTemplates = getBuiltInLeaveTemplates();
-    const entries = Object.entries(builtInTemplates);
-    if (entries.length === 0) return null;
-
-    const select = new StringSelectMenuBuilder()
-        .setCustomId('leave_template_select')
-        .setPlaceholder('Select a leave template to apply...')
-        .setMaxValues(1)
-        .setMinValues(1);
-
-    entries.slice(0, 25).forEach(([key, payload]) => {
-        const template = payload.template || {};
-        const mode = template.mode === 'components' ? 'Built-in • Components V2' : 'Built-in • Embed';
-        const canvas = template.canvas?.enabled ? ' • Canvas' : '';
-        select.addOptions(
-            new StringSelectMenuOptionBuilder()
-                .setLabel(payload.name.substring(0, 100))
-                .setValue(`leave_default:${key}`)
-                .setDescription(`${mode}${canvas}`.substring(0, 100))
-        );
-    });
-
-    return new ActionRowBuilder().addComponents(select);
-}
-
-function createLeaveTemplateControlRow() {
-    return new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('leave_template_back')
-            .setLabel('Back')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('<:Caretleft:1521227977495543838>')
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(safeContent(head)));
+    container.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
+    container.addActionRowComponents(buildMenuRow(PID.wUtility, 'Utility', welcomeUtilityOptions(guildConfig)));
+    return container;
 }
 
+/**
+ * Delegates to utils/messagePlaceholders — the single placeholder engine.
+ *
+ * This backed the PREVIEW while index.js used interactionHandlers' version for
+ * the actual send. The two supported different placeholder sets, so a preview
+ * could render {separator} (only implemented here) or fail to render {usertag},
+ * {nickname}, {date} and the `:variant` forms (only implemented there). Both
+ * now resolve identically, so the preview matches what members receive.
+ */
 function replacePlaceholders(text, member, guild, memberCount, { skipSeparators = false } = {}) {
-    if (!text) return '';
-    if (!member || !guild) return text;
-
-    try {
-        const placeholders = {
-            '{user}': member.toString(),
-            '{username}': member.user?.username || 'Unknown',
-            '{displayname}': member.displayName || member.user?.username || 'Unknown',
-            '{userid}': member.user?.id || '0',
-            '{useravatar}': member.user?.displayAvatarURL?.({ dynamic: true, size: 1024 }) || '',
-            '{userbanner}': member.user?.bannerURL?.({ dynamic: true, size: 1024 }) || '',
-            '{usercreated}': member.user?.createdTimestamp ? `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>` : 'Unknown',
-            '{userjoined}': member.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` : 'Unknown',
-            '{joinposition}': (memberCount || guild.memberCount || 0).toString(),
-            '{server}': guild.name || 'Unknown',
-            '{servername}': guild.name || 'Unknown',
-            '{serverid}': guild.id || '0',
-            '{servericon}': guild.iconURL?.({ dynamic: true, size: 1024 }) || '',
-            '{serverowner}': guild.ownerId ? `<@${guild.ownerId}>` : 'Unknown',
-            '{serverdescription}': guild.description || '',
-            '{servercreated}': guild.createdTimestamp ? `<t:${Math.floor(guild.createdTimestamp / 1000)}:R>` : 'Unknown',
-            '{membercount}': (memberCount || guild.memberCount || 0).toString(),
-            '{members}': (memberCount || guild.memberCount || 0).toString(),
-            '{onlinecount}': '0', // Presence Intent disabled – always 0
-            '{botcount}': (guild.members?.cache?.filter(m => m.user?.bot)?.size || 0).toString(),
-            '{humancount}': (guild.members?.cache?.filter(m => !m.user?.bot)?.size || 0).toString(),
-            '{channel}': `<#${guild.systemChannelId || guild.channels?.cache?.first()?.id || '0'}>`,
-            '{channelmention}': `<#${guild.systemChannelId || guild.channels?.cache?.first()?.id || '0'}>`,
-            '{channelname}': guild.systemChannel?.name || guild.channels?.cache?.first()?.name || 'unknown',
-            '{textchannels}': (guild.channels?.cache?.filter(c => c.type === 0)?.size || 0).toString(),
-            '{voicechannels}': (guild.channels?.cache?.filter(c => c.type === 2)?.size || 0).toString(),
-            '{boostcount}': (guild.premiumSubscriptionCount || 0).toString(),
-            '{boostlevel}': (guild.premiumTier || 0).toString(),
-            '{boosttier}': (guild.premiumTier || 0).toString(),
-            '{roles}': member.roles?.cache?.map(r => r.name)?.join(', ') || 'None',
-            '{rolecount}': (member.roles?.cache?.size || 0).toString(),
-            '{highestrole}': member.roles?.highest?.name || 'None'
-        };
-
-        // Only add text-based separator fallbacks for embed mode (not V2 containers)
-        if (!skipSeparators) {
-            placeholders['{separator}'] = '\n' + '─'.repeat(20) + '\n';
-            placeholders['{separator:small}'] = '\n' + '─'.repeat(10) + '\n';
-            placeholders['{separator:medium}'] = '\n' + '─'.repeat(20) + '\n';
-            placeholders['{separator:large}'] = '\n' + '─'.repeat(30) + '\n';
-        }
-
-        let result = text;
-        for (const [key, value] of Object.entries(placeholders)) {
-            result = result.split(key).join(String(value));
-        }
-        return result;
-    } catch (error) {
-        console.error('replacePlaceholders error:', error);
-        return text;
-    }
+    return require('../../utils/messagePlaceholders')
+        .replacePlaceholders(text, member, guild, memberCount, { skipSeparators });
 }
 
 async function createPreviewEmbed(guildConfig, member, guild, memberCount) {
@@ -1277,7 +1220,7 @@ module.exports = {
         const config = loadConfig();
         const guildConfig = { ...getDefaultConfig(), ...config[interaction.guild.id] };
 
-        const container = buildWelcomerContainer(guildConfig, interaction.guild.id);
+        const container = buildWelcomerContainer(guildConfig, interaction.guild.id, previewCtx(interaction));
 
         const reply = await interaction.reply({
             components: [container],
@@ -1319,7 +1262,7 @@ module.exports = {
         const config = loadConfig();
         const guildConfig = { ...getDefaultConfig(), ...config[message.guild.id] };
 
-        const container = buildWelcomerContainer(guildConfig, message.guild.id);
+        const container = buildWelcomerContainer(guildConfig, message.guild.id, { member: message.member, guild: message.guild, memberCount: message.guild.memberCount });
 
         const reply = await message.reply({
             components: [container],
@@ -1347,8 +1290,15 @@ module.exports = {
     async handleInteraction(interaction) {
         if (!interaction.guild || !interaction.member) return false;
 
-        const customId = interaction.customId;
-        if (!customId.startsWith('welcomer_') && !customId.startsWith('leave_') && !customId.startsWith('canvas_')) return false;
+        const rawId = interaction.customId;
+        if (!rawId.startsWith('welcomer:') && !rawId.startsWith('welcomer_')
+            && !rawId.startsWith('leave_') && !rawId.startsWith('canvas_')) return false;
+
+        // New select-menu panel ids are translated into the action ids the
+        // handler chain below already implements. Legacy button ids pass through
+        // untouched, so panels already posted in servers keep working instead of
+        // silently dying.
+        const customId = mapPanelInteraction(interaction) || rawId;
 
         try {
             return await this._handleInteractionInner(interaction, customId);
@@ -1421,11 +1371,163 @@ module.exports = {
         const guildId = interaction.guild.id;
         let guildConfig = { ...getDefaultConfig(), ...config[guildId] };
 
+        /* ── New panel: navigation and sub-panels ── */
+        if (customId === PID.wUtility) {
+            await interaction.update({
+                components: [buildUtilityContainer(guildConfig, guildId, previewCtx(interaction))],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
+
+        if (customId === 'welcomer:w:go:back') {
+            await interaction.update({
+                components: [buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction))],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
+
+        // The message-text editor lives behind its own id so the content menu can
+        // offer it alongside the discrete setters.
+        if (customId === 'welcomer:w:go:message') {
+            return await this._handleInteractionInner(interaction, 'welcomer_set_message');
+        }
+        if (customId === 'welcomer:w:go:actionbtns') {
+            return await this._handleInteractionInner(interaction, 'welcomer_modal_buttons');
+        }
+
+        /* ── Attach select menus built with /select-menu-maker ── */
+        if (customId === 'welcomer:w:go:selectmenus') {
+            const stored = jsonStore.has('select-menus') ? (jsonStore.read('select-menus')[guildId] || {}) : {};
+            const available = Object.keys(stored);
+            if (available.length === 0) {
+                await interaction.reply({
+                    content: '<:Cancel:1521227723916181644> No select menus exist yet. Create one with `/select-menu-maker create`, then attach it here.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return true;
+            }
+            const current = guildConfig.actionMenus || [];
+            const row = new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                    .setCustomId('welcomer:w:selectmenus:pick')
+                    .setPlaceholder('Select menus to attach to the welcome message')
+                    .setMinValues(0)
+                    .setMaxValues(Math.min(available.length, 5))
+                    .addOptions(available.slice(0, 25).map((id) => {
+                        const o = new StringSelectMenuOptionBuilder()
+                            .setValue(id)
+                            .setLabel(id.slice(0, 100))
+                            .setEmoji(current.includes(id) ? TOGGLE_ON : TOGGLE_OFF)
+                            .setDefault(current.includes(id));
+                        const ph = stored[id]?.placeholder;
+                        if (ph) o.setDescription(String(ph).slice(0, 100));
+                        return o;
+                    }))
+            );
+            const c = new ContainerBuilder()
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                    '### Select menus\n-# Menus from `/select-menu-maker`. Selected ones are attached to the welcome message. Deselect to remove.'
+                ))
+                .addActionRowComponents(row);
+            await interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            return true;
+        }
+
+        if (customId === 'welcomer:w:selectmenus:pick') {
+            const picked = (interaction.values || []).slice(0, 5);
+            guildConfig.actionMenus = picked;
+            config[guildId] = guildConfig;
+            saveConfig(config);
+            await interaction.update({
+                components: [new ContainerBuilder().addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        picked.length
+                            ? `<:Checkedbox:1521227734943269077> Attached ${picked.length} select menu${picked.length > 1 ? 's' : ''}: \`${picked.join('`, `')}\`\n-# Re-open the panel to see it in the live preview.`
+                            : '<:Checkedbox:1521227734943269077> All select menus removed from the welcome message.'
+                    )
+                )],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
+
+        /* ── New panel: toggle rows ──
+         * The submitted values ARE the complete desired state, so this applies
+         * every flag absolutely rather than flipping one. Replaying the same
+         * submission is a no-op. */
+        if (customId === PID.wToggles) {
+            applyToggleSelection(WELCOME_TOGGLES, guildConfig, interaction.values);
+            config[guildId] = guildConfig;
+            saveConfig(config);
+            await interaction.update({
+                components: [buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction))],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
+
+        if (customId === PID.lToggles) {
+            if (!guildConfig.leave) guildConfig.leave = getDefaultConfig().leave;
+            applyToggleSelection(LEAVE_TOGGLES, guildConfig.leave, interaction.values);
+            config[guildId] = guildConfig;
+            saveConfig(config);
+            await interaction.update({
+                components: [buildLeaveContainer(guildConfig.leave)],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
+
+        /* ── New panel: discrete value setters ──
+         * `welcomer:set:<section>:<field>:<value>`. Custom ids arrive from the
+         * client, so every field and value is checked against a whitelist rather
+         * than written through — otherwise a crafted id could set arbitrary
+         * config keys. This also replaces the old cycling buttons, which forced
+         * three clicks to reach 'bottom' and could not be set directly. */
+        if (customId.startsWith('welcomer:set:')) {
+            const parts = customId.split(':');
+            const section = parts[2];
+            const field = parts[3];
+            const value = parts[4];
+
+            if (section !== 'w' && section !== 'l') return false;
+            if (section === 'l' && !guildConfig.leave) guildConfig.leave = getDefaultConfig().leave;
+            const target = section === 'l' ? guildConfig.leave : guildConfig;
+
+            const ALLOWED = {
+                mode: ['components', 'embed'],
+                imgpos: ['top', 'side', 'bottom'],
+                btnpos: ['top', 'bottom'],
+            };
+            const FIELD_KEY = { mode: 'mode', imgpos: 'imagePosition', btnpos: 'buttonPosition' };
+
+            if (!ALLOWED[field] || !ALLOWED[field].includes(value)) {
+                await interaction.reply({
+                    content: '<:Cancel:1521227723916181644> That option is not recognised. Re-open the panel with `/welcomer`.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return true;
+            }
+
+            target[FIELD_KEY[field]] = value;
+            config[guildId] = guildConfig;
+            saveConfig(config);
+            await interaction.update({
+                components: [section === 'l'
+                    ? buildLeaveContainer(guildConfig.leave)
+                    : buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction))],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
+
         if (customId === 'welcomer_mode_components') {
             guildConfig.mode = 'components';
             config[guildId] = guildConfig;
             saveConfig(config);
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -1434,7 +1536,7 @@ module.exports = {
             guildConfig.mode = 'embed';
             config[guildId] = guildConfig;
             saveConfig(config);
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -1603,7 +1705,7 @@ module.exports = {
             guildConfig.imagePosition = current === 'bottom' ? 'top' : current === 'top' ? 'side' : 'bottom';
             config[guildId] = guildConfig;
             saveConfig(config);
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -1652,7 +1754,7 @@ module.exports = {
         }
 
         if (customId === 'canvas_back') {
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -1806,7 +1908,7 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -1830,7 +1932,7 @@ module.exports = {
         }
 
         if (customId === 'leave_back') {
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -1870,99 +1972,6 @@ module.exports = {
             if (!guildConfig.leave.canvas) guildConfig.leave.canvas = { enabled: false };
             const container = buildLeaveCanvasContainer(guildConfig.leave.canvas);
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
-            return true;
-        }
-
-        if (customId === 'leave_templates') {
-            const panelContent = buildLeaveTemplateManagementPanel();
-            const selectMenu = createLeaveTemplateSelectMenu();
-            const controlRow = createLeaveTemplateControlRow();
-
-            const tplContainer = new ContainerBuilder().setAccentColor(0xED4245);
-            tplContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(panelContent));
-            tplContainer.addSeparatorComponents(
-                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-            );
-            if (selectMenu) tplContainer.addActionRowComponents(selectMenu);
-            tplContainer.addActionRowComponents(controlRow);
-
-            await interaction.reply({
-                components: [tplContainer],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-            });
-            return true;
-        }
-
-        if (customId === 'leave_template_back') {
-            const closedContainer = new ContainerBuilder()
-                .setAccentColor(0xED4245)
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent('<:Checkedbox:1521227734943269077> Leave template menu closed.'));
-            await interaction.update({ components: [closedContainer], flags: MessageFlags.IsComponentsV2 });
-            return true;
-        }
-
-        if (customId === 'leave_template_select') {
-            if (!guildConfig.leave) guildConfig.leave = getDefaultConfig().leave;
-
-            const selectedValue = interaction.values[0] || '';
-            const builtInTemplates = getBuiltInLeaveTemplates();
-            let templateName = selectedValue;
-            let template = null;
-
-            if (selectedValue.startsWith('leave_default:')) {
-                const key = selectedValue.slice('leave_default:'.length);
-                const builtIn = builtInTemplates[key];
-                if (builtIn) {
-                    templateName = builtIn.name;
-                    template = builtIn.template;
-                }
-            }
-
-            if (!template) {
-                const errContainer = new ContainerBuilder()
-                    .setAccentColor(0xED4245)
-                    .addTextDisplayComponents(new TextDisplayBuilder().setContent('<:Cancel:1521227723916181644> Leave template not found!'));
-                await interaction.update({ components: [errContainer], flags: MessageFlags.IsComponentsV2 });
-                return true;
-            }
-
-            const keepEnabled = guildConfig.leave.enabled || false;
-            const keepChannelId = guildConfig.leave.channelId || null;
-
-            const mergedLeave = { ...getDefaultConfig().leave, ...guildConfig.leave };
-            const styleFields = ['mode', 'content', 'title', 'description', 'color', 'colorless', 'image', 'thumbnail', 'footer', 'author', 'imagePosition', 'buttons', 'actionButtons'];
-            for (const field of styleFields) {
-                if (template[field] !== undefined) {
-                    mergedLeave[field] = template[field];
-                }
-            }
-            if (template.canvas) {
-                mergedLeave.canvas = { ...(mergedLeave.canvas || {}), ...template.canvas };
-            }
-
-            mergedLeave.enabled = keepEnabled;
-            mergedLeave.channelId = keepChannelId;
-
-            guildConfig.leave = mergedLeave;
-            config[guildId] = guildConfig;
-            saveConfig(config);
-
-            // Update the *original* leave panel — the select menu lives on an
-            // ephemeral picker, so interaction.update won't refresh the real one.
-            const updatedLeavePanel = buildLeaveContainer(guildConfig.leave);
-            try { await updatePanelMessage(interaction, updatedLeavePanel); } catch (e) { }
-
-            // Replace the ephemeral picker with a success confirmation.
-            const successContainer = new ContainerBuilder()
-                .setAccentColor(0x57F287)
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        `# <:Checkedbox:1521227734943269077> Leave Template Loaded\n\n` +
-                        `**${templateName}** has been applied to your leave panel.\n\n` +
-                        `-# Server-specific settings (channel, enabled state) were preserved.`
-                    )
-                );
-            await interaction.update({ components: [successContainer], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
 
@@ -2344,7 +2353,7 @@ module.exports = {
             guildConfig.pingUser = !guildConfig.pingUser;
             config[guildId] = guildConfig;
             saveConfig(config);
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -2357,7 +2366,7 @@ module.exports = {
                 guildConfig.dmWelcome.enabled = false;
                 config[guildId] = guildConfig;
                 saveConfig(config);
-                const container = buildWelcomerContainer(guildConfig, guildId);
+                const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
                 await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             } else {
                 // Show modal to set DM content and enable
@@ -2481,7 +2490,7 @@ module.exports = {
             guildConfig.enabled = !guildConfig.enabled;
             config[guildId] = guildConfig;
             saveConfig(config);
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -2513,236 +2522,6 @@ module.exports = {
             return true;
         }
 
-        if (customId === 'welcomer_templates') {
-            const userId = interaction.user.id;
-            const panelContent = buildTemplateManagementPanel(userId);
-            const selectMenu = createTemplateSelectMenu(userId);
-            const managementRow = createTemplateManagementRow();
-
-            const tplContainer = new ContainerBuilder()
-                ;
-
-            tplContainer.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(panelContent)
-            );
-            tplContainer.addSeparatorComponents(
-                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-            );
-            if (selectMenu) tplContainer.addActionRowComponents(selectMenu);
-            tplContainer.addActionRowComponents(managementRow);
-
-            await interaction.reply({
-                components: [tplContainer],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-            });
-            return true;
-        }
-
-        if (customId === 'welcomer_template_back') {
-            const closedContainer = new ContainerBuilder()
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent('<:Checkedbox:1521227734943269077> Template menu closed.'));
-            await interaction.update({ components: [closedContainer], flags: MessageFlags.IsComponentsV2 });
-            return true;
-        }
-
-        if (customId === 'welcomer_template_save') {
-            const modal = new ModalBuilder()
-                .setCustomId('welcomer_template_save_modal')
-                .setTitle('Save Welcomer Template');
-
-            const nameInput = new TextInputBuilder()
-                .setCustomId('template_name')
-                .setLabel('Template Name')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('My Awesome Template')
-                .setMaxLength(100)
-                .setRequired(true);
-
-            modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
-            await interaction.showModal(modal);
-            return true;
-        }
-
-        if (customId === 'welcomer_template_delete') {
-            const userId = interaction.user.id;
-            const templates = loadTemplates();
-            const userTemplates = templates[userId] || {};
-            const templateNames = Object.keys(userTemplates);
-
-            if (templateNames.length === 0) {
-                const noTplContainer = new ContainerBuilder()
-                    .setAccentColor(0xED4245)
-                    .addTextDisplayComponents(new TextDisplayBuilder().setContent('<:Cancel:1521227723916181644> You have no templates to delete!'));
-                await interaction.update({ components: [noTplContainer], flags: MessageFlags.IsComponentsV2 });
-                return true;
-            }
-
-            const select = new StringSelectMenuBuilder()
-                .setCustomId('welcomer_template_delete_select')
-                .setPlaceholder('Select template(s) to delete...')
-                .setMaxValues(Math.min(templateNames.length, 25))
-                .setMinValues(1);
-
-            templateNames.slice(0, 25).forEach(name => {
-                select.addOptions(
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel(name.substring(0, 100))
-                        .setValue(name)
-                );
-            });
-
-            const delContainer = new ContainerBuilder()
-                .setAccentColor(0xED4245);
-            delContainer.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('### <:Trash:1521227750420254820> Select template(s) to delete:')
-            );
-            delContainer.addActionRowComponents(new ActionRowBuilder().addComponents(select));
-            delContainer.addActionRowComponents(
-                new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('welcomer_template_back')
-                        .setLabel('Cancel')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setEmoji('<:Caretleft:1521227977495543838>')
-                )
-            );
-
-            await interaction.update({ components: [delContainer], flags: MessageFlags.IsComponentsV2 });
-            return true;
-        }
-
-        if (customId === 'welcomer_template_select') {
-            const selectedValue = interaction.values[0];
-            const userId = interaction.user.id;
-            const templates = loadTemplates();
-            const builtInTemplates = getBuiltInWelcomerTemplates();
-            let templateName = selectedValue;
-            let template = null;
-            let templateSource = 'saved';
-
-            if (selectedValue.startsWith('default:')) {
-                const key = selectedValue.slice('default:'.length);
-                const builtIn = builtInTemplates[key];
-                if (builtIn) {
-                    templateName = builtIn.name;
-                    template = builtIn.template;
-                    templateSource = 'built-in';
-                }
-            } else if (selectedValue.startsWith('user:')) {
-                templateName = selectedValue.slice('user:'.length);
-                template = templates[userId]?.[templateName];
-            } else {
-                template = templates[userId]?.[templateName] || builtInTemplates[templateName]?.template;
-                if (!templates[userId]?.[templateName] && builtInTemplates[templateName]) {
-                    templateName = builtInTemplates[templateName].name;
-                    templateSource = 'built-in';
-                }
-            }
-
-            if (!template) {
-                const errContainer = new ContainerBuilder()
-                    .setAccentColor(0xED4245)
-                    .addTextDisplayComponents(new TextDisplayBuilder().setContent('<:Cancel:1521227723916181644> Template not found!'));
-                await interaction.update({ components: [errContainer], flags: MessageFlags.IsComponentsV2 });
-                return true;
-            }
-
-            // Apply template field by field — same logic as message-builder modals
-            const guildId = interaction.guild.id;
-            const config = loadConfig();
-            const currentConfig = config[guildId] || getDefaultConfig();
-            const mergedConfig = { ...getDefaultConfig(), ...currentConfig };
-
-            // Overwrite style/content fields from template (NOT server-specific)
-            const styleFields = ['mode', 'content', 'message', 'title', 'description', 'color', 'colorless', 'image', 'mediaUrl', 'thumbnail', 'footer', 'author'];
-            for (const field of styleFields) {
-                if (template[field] !== undefined) {
-                    mergedConfig[field] = template[field];
-                }
-            }
-
-            // Deep merge canvas from template
-            if (template.canvas) {
-                mergedConfig.canvas = { ...(getDefaultConfig().canvas), ...template.canvas };
-            }
-
-            // Deep merge leave — preserve server-specific leave.enabled & leave.channelId
-            if (template.leave) {
-                const keepLeaveEnabled = mergedConfig.leave?.enabled || false;
-                const keepLeaveChannelId = mergedConfig.leave?.channelId || null;
-                if (!mergedConfig.leave) mergedConfig.leave = { ...getDefaultConfig().leave };
-
-                const leaveStyleFields = ['mode', 'content', 'title', 'description', 'color', 'colorless', 'image', 'thumbnail', 'footer', 'author'];
-                for (const field of leaveStyleFields) {
-                    if (template.leave[field] !== undefined) {
-                        mergedConfig.leave[field] = template.leave[field];
-                    }
-                }
-                if (template.leave.canvas) {
-                    mergedConfig.leave.canvas = { ...template.leave.canvas };
-                }
-                mergedConfig.leave.enabled = keepLeaveEnabled;
-                mergedConfig.leave.channelId = keepLeaveChannelId;
-            }
-
-            // Always preserve server-specific top-level fields
-            mergedConfig.enabled = currentConfig.enabled || false;
-            mergedConfig.channelId = currentConfig.channelId || null;
-
-            config[guildId] = mergedConfig;
-            saveConfig(config);
-
-            // Update the *original* welcomer panel (this select lives on an ephemeral
-            // message — interaction.update would only refresh the ephemeral one).
-            const updatedPanel = buildWelcomerContainer(mergedConfig, guildId);
-            try { await updatePanelMessage(interaction, updatedPanel); } catch (e) { }
-
-            // Replace the ephemeral template-picker with a success confirmation so
-            // the user gets clear feedback that the template was loaded.
-            const sourceLabel = templateSource === 'built-in' ? 'Built-in' : 'Saved';
-            const successContainer = new ContainerBuilder()
-                .setAccentColor(0x57F287)
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        `# <:Checkedbox:1521227734943269077> Template Loaded\n\n` +
-                        `**${templateName}** (${sourceLabel}) has been applied to your welcomer panel.\n\n` +
-                        `-# Server-specific settings (channel, enabled state) were preserved.`
-                    )
-                );
-            await interaction.update({ components: [successContainer], flags: MessageFlags.IsComponentsV2 });
-            return true;
-        }
-
-        if (customId === 'welcomer_template_delete_select') {
-            const templateNames = interaction.values;
-            const userId = interaction.user.id;
-            const templates = loadTemplates();
-
-            if (!templates[userId]) {
-                const errContainer = new ContainerBuilder()
-                    .addTextDisplayComponents(new TextDisplayBuilder().setContent('<:Cancel:1521227723916181644> No templates found!'));
-                await interaction.update({ components: [errContainer], flags: MessageFlags.IsComponentsV2 });
-                return true;
-            }
-
-            let deleted = 0;
-            for (const name of templateNames) {
-                if (templates[userId][name]) {
-                    delete templates[userId][name];
-                    deleted++;
-                }
-            }
-
-            saveTemplatesFile(templates);
-
-            const doneContainer = new ContainerBuilder()
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(`<:Checkedbox:1521227734943269077> Deleted **${deleted}** template(s) successfully!`)
-                );
-            await interaction.update({ components: [doneContainer], flags: MessageFlags.IsComponentsV2 });
-            return true;
-        }
-
         if (customId === 'welcomer_select_channel_unified') {
             const channelId = interaction.values[0];
             const channel = interaction.guild.channels.cache.get(channelId);
@@ -2758,73 +2537,13 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try {
                 await updatePanelMessage(interaction, container);
             } catch (e) { }
 
             await interaction.reply({
                 content: `<:Checkedbox:1521227734943269077> Welcome channel set to <#${channelId}>!`,
-                flags: MessageFlags.Ephemeral
-            });
-            return true;
-        }
-
-        if (customId === 'welcomer_template_save_modal') {
-            const templateName = interaction.fields.getTextInputValue('template_name').trim();
-
-            if (!templateName || templateName.length === 0) {
-                await interaction.reply({
-                    content: '<:Cancel:1521227723916181644> Please provide a valid template name!',
-                    flags: MessageFlags.Ephemeral
-                });
-                return true;
-            }
-
-            const userId = interaction.user.id;
-            const guildId = interaction.guild.id;
-            const config = loadConfig();
-            const guildConfig = config[guildId] || getDefaultConfig();
-
-            const templates = loadTemplates();
-            if (!templates[userId]) templates[userId] = {};
-
-            // Save ALL builder fields (same as what the message-builder modals set)
-            // Exclude server-specific: enabled, channelId, leave.enabled, leave.channelId
-            const templateData = {
-                mode: guildConfig.mode,
-                content: guildConfig.content,
-                message: guildConfig.message,
-                title: guildConfig.title,
-                description: guildConfig.description,
-                color: guildConfig.color,
-                colorless: guildConfig.colorless || false,
-                image: guildConfig.image,
-                mediaUrl: guildConfig.mediaUrl || null,
-                thumbnail: guildConfig.thumbnail,
-                footer: guildConfig.footer,
-                author: guildConfig.author,
-                canvas: guildConfig.canvas ? { ...guildConfig.canvas } : { enabled: false },
-                leave: guildConfig.leave ? {
-                    mode: guildConfig.leave.mode,
-                    content: guildConfig.leave.content,
-                    title: guildConfig.leave.title,
-                    description: guildConfig.leave.description,
-                    color: guildConfig.leave.color,
-                    colorless: guildConfig.leave.colorless || false,
-                    image: guildConfig.leave.image,
-                    thumbnail: guildConfig.leave.thumbnail,
-                    footer: guildConfig.leave.footer,
-                    author: guildConfig.leave.author,
-                    canvas: guildConfig.leave.canvas ? { ...guildConfig.leave.canvas } : null
-                } : null
-            };
-
-            templates[userId][templateName] = templateData;
-            saveTemplatesFile(templates);
-
-            await interaction.reply({
-                content: `<:Checkedbox:1521227734943269077> Template **${templateName}** saved successfully!`,
                 flags: MessageFlags.Ephemeral
             });
             return true;
@@ -2840,7 +2559,7 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try {
                 await updatePanelMessage(interaction, container);
             } catch (e) { }
@@ -2864,7 +2583,7 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try {
                 await updatePanelMessage(interaction, container);
             } catch (e) { }
@@ -2886,7 +2605,7 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try {
                 await updatePanelMessage(interaction, container);
             } catch (e) { }
@@ -2929,7 +2648,7 @@ module.exports = {
             saveConfig(config);
 
             const total = buttons.length + actionButtons.length;
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try {
                 await updatePanelMessage(interaction, container);
             } catch (e) { }
@@ -2948,7 +2667,7 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try {
                 await updatePanelMessage(interaction, container);
             } catch (e) { }
@@ -2967,7 +2686,7 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try {
                 await updatePanelMessage(interaction, container);
             } catch (e) { }
@@ -3311,7 +3030,7 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try { await updatePanelMessage(interaction, container); } catch (e) { }
 
             await interaction.reply({
@@ -3337,7 +3056,7 @@ module.exports = {
             config[guildId] = guildConfig;
             saveConfig(config);
 
-            const container = buildWelcomerContainer(guildConfig, guildId);
+            const container = buildWelcomerContainer(guildConfig, guildId, previewCtx(interaction));
             try { await updatePanelMessage(interaction, container); } catch (e) { }
 
             await interaction.reply({
@@ -3349,10 +3068,19 @@ module.exports = {
             return true;
         }
 
-        // No handler matched — acknowledge to prevent "This interaction failed"
-        if (interaction.isButton() || interaction.isStringSelectMenu()) {
-            try { await interaction.deferUpdate(); } catch { }
-        }
+        // No handler matched. Return WITHOUT acknowledging.
+        //
+        // This used to call interaction.deferUpdate() first, to avoid the user
+        // seeing "This interaction failed". That was actively harmful: index.js
+        // routes welcomer_/leave_/canvas_ here first and falls back to
+        // interactionHandlers.handleWelcomerButtons on a falsy return — but the
+        // interaction was already acknowledged by then, so every reply() and
+        // showModal() in the fallback threw 40060 (already acknowledged).
+        //
+        // That is why three of /leave-setup's four buttons did nothing at all:
+        // leave_setup_channel, welcomer_leave_msg and welcomer_leave_toggle are
+        // only implemented in that fallback. Acknowledging on behalf of a
+        // handler we have not run is never correct — the caller decides.
         return false;
     },
 
@@ -3367,5 +3095,12 @@ module.exports = {
     replacePlaceholders,
     createPreviewContainer,
     createPreviewEmbed,
-    buildWelcomerContainer
+    buildWelcomerContainer,
+    buildUtilityContainer,
+    buildLivePreview,
+    // Exported so /leave-setup can open THIS panel instead of maintaining its
+    // own copy. The duplicate it used to render read flat `leaveEnabled` /
+    // `leaveChannelId` / `leaveMessage` fields that nothing in the codebase ever
+    // wrote, so it always displayed "Disabled / Not set / default message".
+    buildLeaveContainer
 };

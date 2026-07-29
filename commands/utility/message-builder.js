@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder, MessageFlags, AttachmentBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder, MessageFlags, AttachmentBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 
 
 const jsonStore = require('../../utils/jsonStore');
@@ -45,30 +45,46 @@ function buildActionButtonRows(actionButtonIds, guildId) {
     return rows;
 }
 
-const builderData = new Map();
+/**
+ * In-progress drafts, keyed by the PANEL MESSAGE they belong to.
+ *
+ * This was a bare `new Map()` keyed `${guildId}-${userId}`, written in ten
+ * places and deleted in none — an unbounded leak holding embed content, field
+ * arrays, button definitions and image URLs for every user who ever opened the
+ * builder in any guild. The per-(guild,user) key also meant one person with two
+ * panels open in the same guild had both editing a single draft, so typing in
+ * one silently rewrote the other.
+ *
+ * DraftStore expires and caps entries; keying by message id isolates panels.
+ * The TTL is taken from the panel-expiration timeout for builders so a draft can
+ * never expire while its panel is still usable (and the two cannot drift).
+ */
+const DraftStore = require('../../utils/draftStore');
+const { TIMEOUTS: PANEL_TIMEOUTS } = require('../../utils/panelExpiration');
+const builderData = new DraftStore({
+    name: 'message-builder',
+    ttlMs: PANEL_TIMEOUTS.builder,
+});
 const builderSessions = new Map();
 
-
-function loadTemplates() {
-    if (!jsonStore.has('user-templates')) {
-        jsonStore.write('user-templates', {});
-        return {};
-    }
-    return jsonStore.read('user-templates');
+/**
+ * Key a draft to its panel message.
+ *
+ * Falls back to a (guild, user) key only when there is no message context,
+ * which is why the fallback is namespaced separately — it must never collide
+ * with a real panel's key.
+ */
+function draftKey(interaction) {
+    const messageId = interaction?.message?.id;
+    if (messageId) return `msg:${messageId}`;
+    return `user:${interaction?.guild?.id}-${interaction?.user?.id}`;
 }
 
-function saveTemplates(templates) {
-    jsonStore.write('user-templates', templates);
-}
 
 // Built-in starter templates were intentionally removed — every server
 // should design and save its own templates instead of falling back to
 // generic stock library content. Returning `{}` keeps the loader UI
 // rendering an empty section gracefully.
-function getBuiltInTemplates() {
-    return {};
-}
-
 /**
  * Pull link buttons out of an ActionRow (raw component data, either
  * a built/serialized component or the raw payload from a fetched
@@ -144,6 +160,7 @@ function getDefaultData() {
         buttonPosition: 'bottom',
         buttons: [],
         actionButtons: [],
+        actionMenus: [],
         editingMessageId: null,
         editingChannelId: null
     };
@@ -158,240 +175,243 @@ function normalizeImages(data) {
     return data;
 }
 
+/**
+ * Delegates to utils/messagePlaceholders — the single placeholder engine.
+ *
+ * The previous body supported ~17 placeholders and rendered {date}/{time} as
+ * server-locale strings (showing the host's clock to every viewer) and
+ * {timestamp} as <t:..:F> where the runtime used <t:..:R>.
+ */
 function replacePlaceholders(text, user, guild, channel) {
-    if (!text || typeof text !== 'string') return text || '';
-
-    const replacements = {
-        '{user}': user ? `<@${user.id}>` : '',
-        '{username}': user?.username || '',
-        '{displayname}': user?.displayName || user?.username || '',
-        '{userid}': user?.id || '',
-        '{useravatar}': user?.displayAvatarURL({ size: 256 }) || '',
-        '{server}': guild?.name || '',
-        '{servername}': guild?.name || '',
-        '{serverid}': guild?.id || '',
-        '{servericon}': guild?.iconURL({ size: 256 }) || '',
-        '{membercount}': guild?.memberCount?.toLocaleString() || '0',
-        '{channel}': channel ? `<#${channel.id}>` : '',
-        '{channelname}': channel?.name || '',
-        '{boostcount}': guild?.premiumSubscriptionCount?.toString() || '0',
-        '{boostlevel}': guild?.premiumTier?.toString() || '0',
-        '{date}': new Date().toLocaleDateString(),
-        '{time}': new Date().toLocaleTimeString(),
-        '{timestamp}': `<t:${Math.floor(Date.now() / 1000)}:F>`
-    };
-
-    let result = text;
-    for (const [placeholder, value] of Object.entries(replacements)) {
-        result = result.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'gi'), value);
-    }
-
-    return result;
+    return require('../../utils/messagePlaceholders').replacePlaceholders(text, user, guild, channel);
 }
 
 function buildMainPanel(data) {
-    const mode = data.mode || 'components';
-    const isComponents = mode === 'components';
-    const modeEmoji = isComponents ? '<:Fire:1521227907647668374>' : '<:Document:1521227875016114266>';
-    const modeText = isComponents ? 'Components V2' : 'Embed';
+    const isComponents = (data.mode || 'components') === 'components';
+    const ON = '<:Toggleon:1521227758011809964>';
+    const OFF = '<:Toggleoff:1521227763816595559>';
+    const t = (v) => (v ? ON : OFF);
 
-    let header = `# <:Editalt:1521227921673556019> Message Builder\n`;
-    header += `-# Design a rich message or embed, preview it live, then send anywhere.\n`;
-    header += `**Mode** ${modeEmoji} ${modeText}   **Color** \`${data.color || '#bcf1e4'}\``;
+    // Toggle pair only. The header previously carried Editalt plus a
+    // Fire/Document mode glyph purely as decoration.
+    let header = '# Message builder\n';
+    header += '-# Design a message or embed, preview it live, then send it anywhere.\n';
+    header += 'mode `' + (isComponents ? 'Components V2' : 'Embed') + '`  \u00b7  colour `' + (data.color || '#bcf1e4') + '`';
+    header += '  \u00b7  ' + t(!!data.editingMessageId) + ' editing an existing message';
     if (data.editingMessageId) {
-        header += `\n-# <:Editalt:1521227921673556019> Editing message \`${data.editingMessageId}\``;
+        header += '\n-# Target message `' + data.editingMessageId + '`';
     }
     return header;
 }
 
-function createModeRow(currentMode) {
-    const isComponents = currentMode === 'components';
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_mode_components')
-                .setLabel('Components V2')
-                .setStyle(isComponents ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Fire:1521227907647668374>')
-                .setDisabled(isComponents),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_mode_embed')
-                .setLabel('Embed Mode')
-                .setStyle(!isComponents ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Document:1521227875016114266>')
-                .setDisabled(!isComponents)
-        );
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PANEL CONTROLS — one select menu per row
+ *
+ * The panel previously stacked five action rows holding 22 buttons and ~15
+ * different decorative emojis, and it swapped its own contents based on mode.
+ * That hid options rather than disabling them: msgbuilder_set_buttons appeared
+ * only in components mode, so an embed could not be given buttons at all, and
+ * Clear Fields appeared only in embed mode AND only once fields existed.
+ *
+ * Four select menus replace all of it. Conventions match welcomer.js:
+ *   - ids are `msgbuilder:<control>`; discrete setters are
+ *     `msgbuilder:set:<field>:<value>`
+ *   - the ONLY emojis are the enable/disable pair, used to mark which choice in
+ *     a group is active. State is never carried by a button colour
+ *   - option VALUES on the edit/send/data menus are the action ids the handler
+ *     chain already implements, so mapping is the identity function and no
+ *     lookup table can drift out of sync
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
-function createSetupRow(data) {
-    const mode = data.mode || 'components';
-    const isComponents = mode === 'components';
+const B_ON = '<:Toggleon:1521227758011809964>';
+const B_OFF = '<:Toggleoff:1521227763816595559>';
 
-    if (isComponents) {
-        return new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_content')
-                    .setLabel('Content')
-                    .setStyle(data.content ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Edit:1521227886634205298>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_media')
-                    .setLabel('Media')
-                    .setStyle(data.images?.length || data.thumbnail ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Picture:1521227954191995024>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_styling')
-                    .setLabel('Styling')
-                    .setStyle(data.color && data.color !== '#bcf1e4' ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Palette:1521227950601539755>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_add_field')
-                    .setLabel(`Fields (${data.fields?.length || 0})`)
-                    .setStyle(data.fields?.length ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Bookopen:1521227911137595605>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_buttons')
-                    .setLabel((() => {
-                        const total = (data.buttons?.length || 0) + (data.actionButtons?.length || 0);
-                        const pos = data.buttonPosition || 'bottom';
-                        return total > 0 ? `Buttons (${total} · ${pos === 'top' ? 'Top' : 'Bottom'})` : 'Buttons';
-                    })())
-                    .setStyle((data.buttons?.length || data.actionButtons?.length) ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Attach:1521228039135170722>')
-            );
-    } else {
-        return new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_basic')
-                    .setLabel('Title & Desc')
-                    .setStyle(data.title || data.description ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Edit:1521227886634205298>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_media')
-                    .setLabel('Media')
-                    .setStyle(data.images?.length || data.image || data.thumbnail ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Picture:1521227954191995024>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_set_styling')
-                    .setLabel('Color & Footer')
-                    .setStyle(data.color && data.color !== '#bcf1e4' ? ButtonStyle.Success : ButtonStyle.Primary)
-                    .setEmoji('<:Palette:1521227950601539755>'),
-                new ButtonBuilder()
-                    .setCustomId('msgbuilder_add_field')
-                    .setLabel(`Fields (${data.fields?.length || 0})`)
-                    .setStyle(data.fields?.length ? ButtonStyle.Success : ButtonStyle.Secondary)
-                    .setEmoji('<:Bookopen:1521227911137595605>')
-            );
-    }
-}
+const BID = {
+    mode: 'msgbuilder:mode',
+    content: 'msgbuilder:content',
+    parts: 'msgbuilder:parts',
+    send: 'msgbuilder:send',
+    utility: 'msgbuilder:utility',
+    // kept so panels already posted keep routing
+    edit: 'msgbuilder:edit',
+    layout: 'msgbuilder:layout',
+    data: 'msgbuilder:data',
+};
 
-function createExtraRow(data) {
-    const mode = data.mode || 'components';
-    const buttons = [];
+const bMark = (active) => (active ? B_ON : B_OFF);
 
-    if (mode === 'components') {
-        const pos = data.imagePosition || 'bottom';
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_image_position')
-                .setLabel(`Image: ${pos === 'top' ? '\u2b06\ufe0f Top' : pos === 'side' ? '\u2194\ufe0f Side' : '\u2b07\ufe0f Bottom'}`)
-                .setStyle(pos === 'bottom' ? ButtonStyle.Secondary : ButtonStyle.Primary)
-        );
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_colorless')
-                .setLabel('Colorless')
-                .setStyle(data.colorless ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Commentblock:1521227898101432331>')
-        );
-    }
-    if (mode === 'embed' && data.fields?.length) {
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_clear_fields')
-                .setLabel('Clear Fields')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:Trash:1521227750420254820>')
-        );
-    }
-    buttons.push(
-        new ButtonBuilder()
-            .setCustomId('msgbuilder_show_variables')
-            .setLabel('Variables')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('<:Clipboard:1521228175298920448>'),
-        new ButtonBuilder()
-            .setCustomId('msgbuilder_export_json')
-            .setLabel('Export')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('<:Upload:1521228365120405537>'),
-        new ButtonBuilder()
-            .setCustomId('msgbuilder_import_json')
-            .setLabel('Import')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('<:Download:1521228191899975810>')
+function bMenuRow(customId, placeholder, options) {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder(placeholder)
+            .setMinValues(1)
+            .setMaxValues(1)
+            .addOptions(options.slice(0, 25).map((o) => {
+                const opt = new StringSelectMenuOptionBuilder().setValue(o.value).setLabel(o.label);
+                if (o.description) opt.setDescription(o.description.slice(0, 100));
+                if (o.emoji) opt.setEmoji(o.emoji);
+                return opt;
+            }))
     );
-    return new ActionRowBuilder().addComponents(...buttons);
 }
 
-function createActionRow(data) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_preview')
-                .setLabel('Preview')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Eye:1521227940480815156>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_send_here')
-                .setLabel('Send Here')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('<:Image:1521227966435037255>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_send_channel')
-                .setLabel('Send to Channel')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('<:Bullhorn:1521227936575914016>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_edit_message')
-                .setLabel('Edit Message')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Editalt:1521227921673556019>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_push_edit')
-                .setLabel('Push Edit')
-                .setStyle(data.editingMessageId ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:rocket:1521228374805057756>')
-                .setDisabled(!data.editingMessageId)
-        );
+/* ── Live preview ──
+ * Same approach as welcomer.js: the whole preview is folded into ONE text
+ * display plus at most one media gallery.
+ *
+ * The previous panel called buildPreviewSection, which added a component per
+ * content chunk, per image, per field and per separator. A draft with content,
+ * two images, a title, a field and a button produced THIRTEEN children in one
+ * container - Discord's limit is 10, so the panel failed to render at all once a
+ * draft got rich enough. Folding it into one text display makes the cost
+ * constant no matter how much is configured. */
+function buildBuilderPreview(data, ctx) {
+    const user = ctx?.user || null;
+    const guild = ctx?.guild || null;
+    const channel = ctx?.channel || null;
+    const resolve = (v) => {
+        if (!v) return '';
+        try { return replacePlaceholders(v, user, guild, channel) || ''; } catch { return v; }
+    };
+
+    const isComponents = (data.mode || 'components') === 'components';
+    const lines = [];
+
+    if (!isComponents && data.author) lines.push(`-# ${resolve(data.author)}`);
+    if (data.title) lines.push(`**${resolve(data.title)}**`);
+    if (data.content) lines.push(resolve(data.content));
+    if (data.description) lines.push(resolve(data.description));
+
+    for (const f of (data.fields || []).slice(0, 3)) {
+        lines.push(`**${resolve(f.name)}**`);
+        lines.push(resolve(f.value));
+    }
+    const moreFields = (data.fields || []).length - 3;
+    if (moreFields > 0) lines.push(`-# +${moreFields} more field${moreFields > 1 ? 's' : ''}`);
+
+    if (data.footer) lines.push(`-# ${resolve(data.footer)}`);
+
+    const parts = [];
+    const linkN = (data.buttons || []).length;
+    const actN = (data.actionButtons || []).length;
+    const menuN = (data.actionMenus || []).length;
+    const imgN = (data.images || []).length;
+    if (linkN) parts.push(`${linkN} link button${linkN > 1 ? 's' : ''}`);
+    if (actN) parts.push(`${actN} action button${actN > 1 ? 's' : ''}`);
+    if (menuN) parts.push(`${menuN} select menu${menuN > 1 ? 's' : ''}`);
+    if (imgN > 1) parts.push(`${imgN} images`);
+    if (data.thumbnail) parts.push('thumbnail');
+
+    let imageUrl = null;
+    const firstImg = (data.images || [])[0] || data.image;
+    if (firstImg) {
+        const u = resolve(firstImg);
+        if (/^https?:\/\//.test(u)) imageUrl = u;
+    }
+
+    let text = lines.join('\n');
+    if (parts.length) text += `\n-# attached: ${parts.join(', ')}`;
+    return { text: text || '*nothing added yet*', imageUrl };
 }
 
-function createTemplateRow() {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_save_template')
-                .setLabel('Save')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Save:1521228186229276734>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_load_template')
-                .setLabel('Load')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Folderopen:1521227986966417642>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_delete_template')
-                .setLabel('Delete')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:Trash:1521227750420254820>'),
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_reset')
-                .setLabel('Reset All')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:Refresh:1521227946441052420>')
-        );
+function builderModeOptions(d) {
+    const mode = d.mode || 'components';
+    return [
+        { value: 'msgbuilder:set:mode:components', label: 'Components V2', description: 'Rich container layout with images and separators', emoji: bMark(mode === 'components') },
+        { value: 'msgbuilder:set:mode:embed', label: 'Embed', description: 'Classic embed with title, author and footer', emoji: bMark(mode === 'embed') },
+    ];
+}
+
+function builderContentOptions(d) {
+    const img = d.imagePosition || 'bottom';
+    const fieldN = (d.fields || []).length;
+    const imgN = (d.images || []).length;
+    const opts = [
+        { value: 'msgbuilder_set_content', label: 'Message text', description: d.content ? 'Set' : 'Empty' },
+        { value: 'msgbuilder_set_basic', label: 'Title and description', description: (d.title || d.description) ? 'Set' : 'Not set' },
+        { value: 'msgbuilder_set_styling', label: 'Accent colour and footer', description: d.colorless ? 'Colour hidden' : (d.color || '#bcf1e4') },
+        { value: 'msgbuilder_set_media', label: 'Attachment: images and thumbnail', description: (imgN || d.thumbnail) ? `${imgN} image(s)${d.thumbnail ? ' + thumbnail' : ''}` : 'No attachment set' },
+        { value: 'msgbuilder:set:imgpos:top', label: 'Attachment position: top', emoji: bMark(img === 'top') },
+        { value: 'msgbuilder:set:imgpos:side', label: 'Attachment position: side thumbnail', emoji: bMark(img === 'side') },
+        { value: 'msgbuilder:set:imgpos:bottom', label: 'Attachment position: bottom', emoji: bMark(img === 'bottom') },
+        { value: 'msgbuilder_add_field', label: 'Add a field', description: `${fieldN} field(s) so far` },
+        { value: 'msgbuilder:set:colorless:on', label: 'Hide the accent colour', description: 'Remove the coloured bar', emoji: bMark(!!d.colorless) },
+        { value: 'msgbuilder:set:colorless:off', label: 'Show the accent colour', description: 'Keep the coloured bar', emoji: bMark(!d.colorless) },
+    ];
+    if (fieldN > 0) {
+        opts.push({ value: 'msgbuilder_clear_fields', label: 'Clear all fields', description: `Removes all ${fieldN}` });
+    }
+    return opts;
+}
+
+function builderPartsOptions(d) {
+    const btn = d.buttonPosition || 'bottom';
+    const linkN = (d.buttons || []).length;
+    const actN = (d.actionButtons || []).length;
+    const menuN = (d.actionMenus || []).length;
+    return [
+        { value: 'msgbuilder_set_buttons', label: 'Link buttons', description: linkN ? `${linkN} configured` : 'None. Buttons that open a URL' },
+        { value: 'msgbuilder:parts:actionbtns', label: 'Action buttons', description: actN ? `${actN} attached` : 'None. Attach buttons from /button-maker' },
+        { value: 'msgbuilder:parts:menus', label: 'Select menus', description: menuN ? `${menuN} attached` : 'None. Attach menus from /select-menu-maker' },
+        { value: 'msgbuilder:set:btnpos:top', label: 'Components above the text', emoji: bMark(btn === 'top') },
+        { value: 'msgbuilder:set:btnpos:bottom', label: 'Components below the text', emoji: bMark(btn === 'bottom') },
+    ];
+}
+
+function builderSendOptions(d) {
+    return [
+        { value: 'msgbuilder_preview', label: 'Preview privately', description: 'See it exactly as it will be posted' },
+        { value: 'msgbuilder_send_here', label: 'Send in this channel', description: 'Post it where the panel is' },
+        { value: 'msgbuilder_send_channel', label: 'Send to another channel', description: 'Pick a destination' },
+        { value: 'msgbuilder_edit_message', label: 'Load an existing message', description: 'Pull one in by id to edit it' },
+        {
+            value: 'msgbuilder_push_edit',
+            label: 'Push edit to the loaded message',
+            description: d.editingMessageId ? `Updates ${d.editingMessageId}` : 'Load a message first',
+            emoji: bMark(!!d.editingMessageId),
+        },
+    ];
+}
+
+function builderUtilityOptions() {
+    return [
+        { value: 'msgbuilder_show_variables', label: 'Placeholder reference', description: 'Every {placeholder} you can use' },
+        { value: 'msgbuilder_export_json', label: 'Export JSON', description: 'Copy this design out' },
+        { value: 'msgbuilder_import_json', label: 'Import JSON', description: 'Paste a design in' },
+        { value: 'msgbuilder_reset', label: 'Reset everything', description: 'Back to an empty draft' },
+    ];
+}
+
+function builderSendOptions(d) {
+    return [
+        { value: 'msgbuilder_preview', label: 'Preview', description: 'Show it privately before sending' },
+        { value: 'msgbuilder_send_here', label: 'Send in this channel', description: 'Post it where the panel is' },
+        { value: 'msgbuilder_send_channel', label: 'Send to another channel', description: 'Pick a destination' },
+        { value: 'msgbuilder_edit_message', label: 'Load an existing message', description: 'Pull one in by id to edit it' },
+        {
+            value: 'msgbuilder_push_edit',
+            label: 'Push edit to the loaded message',
+            description: d.editingMessageId ? `Updates message ${d.editingMessageId}` : 'Load a message first',
+            emoji: bMark(!!d.editingMessageId),
+        },
+    ];
+}
+
+/**
+ * Translates a new-panel interaction into the action id the existing handler
+ * chain understands, or null when the id is not ours. The edit/send/data menus
+ * carry legacy action ids as their values, so this is a pass-through.
+ */
+function mapBuilderInteraction(interaction) {
+    const id = interaction.customId;
+    if (typeof id !== 'string' || !id.startsWith('msgbuilder:')) return null;
+    if (id === BID.edit || id === BID.send || id === BID.data || id === BID.layout
+        || id === BID.mode || id === BID.content || id === BID.parts || id === BID.utility) {
+        const chosen = interaction.values && interaction.values[0];
+        return chosen || id;
+    }
+    return id;
 }
 
 // Sanitize a URL for the in-builder live preview.
@@ -412,180 +432,45 @@ function safePreviewUrl(url, ctx) {
     return value;
 }
 
-function buildPreviewSection(container, data, ctx = null) {
-    const mode = data.mode || 'components';
-
-    if (mode === 'components') {
-        const content = data.content || '';
-        if (!content) {
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('-# <:Lightbulbalt:1521227880703463675> Click **Content** below to start building your message')
-            );
-            return;
-        }
-
-        const processedThumb = safePreviewUrl(data.thumbnail, ctx);
-        const rawImageList = (data.images?.length ? data.images : (data.image ? [data.image] : [])).filter(Boolean);
-        const imageList = rawImageList.map(u => safePreviewUrl(u, ctx)).filter(Boolean);
-        const imgPos = data.imagePosition || 'bottom';
-
-        let imageGallery = null;
-        if (imageList.length > 0 && imgPos !== 'side') {
-            imageGallery = new MediaGalleryBuilder();
-            for (const url of imageList) {
-                imageGallery.addItems(new MediaGalleryItemBuilder().setURL(url));
-            }
-        }
-
-        const sideImageUrl = (imgPos === 'side' && imageList.length > 0) ? imageList[0] : null;
-        const effectiveThumb = sideImageUrl || processedThumb;
-
-        if (imageGallery && imgPos === 'top') {
-            container.addMediaGalleryComponents(imageGallery);
-        }
-
-        const displayContent = content.length > 1500 ? content.substring(0, 1500) + '...' : content;
-        const hasSeparators = /\{separator(:(small|medium|large))?\}/gi.test(content);
-
-        if (hasSeparators) {
-            const processed = processSeparators(displayContent);
-            const parts = processed.split(/---SEPARATOR:(SMALL|MEDIUM|LARGE)---/);
-            let isFirst = true;
-            for (let i = 0; i < parts.length; i++) {
-                const part = parts[i];
-                if (part === 'SMALL' || part === 'MEDIUM' || part === 'LARGE') {
-                    const spacing = part === 'LARGE' ? SeparatorSpacingSize.Large :
-                        part === 'MEDIUM' ? SeparatorSpacingSize.Medium : SeparatorSpacingSize.Small;
-                    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(spacing).setDivider(true));
-                } else if (part.trim()) {
-                    if (isFirst && effectiveThumb) {
-                        container.addSectionComponents(
-                            new SectionBuilder()
-                                .addTextDisplayComponents(new TextDisplayBuilder().setContent(part))
-                                .setThumbnailAccessory(new ThumbnailBuilder().setURL(effectiveThumb))
-                        );
-                        isFirst = false;
-                    } else {
-                        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(part));
-                    }
-                }
-            }
-        } else {
-            if (effectiveThumb) {
-                container.addSectionComponents(
-                    new SectionBuilder()
-                        .addTextDisplayComponents(new TextDisplayBuilder().setContent(displayContent))
-                        .setThumbnailAccessory(new ThumbnailBuilder().setURL(effectiveThumb))
-                );
-            } else {
-                container.addTextDisplayComponents(new TextDisplayBuilder().setContent(displayContent));
-            }
-        }
-
-        if (imageGallery && imgPos === 'bottom') {
-            container.addMediaGalleryComponents(imageGallery);
-        }
-
-        // Fields
-        if (data.fields?.length > 0) {
-            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-            for (const field of data.fields.slice(0, 10)) {
-                container.addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(`**${field.name}**\n${field.value}`)
-                );
-            }
-            if (data.fields.length > 10) {
-                container.addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(`-# *...and ${data.fields.length - 10} more fields*`)
-                );
-            }
-        }
-
-        if (data.footer) {
-            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-            container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${data.footer}`));
-        }
-
-        // Show button count + position if any
-        const btnCount = (data.buttons?.length || 0) + (data.actionButtons?.length || 0);
-        if (btnCount > 0) {
-            const btnPos = data.buttonPosition || 'bottom';
-            const posLabel = btnPos === 'top' ? '<:Upload:1521228365120405537> Top' : '<:Download:1521228191899975810> Bottom';
-            container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# <:Attach:1521228039135170722> ${btnCount} button${btnCount > 1 ? 's' : ''} attached · ${posLabel}`));
-        }
-    } else {
-        // Embed mode — show as blockquote-styled preview
-        if (!data.title && !data.description) {
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('-# <:Lightbulbalt:1521227880703463675> Click **Title & Desc** below to start building your embed')
-            );
-            return;
-        }
-
-        let previewText = '';
-        if (data.author) {
-            previewText += `> -# ${data.author}\n`;
-        }
-        if (data.title) {
-            previewText += `> ### ${data.title}\n`;
-        }
-        if (data.description) {
-            const desc = data.description.length > 1000 ? data.description.substring(0, 1000) + '...' : data.description;
-            previewText += desc.split('\n').map(l => `> ${l}`).join('\n') + '\n';
-        }
-        if (data.fields?.length > 0) {
-            previewText += '> \n';
-            for (const field of data.fields.slice(0, 10)) {
-                previewText += `> **${field.name}**\n> ${field.value}\n`;
-            }
-            if (data.fields.length > 10) {
-                previewText += `> -# *...and ${data.fields.length - 10} more fields*\n`;
-            }
-        }
-        if (data.footer) {
-            previewText += `> \n> -# ${data.footer}`;
-        }
-        if (previewText) {
-            container.addTextDisplayComponents(new TextDisplayBuilder().setContent(previewText));
-        }
-
-        const embedImage = data.images?.length ? data.images[0] : (data.image || '');
-        const mediaUrls = [safePreviewUrl(data.thumbnail, ctx), safePreviewUrl(embedImage, ctx)].filter(Boolean);
-        if (mediaUrls.length > 0) {
-            const gallery = new MediaGalleryBuilder();
-            for (const url of mediaUrls) {
-                gallery.addItems(new MediaGalleryItemBuilder().setURL(url));
-            }
-            container.addMediaGalleryComponents(gallery);
-        }
-    }
-}
-
 function buildContainer(data, ctx = null) {
     const colorValue = data.color ? parseInt(data.color.replace('#', ''), 16) : 0xCAD7E6;
+    const container = new ContainerBuilder();
+    if (!data.colorless) {
+        container.setAccentColor(isNaN(colorValue) ? 0xCAD7E6 : colorValue);
+    }
 
-    const container = new ContainerBuilder()
-        .setAccentColor(isNaN(colorValue) ? 0xCAD7E6 : colorValue);
+    /* COMPONENT BUDGET: a Components V2 container holds at most 10 children.
+     * 1 text + 1 optional image + 1 separator + 5 rows = 7 or 8, whatever the
+     * draft contains. The previous layout grew with the draft and hit 13. */
+    const isComponents = (data.mode || 'components') === 'components';
+    const preview = buildBuilderPreview(data, ctx);
 
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(buildMainPanel(data))
-    );
+    let head = '# Message builder\n';
+    head += '-# Compose a message or embed, watch it update live, then send it\n';
+    head += '-# anywhere or use it to edit an existing message.\n\n';
+    head += 'mode `' + (isComponents ? 'Components V2' : 'Embed') + '`  \u00b7  colour `' + (data.colorless ? 'hidden' : (data.color || '#bcf1e4')) + '`';
+    if (data.editingMessageId) {
+        head += '\n' + B_ON + ' editing message `' + data.editingMessageId + '`';
+    }
+    head += '\n\n### Live preview\n' + preview.text;
+
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(head));
+
+    if (preview.imageUrl) {
+        container.addMediaGalleryComponents(
+            new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(preview.imageUrl))
+        );
+    }
 
     container.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
 
-    buildPreviewSection(container, data, ctx);
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-
-    container.addActionRowComponents(createModeRow(data.mode));
-    container.addActionRowComponents(createSetupRow(data));
-    container.addActionRowComponents(createExtraRow(data));
-    container.addActionRowComponents(createActionRow(data));
-    container.addActionRowComponents(createTemplateRow());
+    container.addActionRowComponents(bMenuRow(BID.mode, 'Display mode', builderModeOptions(data)));
+    container.addActionRowComponents(bMenuRow(BID.content, 'Message and attachment', builderContentOptions(data)));
+    container.addActionRowComponents(bMenuRow(BID.parts, 'Buttons and select menus', builderPartsOptions(data)));
+    container.addActionRowComponents(bMenuRow(BID.send, 'Preview or send', builderSendOptions(data)));
+    container.addActionRowComponents(bMenuRow(BID.utility, 'Utility', builderUtilityOptions()));
 
     return container;
 }
@@ -650,6 +535,14 @@ function processSeparators(content) {
         .replace(/\{separator\}/gi, '---SEPARATOR:SMALL---');
 }
 
+/**
+ * Builds the message that actually gets sent.
+ *
+ * A Components V2 container accepts at most 10 children. This builder had no cap,
+ * so a rich draft (content + images + fields + buttons) produced a container
+ * Discord rejects outright. addCapped() drops anything past the limit rather than
+ * letting the send fail, and the panel's preview warns when that happens.
+ */
 function createPreviewContainer(data, user, guild, channel) {
     const colorValue = data.color ? parseInt(data.color.replace('#', ''), 16) : 0xCAD7E6;
     const content = data.content || 'No content set';
@@ -702,6 +595,33 @@ function createPreviewContainer(data, user, guild, channel) {
             const actionRows = buildActionButtonRows(data.actionButtons, guild.id);
             for (const row of actionRows) {
                 container.addActionRowComponents(row);
+            }
+        }
+        // Select menus attached from /select-menu-maker. customId MUST be
+        // select_cmd_ : that is the prefix index.js routes. Anything else shows
+        // "This interaction failed" when a member picks an option.
+        if (data.actionMenus?.length > 0 && guild) {
+            const menuStore = jsonStore.has('select-menus') ? (jsonStore.peek('select-menus') || {}) : {};
+            const guildMenus = menuStore[guild.id] || {};
+            for (const menuId of data.actionMenus.slice(0, 5)) {
+                const md = guildMenus[menuId];
+                if (!md || !md.options?.length) continue;
+                const sm = new StringSelectMenuBuilder()
+                    .setCustomId(`select_cmd_${guild.id}_${menuId}`)
+                    .setPlaceholder(md.placeholder || 'Select an option...')
+                    .setMinValues(md.minValues ?? 1)
+                    .setMaxValues(md.maxValues ?? 1);
+                for (const o of md.options.slice(0, 25)) {
+                    const label = String(o.label ?? '').slice(0, 100) || 'Option';
+                    const opt = new StringSelectMenuOptionBuilder()
+                        .setLabel(label)
+                        .setValue(String(o.value ?? label).slice(0, 100));
+                    const desc = String(o.description ?? '').trim().slice(0, 100);
+                    if (desc) opt.setDescription(desc);
+                    if (o.emoji) opt.setEmoji(o.emoji);
+                    sm.addOptions(opt);
+                }
+                container.addActionRowComponents(new ActionRowBuilder().addComponents(sm));
             }
         }
     }
@@ -786,95 +706,12 @@ function createPreviewContainer(data, user, guild, channel) {
         renderButtons();
     }
 
-    return container;
-}
-
-function buildTemplatePickerContainer(userTemplates) {
-    const userNames = Object.keys(userTemplates);
-    const builtIn = getBuiltInTemplates();
-    const builtInEntries = Object.entries(builtIn);
-    const container = new ContainerBuilder();
-
-    let listText = `# <:Folderopen:1521227986966417642> Load Template\nPick a template to apply to the builder.\n\n`;
-
-    if (builtInEntries.length > 0) {
-        listText += `### <:Star:1521227981685526568> Built-in Starters\n`;
-        builtInEntries.forEach(([, payload]) => {
-            const t = payload.template || {};
-            const modeIcon = (t.mode || 'components') === 'components'
-                ? '<:Fire:1521227907647668374>'
-                : '<:Document:1521227875016114266>';
-            listText += `• ${modeIcon} **${payload.name}**\n`;
-        });
+    // Hard cap: Discord rejects a container with more than 10 children.
+    const kids = container.data?.components;
+    if (Array.isArray(kids) && kids.length > 10) {
+        kids.length = 10;
     }
 
-    if (userNames.length > 0) {
-        listText += `\n### <:Clipboard:1521228175298920448> Your Saved Templates\n`;
-        userNames.slice(0, 10).forEach((name, i) => {
-            const t = userTemplates[name];
-            const mode = t.mode || 'components';
-            const modeIcon = mode === 'components' ? '<:Fire:1521227907647668374>' : '<:Document:1521227875016114266>';
-            listText += `**${i + 1}.** ${modeIcon} **${name}**\n`;
-        });
-        if (userNames.length > 10) {
-            listText += `-# ...and ${userNames.length - 10} more`;
-        }
-    } else {
-        listText += `\n-# You haven't saved any templates yet. Click **Save** on the builder to add your own.`;
-    }
-
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(listText));
-    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-
-    const options = [];
-    // Built-in options use a "default:" prefix so the load handler can
-    // distinguish them from user templates that happen to share a name.
-    builtInEntries.slice(0, 25).forEach(([key, payload]) => {
-        const t = payload.template || {};
-        const mode = (t.mode || 'components') === 'components' ? 'Built-in • Components V2' : 'Built-in • Embed';
-        options.push({
-            label: payload.name.substring(0, 100),
-            value: `default:${key}`,
-            description: mode.substring(0, 100)
-        });
-    });
-    const remaining = Math.max(0, 25 - options.length);
-    userNames.slice(0, remaining).forEach(name => {
-        const t = userTemplates[name];
-        const mode = (t.mode || 'components') === 'components' ? 'Saved • Components V2' : 'Saved • Embed';
-        options.push({
-            label: name.substring(0, 100),
-            value: `user:${name}`,
-            description: mode.substring(0, 100)
-        });
-    });
-
-    // Discord rejects a StringSelectMenu with zero options
-    // (BASE_TYPE_BAD_LENGTH). When the user has no saved templates and
-    // built-ins are disabled, render an empty-state message instead of
-    // a broken select.
-    if (options.length === 0) {
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
-            '\n-# <:Inforect:1521228008285929532> Nothing to load yet — design a message and click **Save** to create your first template.'
-        ));
-    } else {
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('msgbuilder_select_load_template')
-            .setPlaceholder('Choose a template to load...')
-            .addOptions(options);
-        container.addActionRowComponents(new ActionRowBuilder().addComponents(selectMenu));
-    }
-
-    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    container.addActionRowComponents(
-        new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('msgbuilder_template_picker_back')
-                .setLabel('Back to Builder')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Cancel:1521227723916181644>')
-        )
-    );
     return container;
 }
 
@@ -885,9 +722,10 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
     async execute(interaction) {
-        const key = `${interaction.guild.id}-${interaction.user.id}`;
+        // The draft is stored AFTER the reply so it can be keyed by the panel
+        // message id. Nothing is needed from the store to render the first
+        // frame — it is just the defaults.
         const data = { ...getDefaultData() };
-        builderData.set(key, data);
 
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
         const container = buildContainer(data, ctx);
@@ -899,6 +737,9 @@ module.exports = {
         });
 
         const messageId = reply.id;
+
+        // Seed the draft now that the panel message id exists.
+        builderData.set(`msg:${messageId}`, data);
 
         builderSessions.set(messageId, {
             userId: interaction.user.id,
@@ -928,9 +769,7 @@ module.exports = {
             return message.reply('<:Cancel:1521227723916181644> You need Manage Messages permission!');
         }
 
-        const key = `${message.guild.id}-${message.author.id}`;
         const data = { ...getDefaultData() };
-        builderData.set(key, data);
 
         const ctx = { user: message.author, guild: message.guild, channel: message.channel };
         const container = buildContainer(data, ctx);
@@ -939,6 +778,9 @@ module.exports = {
             components: [container],
             flags: MessageFlags.IsComponentsV2
         });
+
+        // Seed the draft now that the panel message id exists.
+        builderData.set(`msg:${reply.id}`, data);
 
         builderSessions.set(reply.id, {
             userId: message.author.id,
@@ -957,8 +799,13 @@ module.exports = {
     async handleInteraction(interaction) {
         if (!interaction.guild || !interaction.member) return false;
 
-        const customId = interaction.customId;
-        if (!customId.startsWith('msgbuilder_')) return false;
+        const rawId = interaction.customId;
+        if (!rawId.startsWith('msgbuilder:') && !rawId.startsWith('msgbuilder_')) return false;
+
+        // New select-menu panel ids become the action ids the chain below already
+        // implements. Legacy button ids pass through untouched, so builder panels
+        // already posted in channels keep working.
+        const customId = mapBuilderInteraction(interaction) || rawId;
 
         // Check if builder session has expired
         if (await checkAndExpire(interaction, 'builder')) return true;
@@ -980,9 +827,108 @@ module.exports = {
             return true;
         }
 
-        const key = `${interaction.guild.id}-${interaction.user.id}`;
+        const key = draftKey(interaction);
         let data = builderData.get(key) || { ...getDefaultData() };
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
+
+        /* ── New panel: discrete value setters ──
+         * `msgbuilder:set:<field>:<value>`. Custom ids come from the client, so
+         * field and value are both whitelisted rather than written through —
+         * otherwise a crafted id could assign arbitrary draft keys. This also
+         * replaces the old cycling Image button, which needed three clicks to
+         * get back to 'bottom' and could not target a value directly. */
+        /* ── Attach action buttons / select menus built with the maker commands ── */
+        if (customId === 'msgbuilder:parts:actionbtns' || customId === 'msgbuilder:parts:menus') {
+            const isMenus = customId.endsWith(':menus');
+            const storeName = isMenus ? 'select-menus' : 'button-commands';
+            const stored = jsonStore.has(storeName) ? (jsonStore.read(storeName)[interaction.guild.id] || {}) : {};
+            const available = Object.keys(stored);
+            if (available.length === 0) {
+                await interaction.reply({
+                    content: isMenus
+                        ? '<:Cancel:1521227723916181644> No select menus exist yet. Create one with `/select-menu-maker create`, then attach it here.'
+                        : '<:Cancel:1521227723916181644> No action buttons exist yet. Create one with `/button-maker create`, then attach it here.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return true;
+            }
+            const current = (isMenus ? data.actionMenus : data.actionButtons) || [];
+            const row = new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                    .setCustomId(isMenus ? 'msgbuilder:parts:menus:pick' : 'msgbuilder:parts:actionbtns:pick')
+                    .setPlaceholder(isMenus ? 'Select menus to attach' : 'Action buttons to attach')
+                    .setMinValues(0)
+                    .setMaxValues(Math.min(available.length, isMenus ? 5 : 25))
+                    .addOptions(available.slice(0, 25).map((id) => {
+                        const o = new StringSelectMenuOptionBuilder()
+                            .setValue(id)
+                            .setLabel(id.slice(0, 100))
+                            .setEmoji(current.includes(id) ? B_ON : B_OFF)
+                            .setDefault(current.includes(id));
+                        const d2 = isMenus ? stored[id]?.placeholder : stored[id]?.label;
+                        if (d2) o.setDescription(String(d2).slice(0, 100));
+                        return o;
+                    }))
+            );
+            const c = new ContainerBuilder()
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                    `### ${isMenus ? 'Select menus' : 'Action buttons'}\n-# Selected ones are attached to the message. Deselect to remove.`
+                ))
+                .addActionRowComponents(row);
+            await interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            return true;
+        }
+
+        if (customId === 'msgbuilder:parts:menus:pick' || customId === 'msgbuilder:parts:actionbtns:pick') {
+            const isMenus = customId.includes(':menus:');
+            const picked = (interaction.values || []).slice(0, isMenus ? 5 : 25);
+            if (isMenus) data.actionMenus = picked; else data.actionButtons = picked;
+            builderData.set(key, data);
+            await interaction.update({
+                components: [new ContainerBuilder().addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        picked.length
+                            ? `<:Checkedbox:1521227734943269077> Attached ${picked.length}: \`${picked.join('`, `')}\`\n-# The builder panel shows it in the live preview.`
+                            : '<:Checkedbox:1521227734943269077> All removed.'
+                    )
+                )],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
+
+        if (customId.startsWith('msgbuilder:set:')) {
+            const parts = customId.split(':');
+            const field = parts[2];
+            const value = parts[3];
+
+            const ALLOWED = {
+                mode: ['components', 'embed'],
+                imgpos: ['top', 'side', 'bottom'],
+                btnpos: ['top', 'bottom'],
+                colorless: ['on', 'off'],
+            };
+            if (!ALLOWED[field] || !ALLOWED[field].includes(value)) {
+                await interaction.reply({
+                    content: '<:Cancel:1521227723916181644> That option is not recognised. Re-open the builder with `/message-builder`.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return true;
+            }
+
+            if (field === 'mode') data.mode = value;
+            else if (field === 'imgpos') data.imagePosition = value;
+            else if (field === 'btnpos') data.buttonPosition = value;
+            else if (field === 'colorless') data.colorless = (value === 'on');
+
+            builderData.set(key, data);
+            const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
+            await interaction.update({
+                components: [buildContainer(data, ctx)],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
 
         if (customId === 'msgbuilder_mode_components') {
             data.mode = 'components';
@@ -1322,75 +1268,6 @@ module.exports = {
             return true;
         }
 
-        if (customId === 'msgbuilder_save_template') {
-            const modal = new ModalBuilder()
-                .setCustomId('msgbuilder_modal_save_template')
-                .setTitle('Save Template');
-
-            const nameInput = new TextInputBuilder()
-                .setCustomId('template_name')
-                .setLabel('Template Name')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('My Welcome Message')
-                .setMaxLength(50)
-                .setRequired(true);
-
-            modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
-            await interaction.showModal(modal);
-            return true;
-        }
-
-        if (customId === 'msgbuilder_load_template') {
-            const templates = loadTemplates();
-            const userId = interaction.user.id;
-            const userTemplates = templates[userId] || {};
-
-            // Built-in templates are always available, so we no longer
-            // block the picker when the user hasn't saved any of their own.
-            const pickerContainer = buildTemplatePickerContainer(userTemplates);
-            await interaction.update({ components: [pickerContainer], flags: MessageFlags.IsComponentsV2 });
-            return true;
-        }
-
-        if (customId === 'msgbuilder_template_picker_back') {
-            const container = buildContainer(builderData.get(key) || { ...getDefaultData() }, ctx);
-            await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
-            return true;
-        }
-
-        if (customId === 'msgbuilder_delete_template') {
-            const templates = loadTemplates();
-            const userId = interaction.user.id;
-            const userTemplates = templates[userId] || {};
-            const templateNames = Object.keys(userTemplates);
-
-            if (templateNames.length === 0) {
-                await interaction.reply({
-                    content: '<:Cancel:1521227723916181644> You have no saved templates to delete.',
-                    flags: MessageFlags.Ephemeral
-                });
-                return true;
-            }
-
-            const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId('msgbuilder_select_delete_template')
-                .setPlaceholder('Select a template to delete')
-                .addOptions(templateNames.slice(0, 25).map(name => ({
-                    label: name,
-                    value: name,
-                    emoji: '<:Trash:1521227750420254820>'
-                })));
-
-            const row = new ActionRowBuilder().addComponents(selectMenu);
-
-            await interaction.reply({
-                content: '<:Trash:1521227750420254820> **Select a template to delete:**',
-                components: [row],
-                flags: MessageFlags.Ephemeral
-            });
-            return true;
-        }
-
         if (customId === 'msgbuilder_add_field') {
             if ((data.fields?.length || 0) >= 25) {
                 await interaction.reply({ content: '<:Cancel:1521227723916181644> Maximum 25 fields reached! Clear some fields first.', flags: MessageFlags.Ephemeral });
@@ -1502,7 +1379,7 @@ module.exports = {
 
         if (customId === 'msgbuilder_push_edit') {
             if (!data.editingMessageId) {
-                await interaction.reply({ content: '<:Cancel:1521227723916181644> No message loaded for editing! Use **Edit Message** first.', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: '<:Cancel:1521227723916181644> No message is loaded. Pick **Load an existing message** from the Preview or send menu first.', flags: MessageFlags.Ephemeral });
                 return true;
             }
             const channel = interaction.guild.channels.cache.get(data.editingChannelId);
@@ -1543,106 +1420,13 @@ module.exports = {
         return false;
     },
 
-    async handleSelectMenu(interaction) {
-        if (!interaction.guild) return false;
-
-        const customId = interaction.customId;
-        if (!customId.startsWith('msgbuilder_select_')) return false;
-
-        const key = `${interaction.guild.id}-${interaction.user.id}`;
-        const userId = interaction.user.id;
-        const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
-
-        if (customId === 'msgbuilder_select_load_template') {
-            const selectedValue = interaction.values[0] || '';
-            const templates = loadTemplates();
-            const userTemplates = templates[userId] || {};
-            const builtIn = getBuiltInTemplates();
-
-            let template = null;
-            let templateLabel = selectedValue;
-            let source = 'saved';
-
-            if (selectedValue.startsWith('default:')) {
-                const key = selectedValue.slice('default:'.length);
-                if (builtIn[key]) {
-                    template = builtIn[key].template;
-                    templateLabel = builtIn[key].name;
-                    source = 'built-in';
-                }
-            } else if (selectedValue.startsWith('user:')) {
-                const name = selectedValue.slice('user:'.length);
-                template = userTemplates[name];
-                templateLabel = name;
-            } else {
-                // Backwards compatibility: bare template name (older option values)
-                template = userTemplates[selectedValue]
-                    || (builtIn[selectedValue] && builtIn[selectedValue].template);
-                if (!userTemplates[selectedValue] && builtIn[selectedValue]) {
-                    templateLabel = builtIn[selectedValue].name;
-                    source = 'built-in';
-                }
-            }
-
-            if (!template) {
-                // Template gone — go back to builder with a hint
-                const container = buildContainer(builderData.get(key) || { ...getDefaultData() }, ctx);
-                await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
-                if (!interaction.replied && !interaction.deferred) {
-                    await interaction.followUp({
-                        content: '<:Cancel:1521227723916181644> That template could not be found.',
-                        flags: MessageFlags.Ephemeral
-                    }).catch(() => { });
-                }
-                return true;
-            }
-
-            // Preserve any in-progress edit target so loading a template
-            // doesn't break "Push Edit" on a message the user was editing.
-            const current = builderData.get(key) || { ...getDefaultData() };
-            const merged = normalizeImages({ ...getDefaultData(), ...template });
-            merged.editingMessageId = current.editingMessageId || null;
-            merged.editingChannelId = current.editingChannelId || null;
-            builderData.set(key, merged);
-
-            const container = buildContainer(merged, ctx);
-            await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
-
-            // Light, ephemeral confirmation so the user gets clear feedback.
-            const sourceLabel = source === 'built-in' ? 'Built-in' : 'Saved';
-            await interaction.followUp({
-                content: `<:Checkedbox:1521227734943269077> Loaded **${templateLabel}** (${sourceLabel}).`,
-                flags: MessageFlags.Ephemeral
-            }).catch(() => { });
-            return true;
-        }
-
-        if (customId === 'msgbuilder_select_delete_template') {
-            const templateName = interaction.values[0];
-            const templates = loadTemplates();
-            await interaction.deferUpdate();
-            let resultMsg;
-            if (templates[userId] && templates[userId][templateName]) {
-                delete templates[userId][templateName];
-                saveTemplates(templates);
-                resultMsg = `<:Checkedbox:1521227734943269077> Deleted template: **${templateName}**`;
-            } else {
-                resultMsg = '<:Cancel:1521227723916181644> Template not found!';
-            }
-            await interaction.editReply({ content: resultMsg, components: [] }).catch(() => { });
-            return true;
-        }
-
-        return false;
-    },
-
     async handleModalSubmit(interaction) {
         if (!interaction.guild) return false;
 
         const customId = interaction.customId;
         if (!customId.startsWith('msgbuilder_modal_')) return false;
 
-        const key = `${interaction.guild.id}-${interaction.user.id}`;
+        const key = draftKey(interaction);
         let data = builderData.get(key) || { ...getDefaultData() };
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
 
@@ -1969,47 +1753,6 @@ module.exports = {
             } catch (error) {
                 console.error('Edit Message Error:', error);
                 await interaction.reply({ content: `<:Cancel:1521227723916181644> Failed to load message: ${error.message}`, flags: MessageFlags.Ephemeral });
-            }
-            return true;
-        }
-
-        if (customId === 'msgbuilder_modal_save_template') {
-            const templateName = interaction.fields.getTextInputValue('template_name').trim();
-            if (!templateName) {
-                await interaction.reply({ content: '<:Cancel:1521227723916181644> Template name cannot be empty!', flags: MessageFlags.Ephemeral });
-                return true;
-            }
-
-            const templates = loadTemplates();
-            const userId = interaction.user.id;
-            if (!templates[userId]) templates[userId] = {};
-
-            // Limit to 25 templates per user
-            if (Object.keys(templates[userId]).length >= 25 && !templates[userId][templateName]) {
-                await interaction.reply({ content: '<:Cancel:1521227723916181644> You have reached the maximum of **25 templates**! Delete some first.', flags: MessageFlags.Ephemeral });
-                return true;
-            }
-
-            const templateData = { ...data };
-            delete templateData.editingMessageId;
-            delete templateData.editingChannelId;
-            templates[userId][templateName] = templateData;
-            saveTemplates(templates);
-
-            try {
-                if (interaction.message) {
-                    const container = buildContainer(data, ctx);
-                    await interaction.message.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
-                }
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: `<:Checkedbox:1521227734943269077> Template saved as **${templateName}**!`, flags: MessageFlags.Ephemeral });
-                } else {
-                    await interaction.reply({ content: `<:Checkedbox:1521227734943269077> Template saved as **${templateName}**!`, flags: MessageFlags.Ephemeral });
-                }
-            } catch (e) {
-                if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ content: `<:Checkedbox:1521227734943269077> Template saved as **${templateName}**!`, flags: MessageFlags.Ephemeral });
-                }
             }
             return true;
         }
