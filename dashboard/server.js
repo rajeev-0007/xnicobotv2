@@ -4123,7 +4123,16 @@ app.get('/api/premium', authMiddleware, ownerOnly, (req, res) => {
     res.json({ keys: [...map.values()].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) });
 });
 app.post('/api/premium/generate', authMiddleware, ownerOnly, (req, res) => {
-    const tier = 'user'; // Server premium discontinued — only user keys are generated.
+    // Tier: 'user' unlocks premium for the redeemer, 'server' unlocks it for
+    // every member of the guild where it's redeemed. Accepts either `tier` or
+    // `type` from the client, and rejects anything unrecognised rather than
+    // silently minting the wrong product.
+    const requestedTier = String(req.body.tier ?? req.body.type ?? 'user').toLowerCase().trim();
+    if (requestedTier !== 'user' && requestedTier !== 'server') {
+        return res.status(400).json({ error: "Invalid tier — expected 'user' or 'server'." });
+    }
+    const tier = requestedTier;
+
     let parsedDuration = 30;
     if (req.body.duration === 'lifetime') parsedDuration = null;
     else if (req.body.duration) parsedDuration = parseInt(req.body.duration, 10) || 30;
@@ -4131,7 +4140,7 @@ app.post('/api/premium/generate', authMiddleware, ownerOnly, (req, res) => {
     const key = 'XNICO-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase(); // nosonar
     const entry = {
         key,
-        type: 'user', // tier is legacy, bot uses type
+        type: tier, // the bot reads `type` when deciding redeemkey vs redeemserverkey
         duration: parsedDuration,
         createdBy: req.user.username,
         createdById: req.user.discordId || req.user.id,

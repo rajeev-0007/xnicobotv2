@@ -152,7 +152,13 @@ const COMMAND_PERMISSIONS = {
     'warnconfig':       [PermissionFlagsBits.ManageGuild],
     'dm-user':          [PermissionFlagsBits.ManageMessages],
     'resetserver':      [PermissionFlagsBits.Administrator],
-    'redeemserverkey':  [PermissionFlagsBits.ManageGuild],
+    // NOTE: redeemserverkey deliberately has NO entry here. This map is the
+    // BOT's required permissions (checkBotPermissions reads
+    // guild.members.me.permissions), and the bot needs nothing special to
+    // redeem a key. It previously required ManageGuild here, which meant a bot
+    // without that permission blocked paying customers from activating server
+    // premium — while doing nothing to authorize the *user*. The user-side
+    // ManageGuild check lives in the command itself.
 
     // ── Admin: Trust System ──
     'add-owner':        [PermissionFlagsBits.ManageGuild],

@@ -52,9 +52,23 @@ function generateKey() {
 
 /* ─────────────────────── Key Management ─────────────────────── */
 
+/**
+ * Mint a premium key.
+ *
+ * @param {number|null} duration  days of premium the key grants; null = permanent
+ * @param {'user'|'server'} type  'user' unlocks premium for the redeemer,
+ *                                'server' unlocks it for everyone in the guild
+ *                                where it is redeemed.
+ * @throws {Error} on an unrecognised type — silently coercing a typo like
+ *                 'sever' to 'user' would mint the wrong product and only be
+ *                 discovered after the customer redeemed it.
+ */
 function createKey(duration = null, type = 'user') {
-    // Server keys are discontinued — every generated key is a user key.
-    type = 'user';
+    const normalizedType = String(type || 'user').toLowerCase().trim();
+    if (normalizedType !== 'user' && normalizedType !== 'server') {
+        throw new Error(`Invalid key type "${type}" — expected 'user' or 'server'.`);
+    }
+    type = normalizedType;
     const now = new Date();
     const keyData = {
         key: generateKey(),
@@ -102,11 +116,93 @@ function redeemKey(userId, keyCode) {
     return { success: true, message: 'Key redeemed successfully!', duration: keyData.duration, expiresAt };
 }
 
-function redeemServerKey(_guildId, _userId, _keyCode) {
-    // Server premium is discontinued — only user premium exists now.
+/**
+ * Redeem a SERVER premium key, unlocking premium for every member of the guild.
+ *
+ * Async (unlike redeemKey) because claiming the key goes through
+ * jsonStore.updateStore, which re-reads the freshest `premium-keys` row from
+ * PostgreSQL before mutating it. That matters here: keys are money. The plain
+ * cached read-modify-write used elsewhere leaves a window as wide as the
+ * write debounce / sync poll in which the same key could be redeemed twice
+ * from two processes (bot + dashboard) or two shards. updateStore narrows that
+ * window to a single round-trip.
+ *
+ * NOTE: this is not a true lock — the schema stores whole JSONB blobs with no
+ * row-level locking, so a genuinely simultaneous claim is still theoretically
+ * possible. It is a large improvement, not a guarantee. See the summary for
+ * the same latent race in redeemKey().
+ *
+ * @param {string} guildId  guild to activate premium for
+ * @param {string} userId   admin performing the redemption (audit trail)
+ * @param {string} keyCode  the key
+ * @returns {Promise<{success:boolean, message:string, duration?:number|null, expiresAt?:string|null}>}
+ */
+async function redeemServerKey(guildId, userId, keyCode) {
+    if (!guildId) {
+        return { success: false, message: 'Server keys must be redeemed inside the server you want to upgrade.' };
+    }
+    if (!keyCode) {
+        return { success: false, message: 'Provide the key you want to redeem.' };
+    }
+    const code = String(keyCode).trim().toUpperCase();
+
+    // Already premium and permanent? Redeeming would burn the key for nothing.
+    const current = getServerPremiumStatus(guildId);
+    if (current.isPremium && !current.expiresAt) {
+        return { success: false, message: 'This server already has **permanent** premium — no need to redeem another key.' };
+    }
+
+    let failure = null;   // set by the mutator when validation rejects the key
+    let claimed = null;   // set by the mutator once the key is successfully claimed
+
+    try {
+        await jsonStore.updateStore('premium-keys', (raw) => {
+            const keys = ensureArray(raw);
+            const keyData = keys.find(k => k && String(k.key).toUpperCase() === code);
+
+            if (!keyData) {
+                failure = { success: false, message: 'Invalid key.' };
+                return keys;
+            }
+            // Symmetric with redeemKey's guard, which points server keys here.
+            if (keyData.type !== 'server') {
+                failure = { success: false, message: 'This is a **user premium key**. Redeem it with `redeemkey <key>` to get premium for yourself.' };
+                return keys;
+            }
+            if (keyData.redeemed) {
+                const where = keyData.guildId ? ` (server \`${keyData.guildId}\`)` : '';
+                failure = { success: false, message: `This key has already been redeemed${where}.` };
+                return keys;
+            }
+            if (isKeyExpired(keyData)) {
+                failure = { success: false, message: 'This key has expired. Keys must be redeemed within 24 hours of creation.' };
+                return keys;
+            }
+
+            keyData.redeemed = true;
+            keyData.redeemedBy = userId || null;
+            keyData.redeemedAt = new Date().toISOString();
+            keyData.guildId = guildId;
+            claimed = { duration: keyData.duration ?? null };
+            return keys;
+        });
+    } catch (err) {
+        log.error('[PremiumManager] redeemServerKey claim failed:', err?.message || err);
+        return { success: false, message: 'Could not reach the database to redeem that key. Please try again.' };
+    }
+
+    if (failure) return failure;
+    if (!claimed) {
+        // Defensive: mutator neither rejected nor claimed (should be unreachable).
+        return { success: false, message: 'Could not claim that key. Please try again.' };
+    }
+
+    const expiresAt = grantServerPremium(guildId, claimed.duration, code, userId);
     return {
-        success: false,
-        message: 'Server premium has been discontinued. Premium is now **per-user** — redeem a user key with `redeemkey <key>` to get premium for yourself.'
+        success: true,
+        message: 'Server premium activated!',
+        duration: claimed.duration,
+        expiresAt
     };
 }
 
