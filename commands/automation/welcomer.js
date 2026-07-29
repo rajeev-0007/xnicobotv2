@@ -251,6 +251,10 @@ const PID = {
     wContent: 'welcomer:w:content',
     wParts: 'welcomer:w:parts',
     wSections: 'welcomer:w:sections',
+    cvwEdit: 'welcomer:cv:w:edit',
+    cvwSystem: 'welcomer:cv:w:system',
+    cvlEdit: 'welcomer:cv:l:edit',
+    cvlSystem: 'welcomer:cv:l:system',
     wToggles: 'welcomer:w:toggles',
     wUtility: 'welcomer:w:utility',
     wEdit: 'welcomer:w:edit',
@@ -465,7 +469,9 @@ function mapPanelInteraction(interaction) {
         || id === PID.wLayout || id === PID.lLayout
         || id === PID.wMode || id === PID.wContent || id === PID.wParts
         || id === PID.wSections || id === PID.wUtility
-        || id === PID.lMode || id === PID.lContent || id === PID.lParts) {
+        || id === PID.lMode || id === PID.lContent || id === PID.lParts
+        || id === PID.cvwEdit || id === PID.cvwSystem
+        || id === PID.cvlEdit || id === PID.cvlSystem) {
         const chosen = interaction.values && interaction.values[0];
         return chosen || id;
     }
@@ -474,6 +480,36 @@ function mapPanelInteraction(interaction) {
     // Toggle rows keep their own id: they need the whole values array, which a
     // single action id cannot express.
     return id;
+}
+
+/* ── Canvas card panels ──
+ * Same two-row shape as the other panels: one menu for what the card looks like,
+ * one for the card itself. Option VALUES are the legacy action ids the handler
+ * chain already implements, so mapPanelInteraction passes them straight through
+ * and no handler logic is duplicated.
+ */
+function canvasEditOptions(cv, prefix) {
+    const c = cv || {};
+    const p = prefix; // '' for welcome, 'leave_' for leave
+    return [
+        { value: `${p}canvas_set_background`, label: 'Background image', description: c.backgroundImage || c.background ? 'Set' : 'Not set — uses the default artwork' },
+        { value: `${p}canvas_set_bgcolor`, label: 'Background colour', description: c.backgroundColor || 'default' },
+        { value: `${p}canvas_set_accent`, label: 'Accent colour', description: c.accentColor || 'default' },
+        { value: `${p}canvas_set_text`, label: 'Text colour', description: c.textColor || 'default' },
+        { value: `${p}canvas_set_message`, label: 'Text on the card', description: c.customMessage ? String(c.customMessage).slice(0, 60) : 'Uses the default greeting' },
+    ];
+}
+
+function canvasSystemOptions(cv, prefix) {
+    const c = cv || {};
+    const p = prefix;
+    const on = !!c.enabled;
+    return [
+        { value: `${p}canvas_toggle`, label: on ? 'Turn the card off' : 'Turn the card on', description: on ? 'Send text only' : 'Draw an image card on join', state: on },
+        { value: `${p}canvas_preview`, label: 'Preview the card', description: 'Render it once, just for you' },
+        { value: `${p}canvas_reset`, label: 'Reset card settings', description: 'Back to the default look' },
+        { value: `${p}canvas_back`, label: 'Back', description: 'Return to the previous panel' },
+    ];
 }
 
 function buildCanvasPanel(canvasConfig) {
@@ -500,68 +536,6 @@ function buildCanvasPanel(canvasConfig) {
     return content;
 }
 
-function createCanvasSetupRow1(canvasConfig) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('canvas_set_bgcolor')
-                .setLabel('BG Color')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Palette:1521227950601539755>'),
-            new ButtonBuilder()
-                .setCustomId('canvas_set_accent')
-                .setLabel('Accent')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Star:1521227981685526568>'),
-            new ButtonBuilder()
-                .setCustomId('canvas_set_text')
-                .setLabel('Text Color')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Editalt:1521227921673556019>'),
-            new ButtonBuilder()
-                .setCustomId('canvas_set_background')
-                .setLabel('Background')
-                .setStyle(canvasConfig?.backgroundImage ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Picture:1521227954191995024>')
-        );
-}
-
-function createCanvasSetupRow2(canvasConfig) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('canvas_set_message')
-                .setLabel('Custom Message')
-                .setStyle(canvasConfig?.customMessage ? ButtonStyle.Success : ButtonStyle.Secondary)
-                .setEmoji('<:Edit:1521227886634205298>'),
-            new ButtonBuilder()
-                .setCustomId('canvas_preview')
-                .setLabel('Preview')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Eye:1521227940480815156>'),
-            new ButtonBuilder()
-                .setCustomId('canvas_reset')
-                .setLabel('Reset')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:Trash:1521227750420254820>')
-        );
-}
-
-function createCanvasControlRow(canvasConfig) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('canvas_toggle')
-                .setLabel(canvasConfig?.enabled ? 'Disable Canvas' : 'Enable Canvas')
-                .setStyle(canvasConfig?.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId('canvas_back')
-                .setLabel('Back to Welcomer')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Caretleft:1521227977495543838>')
-        );
-}
-
 function buildCanvasContainer(canvasConfig) {
     const colorValue = canvasConfig?.accentColor ? parseInt(canvasConfig.accentColor.replace('#', ''), 16) : 0xCAD7E6;
 
@@ -571,25 +545,12 @@ function buildCanvasContainer(canvasConfig) {
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(safeContent(buildCanvasPanel(canvasConfig)))
     );
-
     container.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
 
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('### <:Settings:1521227767780343879> Customization')
-    );
-    container.addActionRowComponents(createCanvasSetupRow1(canvasConfig));
-    container.addActionRowComponents(createCanvasSetupRow2(canvasConfig));
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('### <:Lightningalt:1521227851796447472> Controls')
-    );
-    container.addActionRowComponents(createCanvasControlRow(canvasConfig));
+    container.addActionRowComponents(buildMenuRow(PID.cvwEdit, 'Card appearance', canvasEditOptions(canvasConfig, '')));
+    container.addActionRowComponents(buildMenuRow(PID.cvwSystem, 'Card settings', canvasSystemOptions(canvasConfig, '')));
 
     return container;
 }
@@ -610,68 +571,6 @@ function buildLeaveCanvasPanel(canvasConfig) {
     return content;
 }
 
-function createLeaveCanvasSettingsRow() {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_set_bgcolor')
-                .setLabel('Background')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Palette:1521227950601539755>'),
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_set_accent')
-                .setLabel('Accent')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Heart:1521228100652765247>'),
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_set_text')
-                .setLabel('Text')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Edit:1521227886634205298>'),
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_set_background')
-                .setLabel('Image URL')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Picture:1521227954191995024>')
-        );
-}
-
-function createLeaveCanvasExtraRow() {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_set_message')
-                .setLabel('Custom Message')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Hashtag:1521227771957870604>'),
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_preview')
-                .setLabel('Preview')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('<:Eye:1521227940480815156>'),
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_reset')
-                .setLabel('Reset')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('<:History:1521227863079256278>')
-        );
-}
-
-function createLeaveCanvasControlRow(canvasConfig) {
-    return new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_toggle')
-                .setLabel(canvasConfig?.enabled ? 'Disable Canvas' : 'Enable Canvas')
-                .setStyle(canvasConfig?.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId('leave_canvas_back')
-                .setLabel('Back to Leave Setup')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('<:Caretleft:1521227977495543838>')
-        );
-}
-
 function buildLeaveCanvasContainer(canvasConfig) {
     const container = new ContainerBuilder()
         .setAccentColor(0xED4245);
@@ -679,30 +578,12 @@ function buildLeaveCanvasContainer(canvasConfig) {
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(safeContent(buildLeaveCanvasPanel(canvasConfig)))
     );
-
     container.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
 
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('### <:Palette:1521227950601539755> Color Settings')
-    );
-    container.addActionRowComponents(createLeaveCanvasSettingsRow());
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('### <:Settings:1521227767780343879> Options')
-    );
-    container.addActionRowComponents(createLeaveCanvasExtraRow());
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-
-    container.addActionRowComponents(createLeaveCanvasControlRow(canvasConfig));
+    container.addActionRowComponents(buildMenuRow(PID.cvlEdit, 'Card appearance', canvasEditOptions(canvasConfig, 'leave_')));
+    container.addActionRowComponents(buildMenuRow(PID.cvlSystem, 'Card settings', canvasSystemOptions(canvasConfig, 'leave_')));
 
     return container;
 }
@@ -3080,6 +2961,8 @@ module.exports = {
     createPreviewEmbed,
     buildWelcomerContainer,
     buildUtilityContainer,
+    buildCanvasContainer,
+    buildLeaveCanvasContainer,
     buildLivePreview,
     // Exported so /leave-setup can open THIS panel instead of maintaining its
     // own copy. The duplicate it used to render read flat `leaveEnabled` /
