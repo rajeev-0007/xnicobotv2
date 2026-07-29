@@ -28,7 +28,9 @@
 const {
     ContainerBuilder, TextDisplayBuilder, SeparatorBuilder,
     SeparatorSpacingSize, MessageFlags, PermissionFlagsBits,
-    ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField } = require('discord.js');
+    ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField,
+    SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
+    RoleSelectMenuBuilder, UserSelectMenuBuilder } = require('discord.js');
 const { COLORS, buildErrorResponse } = require('../../utils/responseBuilder');
 const trust = require('../../utils/trustManager');
 const jsonStore = require('../../utils/jsonStore');
@@ -174,6 +176,120 @@ async function deactivate(guild, gc, actor) {
 
 /* ─────────────────── panel ─────────────────── */
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PANEL — select menus, matching utils/panels/automodPanel.js
+ *
+ * ids are `emergency:<control>`; rows read collection -> configure -> system in
+ * the same order as the AutoMod and AntiNuke panels, and the only emojis are the
+ * enable/disable pair.
+ *
+ * The permission split from the prefix command is preserved exactly:
+ *   activate / deactivate  -> authorised users OR the server owner
+ *   targeted roles, authorised users -> server owner / extra owner ONLY
+ * Widening either would be a privilege escalation, so the handler re-checks
+ * rather than trusting that the option was rendered.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const EID = {
+    system: 'emergency:system',
+    access: 'emergency:access',
+    pickRoles: 'emergency:pick:roles',
+    pickUsers: 'emergency:pick:users',
+};
+
+const TOGGLE_ON = '<:Toggleon:1521227758011809964>';
+const TOGGLE_OFF = '<:Toggleoff:1521227763816595559>';
+const emark = (v) => (v ? TOGGLE_ON : TOGGLE_OFF);
+
+function emergencyMenuRow(customId, placeholder, options, { min = 1, max = 1 } = {}) {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder(placeholder.slice(0, 150))
+            .setMinValues(min)
+            .setMaxValues(max)
+            .addOptions(options.slice(0, 25).map((o) => {
+                const opt = new StringSelectMenuOptionBuilder()
+                    .setValue(o.value)
+                    .setLabel(o.label.slice(0, 100));
+                if (o.description) opt.setDescription(o.description.slice(0, 100));
+                if (o.emoji) opt.setEmoji(o.emoji);
+                return opt;
+            }))
+    );
+}
+
+/** picker: 'roles' | 'users' | null — rendered as an extra row in the same message. */
+function buildEmergencyPanel(gc, guild, picker) {
+    const cfg = gc || getDefault();
+    const on = !!cfg.enabled;
+    const roles = cfg.emergencyRoles || [];
+    const auth = cfg.authorisedUsers || [];
+
+    let head = '# Emergency mode\n';
+    head += '-# Strips dangerous permissions from the targeted roles so a\n';
+    head += '-# compromised account cannot damage the server.\n\n';
+    head += emark(on) + ' **Emergency mode** ' + (on ? 'ACTIVE' : 'inactive') + '\n';
+    if (on && cfg.activatedAt) {
+        head += '-# Activated <t:' + Math.floor(new Date(cfg.activatedAt).getTime() / 1000) + ':R>'
+            + (cfg.activatedBy ? ' by <@' + cfg.activatedBy + '>' : '') + '\n';
+    }
+    head += '\n**Targeted roles** \u00b7 ' + (roles.length
+        ? roles.slice(0, 8).map(id => '<@&' + id + '>').join(' ') + (roles.length > 8 ? ' +' + (roles.length - 8) : '')
+        : 'none set') + '\n';
+    if (!roles.length) {
+        head += '-# Nothing will be stripped until at least one role is targeted.\n';
+    }
+    head += '\n**Authorised** \u00b7 ' + (auth.length
+        ? auth.slice(0, 8).map(id => '<@' + id + '>').join(' ') + (auth.length > 8 ? ' +' + (auth.length - 8) : '')
+        : 'server owner only');
+
+    const container = new ContainerBuilder()
+        .setAccentColor(on ? COLOR_ACTIVE : COLOR_INACTIVE)
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(head))
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+
+    container.addActionRowComponents(emergencyMenuRow(EID.access, 'Manage access\u2026', [
+        { value: 'roles', label: 'Targeted roles', description: roles.length + ' role(s) will be stripped', emoji: emark(roles.length > 0) },
+        { value: 'users', label: 'Authorised users', description: auth.length + ' user(s) may activate', emoji: emark(auth.length > 0) },
+    ]));
+
+    container.addActionRowComponents(emergencyMenuRow(EID.system, 'System settings\u2026', [
+        {
+            value: 'activate',
+            label: on ? 'Already active' : 'Activate emergency mode',
+            description: on ? 'Deactivate first to re-run' : 'Strip permissions from the targeted roles',
+            emoji: emark(on),
+        },
+        {
+            value: 'deactivate',
+            label: 'Deactivate emergency mode',
+            description: on ? 'Restore the saved permissions' : 'Not currently active',
+            emoji: emark(!on),
+        },
+    ]));
+
+    if (picker === 'roles') {
+        container.addActionRowComponents(new ActionRowBuilder().addComponents(
+            new RoleSelectMenuBuilder()
+                .setCustomId(EID.pickRoles)
+                .setPlaceholder('Roles to strip during emergency mode')
+                .setMinValues(0)
+                .setMaxValues(20)
+        ));
+    } else if (picker === 'users') {
+        container.addActionRowComponents(new ActionRowBuilder().addComponents(
+            new UserSelectMenuBuilder()
+                .setCustomId(EID.pickUsers)
+                .setPlaceholder('Users allowed to activate emergency mode')
+                .setMinValues(0)
+                .setMaxValues(20)
+        ));
+    }
+
+    return container;
+}
+
 function buildPanel(gc, guildName) {
     const isOn = !!gc.enabled;
 
@@ -273,7 +389,28 @@ module.exports = {
     usage: 'emergency [enable|disable|role add/remove/list|authorise add/remove]',
     category: 'admin',
     aliases: ['emgs', 'emergencymode'],
-    prefixOnly: true,
+
+    /* Was prefixOnly, so /emergency did not exist — the file had no
+     * SlashCommandBuilder and index.js only registers a slash command when
+     * `!command.prefixOnly && 'execute' in command`. Everything is reachable from
+     * the panel, so the slash command takes no options. */
+    data: new SlashCommandBuilder()
+        .setName('emergency')
+        .setDescription('Emergency lockdown — strip dangerous permissions to protect the server')
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+    async execute(interaction) {
+        const { gc } = getGuildConfig(interaction.guild.id);
+        // Same gate as the prefix path: only authorised users or the owner.
+        if (!isAuthorised(interaction.guild, interaction.user.id, gc)) {
+            return interaction.reply({
+                content: `${E.cancel} You are not authorised to use emergency commands.`,
+                flags: MessageFlags.Ephemeral });
+        }
+        return interaction.reply({
+            components: [buildEmergencyPanel(gc, interaction.guild, null)],
+            flags: MessageFlags.IsComponentsV2 });
+    },
 
     async executePrefix(message, args) {
         const { config, gc } = getGuildConfig(message.guild.id);
@@ -518,8 +655,146 @@ module.exports = {
      * Routes Enable/Disable buttons from the emergency panel.
      * Called from index.js when a customId starts with `emergency_`.
      */
+    /**
+     * Panel dispatch. Kept separate from the legacy button path so the stale
+     * emergency_enable / emergency_disable buttons still posted in servers keep
+     * working unchanged.
+     */
+    async _handlePanel(interaction, id) {
+        const { config, gc } = getGuildConfig(interaction.guild.id);
+
+        const render = async (picker) => {
+            saveConfig(config);
+            await interaction.update({
+                components: [buildEmergencyPanel(gc, interaction.guild, picker || null)],
+                flags: MessageFlags.IsComponentsV2 });
+        };
+
+        /* Owner-only surfaces. Re-checked here rather than relying on the option
+         * having been rendered, because a custom id can be replayed by anyone who
+         * can see the message. */
+        const ownerOnly = async () => {
+            if (trust.isServerOwner(interaction.guild, interaction.user.id)) return true;
+            await interaction.reply({
+                content: `${E.cancel} Only the **server owner** or **extra owner** can change this.`,
+                flags: MessageFlags.Ephemeral }).catch(() => {});
+            return false;
+        };
+
+        if (id === EID.access) {
+            if (!await ownerOnly()) return true;
+            const which = (interaction.values || [])[0];
+            if (which !== 'roles' && which !== 'users') {
+                await interaction.reply({
+                    content: `${E.cancel} That option is not recognised. Re-open with \`/emergency\`.`,
+                    flags: MessageFlags.Ephemeral }).catch(() => {});
+                return true;
+            }
+            await interaction.update({
+                components: [buildEmergencyPanel(gc, interaction.guild, which)],
+                flags: MessageFlags.IsComponentsV2 });
+            return true;
+        }
+
+        if (id === EID.pickRoles) {
+            if (!await ownerOnly()) return true;
+            gc.emergencyRoles = (interaction.values || []).slice(0, 20);
+            await render();
+            return true;
+        }
+
+        if (id === EID.pickUsers) {
+            if (!await ownerOnly()) return true;
+            gc.authorisedUsers = (interaction.values || []).slice(0, 20);
+            await render();
+            return true;
+        }
+
+        if (id === EID.system) {
+            if (!isAuthorised(interaction.guild, interaction.user.id, gc)) {
+                await interaction.reply({
+                    content: `${E.cancel} You are not authorised to use emergency mode.`,
+                    flags: MessageFlags.Ephemeral }).catch(() => {});
+                return true;
+            }
+            const choice = (interaction.values || [])[0];
+            if (choice !== 'activate' && choice !== 'deactivate') {
+                await interaction.reply({
+                    content: `${E.cancel} That option is not recognised. Re-open with \`/emergency\`.`,
+                    flags: MessageFlags.Ephemeral }).catch(() => {});
+                return true;
+            }
+
+            if (choice === 'activate') {
+                if (gc.enabled) {
+                    await interaction.reply({ content: `${E.warn} Emergency mode is already active.`, flags: MessageFlags.Ephemeral }).catch(() => {});
+                    return true;
+                }
+                if (!(gc.emergencyRoles || []).length) {
+                    await interaction.reply({
+                        content: `${E.cancel} No roles are targeted yet. Add some under **Manage access** first.`,
+                        flags: MessageFlags.Ephemeral }).catch(() => {});
+                    return true;
+                }
+                await interaction.deferUpdate().catch(() => {});
+                try {
+                    const { stripped, savedPerms } = await activate(interaction.guild, gc, interaction.user);
+                    if (stripped === 0) {
+                        await interaction.followUp({
+                            content: `${E.cancel} Could not strip permissions from any role. Check that the bot's role sits above the targeted roles.`,
+                            flags: MessageFlags.Ephemeral }).catch(() => {});
+                        return true;
+                    }
+                    gc.enabled = true;
+                    gc.activatedAt = new Date().toISOString();
+                    gc.activatedBy = interaction.user.id;
+                    gc.savedRolePerms = savedPerms;
+                    saveConfig(config);
+                } catch (err) {
+                    console.error('[Emergency] panel activate error:', err);
+                    await interaction.followUp({ content: `${E.cancel} Activation failed: ${err.message}`, flags: MessageFlags.Ephemeral }).catch(() => {});
+                    return true;
+                }
+                await interaction.message.edit({
+                    components: [buildEmergencyPanel(gc, interaction.guild, null)],
+                    flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+                return true;
+            }
+
+            if (!gc.enabled) {
+                await interaction.reply({ content: `${E.warn} Emergency mode is not active.`, flags: MessageFlags.Ephemeral }).catch(() => {});
+                return true;
+            }
+            await interaction.deferUpdate().catch(() => {});
+            try {
+                await deactivate(interaction.guild, gc);
+                gc.enabled = false;
+                gc.activatedAt = null;
+                gc.activatedBy = null;
+                gc.savedRolePerms = {};
+                saveConfig(config);
+            } catch (err) {
+                console.error('[Emergency] panel deactivate error:', err);
+                await interaction.followUp({ content: `${E.cancel} Deactivation failed: ${err.message}`, flags: MessageFlags.Ephemeral }).catch(() => {});
+                return true;
+            }
+            await interaction.message.edit({
+                components: [buildEmergencyPanel(gc, interaction.guild, null)],
+                flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+            return true;
+        }
+
+        return false;
+    },
+
     async handleInteraction(interaction) {
         const id = interaction.customId;
+
+        /* ── select panel (emergency:*) ── */
+        if (id.startsWith('emergency:')) {
+            return await this._handlePanel(interaction, id);
+        }
+
         if (id !== 'emergency_enable' && id !== 'emergency_disable') return false;
 
         if (await checkAndExpire(interaction, 'config')) return true;

@@ -1,4 +1,6 @@
-const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MessageFlags, PermissionFlagsBits } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MessageFlags,
+    PermissionFlagsBits, ChannelType, SlashCommandBuilder, ActionRowBuilder,
+    StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const { COLORS } = require('../../utils/responseBuilder');
 const trust = require('../../utils/trustManager');
 const jsonStore = require('../../utils/jsonStore');
@@ -23,6 +25,133 @@ function getDefault() {
         disabledChannels: [],
         savedPermissions: {}
     };
+}
+
+/* ── Shared lock/unlock ──
+ * Extracted from executePrefix so the prefix command, the slash command and the
+ * panel all drive ONE implementation. Three copies of a permission-rewriting
+ * loop is how /leave-setup ended up reading a config shape nothing wrote.
+ *
+ * Only text-style channels are targeted: voice has separate Connect/Speak
+ * permissions, and thread permissions are inherited from the parent and cannot
+ * be overwritten directly.
+ */
+const NIGHT_TEXT_TYPES = new Set([
+    ChannelType.GuildText,
+    ChannelType.GuildAnnouncement,
+    ChannelType.GuildForum,
+    ChannelType.GuildMedia,
+]);
+
+async function lockChannels(guild, actorTag) {
+    const everyoneRole = guild.roles.everyone;
+    const channels = guild.channels.cache.filter(c =>
+        NIGHT_TEXT_TYPES.has(c.type) &&
+        c.permissionsFor(guild.members.me)?.has(PermissionFlagsBits.ManageChannels)
+    );
+
+    const savedPerms = {};
+    let locked = 0;
+    for (const [channelId, channel] of channels) {
+        try {
+            const overwrites = channel.permissionOverwrites.cache.get(everyoneRole.id);
+            savedPerms[channelId] = {
+                hadOverwrite: !!overwrites,
+                allow: overwrites?.allow?.bitfield?.toString() || '0',
+                deny: overwrites?.deny?.bitfield?.toString() || '0'
+            };
+            await channel.permissionOverwrites.edit(everyoneRole, {
+                SendMessages: false,
+                AddReactions: false,
+                CreatePublicThreads: false
+            }, { reason: `Night Mode enabled by ${actorTag}` });
+            locked++;
+        } catch (err) {
+            // Skip channels we cannot modify
+        }
+    }
+    return { savedPerms, locked };
+}
+
+async function unlockChannels(guild, savedPerms, actorTag) {
+    const everyoneRole = guild.roles.everyone;
+    let restored = 0;
+    for (const [channelId, perms] of Object.entries(savedPerms || {})) {
+        try {
+            const channel = guild.channels.cache.get(channelId);
+            if (!channel) continue;
+
+            const allowBits = BigInt(perms.allow || '0');
+            const denyBits = BigInt(perms.deny || '0');
+
+            if (!perms.hadOverwrite) {
+                await channel.permissionOverwrites.delete(everyoneRole, 'Night Mode disabled — restoring original state (no prior overwrite)');
+            } else {
+                await channel.permissionOverwrites.set([
+                    { id: everyoneRole.id, allow: allowBits, deny: denyBits },
+                    ...channel.permissionOverwrites.cache
+                        .filter(o => o.id !== everyoneRole.id)
+                        .map(o => ({ id: o.id, allow: o.allow.bitfield, deny: o.deny.bitfield }))
+                ], `Night Mode disabled by ${actorTag}`);
+            }
+            restored++;
+        } catch (err) {
+            // Skip channels we cannot modify
+        }
+    }
+    return { restored };
+}
+
+/* ── Panel — select menus, matching utils/panels/automodPanel.js ── */
+const NID = { system: 'nightmode:system' };
+const N_ON = '<:Toggleon:1521227758011809964>';
+const N_OFF = '<:Toggleoff:1521227763816595559>';
+const nmark = (v) => (v ? N_ON : N_OFF);
+
+function buildNightPanel(guildConfig) {
+    const cfg = guildConfig || getDefault();
+    const on = !!cfg.enabled;
+    const lockedCount = Object.keys(cfg.savedPermissions || {}).length;
+
+    let head = '# Night mode\n';
+    head += '-# Locks every text channel by revoking Send Messages, Add\n';
+    head += '-# Reactions and Create Threads for @everyone.\n\n';
+    head += nmark(on) + ' **Night mode** ' + (on ? 'ACTIVE' : 'inactive') + '\n';
+    if (on) {
+        if (cfg.activatedAt) {
+            head += '-# Locked <t:' + Math.floor(new Date(cfg.activatedAt).getTime() / 1000) + ':R>'
+                + (cfg.activatedBy ? ' by <@' + cfg.activatedBy + '>' : '') + '\n';
+        }
+        head += '\n**Locked channels** \u00b7 ' + lockedCount + '\n';
+        head += '-# Original permissions are saved and restored on deactivate.';
+    } else {
+        head += '\n-# Nothing is locked. Activating saves each channel\u2019s current\n';
+        head += '-# permissions first, so deactivating restores them exactly.';
+    }
+
+    return new ContainerBuilder()
+        .setAccentColor(on ? 0xED4245 : COLORS.PRIMARY)
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(head))
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+        .addActionRowComponents(new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(NID.system)
+                .setPlaceholder('System settings\u2026')
+                .setMinValues(1)
+                .setMaxValues(1)
+                .addOptions(
+                    new StringSelectMenuOptionBuilder()
+                        .setValue('activate')
+                        .setLabel(on ? 'Already locked' : 'Lock all channels')
+                        .setDescription(on ? 'Deactivate first to re-run' : 'Revoke Send Messages for @everyone')
+                        .setEmoji(nmark(on)),
+                    new StringSelectMenuOptionBuilder()
+                        .setValue('deactivate')
+                        .setLabel('Unlock all channels')
+                        .setDescription(on ? 'Restore the saved permissions' : 'Not currently locked')
+                        .setEmoji(nmark(!on))
+                )
+        ));
 }
 
 function buildPanel(guildConfig, guildName) {
@@ -72,7 +201,96 @@ module.exports = {
     usage: 'nightmode [enable|disable]',
     category: 'admin',
     aliases: ['nmode', 'lockserver'],
-    prefixOnly: true,
+
+    /* Was prefixOnly, so /nightmode did not exist: index.js only registers a
+     * slash command when `!command.prefixOnly && 'execute' in command`. The
+     * premiumOnly gate above is enforced on BOTH paths (index.js checks it for
+     * slash and prefix alike), so adding the slash command does not open a
+     * premium bypass. */
+    data: new SlashCommandBuilder()
+        .setName('nightmode')
+        .setDescription('Lock or unlock every text channel for @everyone')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+    async execute(interaction) {
+        if (!trust.isServerOwner(interaction.guild, interaction.user.id)) {
+            return interaction.reply({
+                content: '<:Cancel:1521227723916181644> Only the **server owner** or **extra owner** can use night mode.',
+                flags: MessageFlags.Ephemeral });
+        }
+        const config = loadConfig();
+        if (!config[interaction.guild.id]) config[interaction.guild.id] = getDefault();
+        return interaction.reply({
+            components: [buildNightPanel(config[interaction.guild.id])],
+            flags: MessageFlags.IsComponentsV2 });
+    },
+
+    async handleInteraction(interaction) {
+        const id = interaction.customId || '';
+        if (!id.startsWith('nightmode:')) return false;
+        if (!interaction.guild) return false;
+
+        // Same gate as execute/executePrefix — re-checked because a custom id can
+        // be replayed by anyone who can see the message.
+        if (!trust.isServerOwner(interaction.guild, interaction.user.id)) {
+            await interaction.reply({
+                content: '<:Cancel:1521227723916181644> Only the **server owner** or **extra owner** can use night mode.',
+                flags: MessageFlags.Ephemeral }).catch(() => {});
+            return true;
+        }
+
+        if (id !== NID.system) return false;
+
+        const config = loadConfig();
+        const guildId = interaction.guild.id;
+        if (!config[guildId]) config[guildId] = getDefault();
+        const gc = config[guildId];
+
+        const choice = (interaction.values || [])[0];
+        if (choice !== 'activate' && choice !== 'deactivate') {
+            await interaction.reply({
+                content: '<:Cancel:1521227723916181644> That option is not recognised. Re-open with `/nightmode`.',
+                flags: MessageFlags.Ephemeral }).catch(() => {});
+            return true;
+        }
+
+        if (choice === 'activate') {
+            if (gc.enabled) {
+                await interaction.reply({ content: '<:Infotriangle:1521227710381428926> Night mode is already active.', flags: MessageFlags.Ephemeral }).catch(() => {});
+                return true;
+            }
+            await interaction.deferUpdate().catch(() => {});
+            const { savedPerms, locked } = await lockChannels(interaction.guild, interaction.user.tag);
+            if (locked === 0) {
+                await interaction.followUp({
+                    content: '<:Cancel:1521227723916181644> Could not lock any channels. Check that the bot has **Manage Channels** and its role sits above the channels.',
+                    flags: MessageFlags.Ephemeral }).catch(() => {});
+                return true;
+            }
+            gc.enabled = true;
+            gc.activatedAt = new Date().toISOString();
+            gc.activatedBy = interaction.user.id;
+            gc.savedPermissions = savedPerms;
+            saveConfig(config);
+        } else {
+            if (!gc.enabled) {
+                await interaction.reply({ content: '<:Infotriangle:1521227710381428926> Night mode is not active.', flags: MessageFlags.Ephemeral }).catch(() => {});
+                return true;
+            }
+            await interaction.deferUpdate().catch(() => {});
+            await unlockChannels(interaction.guild, gc.savedPermissions, interaction.user.tag);
+            gc.enabled = false;
+            gc.activatedAt = null;
+            gc.activatedBy = null;
+            gc.savedPermissions = {};
+            saveConfig(config);
+        }
+
+        await interaction.message.edit({
+            components: [buildNightPanel(gc)],
+            flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+        return true;
+    },
 
     async executePrefix(message, args) {
         if (!trust.isServerOwner(message.guild, message.author.id)) {
@@ -98,46 +316,7 @@ module.exports = {
 
             const statusMsg = await message.reply('<a:Loading:1521227993995940032> Enabling Night Mode — locking all channels...');
 
-            const guild = message.guild;
-            const everyoneRole = guild.roles.everyone;
-            // Only target proper text-style channels — exclude voice
-            // (which has separate Connect/Speak permissions) and threads
-            // (whose perms are inherited from the parent and can't be
-            // overwritten directly).
-            const { ChannelType } = require('discord.js');
-            const TEXT_TYPES = new Set([
-                ChannelType.GuildText,
-                ChannelType.GuildAnnouncement,
-                ChannelType.GuildForum,
-                ChannelType.GuildMedia,
-            ]);
-            const channels = guild.channels.cache.filter(c =>
-                TEXT_TYPES.has(c.type) &&
-                c.permissionsFor(guild.members.me)?.has(PermissionFlagsBits.ManageChannels)
-            );
-
-            const savedPerms = {};
-            let locked = 0;
-
-            for (const [channelId, channel] of channels) {
-                try {
-                    const overwrites = channel.permissionOverwrites.cache.get(everyoneRole.id);
-                    savedPerms[channelId] = {
-                        hadOverwrite: !!overwrites,
-                        allow: overwrites?.allow?.bitfield?.toString() || '0',
-                        deny: overwrites?.deny?.bitfield?.toString() || '0'
-                    };
-
-                    await channel.permissionOverwrites.edit(everyoneRole, {
-                        SendMessages: false,
-                        AddReactions: false,
-                        CreatePublicThreads: false
-                    }, { reason: `Night Mode enabled by ${message.author.tag}` });
-                    locked++;
-                } catch (err) {
-                    // Skip channels we can't modify
-                }
-            }
+            const { savedPerms, locked } = await lockChannels(message.guild, message.author.tag);
 
             if (locked === 0) {
                 try { await statusMsg.delete(); } catch {}
@@ -175,42 +354,7 @@ module.exports = {
 
             const statusMsg = await message.reply('<a:Loading:1521227993995940032> Disabling Night Mode — restoring permissions...');
 
-            const guild = message.guild;
-            const everyoneRole = guild.roles.everyone;
-            const savedPerms = guildConfig.savedPermissions || {};
-            let restored = 0;
-
-            for (const [channelId, perms] of Object.entries(savedPerms)) {
-                try {
-                    const channel = guild.channels.cache.get(channelId);
-                    if (!channel) continue;
-
-                    const allowBits = BigInt(perms.allow || '0');
-                    const denyBits = BigInt(perms.deny || '0');
-
-                    if (!perms.hadOverwrite) {
-                        await channel.permissionOverwrites.delete(everyoneRole, 'Night Mode disabled — restoring original state (no prior overwrite)');
-                    } else {
-                        await channel.permissionOverwrites.set([
-                            {
-                                id: everyoneRole.id,
-                                allow: allowBits,
-                                deny: denyBits
-                            },
-                            ...channel.permissionOverwrites.cache
-                                .filter(o => o.id !== everyoneRole.id)
-                                .map(o => ({
-                                    id: o.id,
-                                    allow: o.allow.bitfield,
-                                    deny: o.deny.bitfield
-                                }))
-                        ], `Night Mode disabled by ${message.author.tag}`);
-                    }
-                    restored++;
-                } catch (err) {
-                    // Skip channels we can't modify
-                }
-            }
+            const { restored } = await unlockChannels(message.guild, guildConfig.savedPermissions, message.author.tag);
 
             guildConfig.enabled = false;
             guildConfig.savedPermissions = {};

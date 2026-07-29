@@ -6503,6 +6503,31 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
+            /* emergency:* panel. Routed by PREFIX so adding a menu cannot silently produce an
+             * unrouted component. */
+            if (interaction.customId.startsWith('emergency:')) {
+                const cmd = client.commands.get('emergency');
+                if (cmd?.handleInteraction) {
+                    try {
+                        const handled = await cmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`emergency panel: ${e.message}`, e); }
+                }
+                return;
+            }
+            /* nightmode:* panel. Routed by PREFIX so adding a menu cannot silently produce an
+             * unrouted component. */
+            if (interaction.customId.startsWith('nightmode:')) {
+                const cmd = client.commands.get('nightmode');
+                if (cmd?.handleInteraction) {
+                    try {
+                        const handled = await cmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`nightmode panel: ${e.message}`, e); }
+                }
+                return;
+            }
+
             /* Anti-spam panel (antispam:*). Routed by PREFIX so adding a menu to
              * the panel cannot silently produce an unrouted component. */
             if (interaction.customId.startsWith('antispam:')) {
@@ -8308,6 +8333,19 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isRoleSelectMenu()) {
+            /* emergency:* panel. Routed by PREFIX so adding a menu cannot silently produce an
+             * unrouted component. */
+            if (interaction.customId.startsWith('emergency:')) {
+                const cmd = client.commands.get('emergency');
+                if (cmd?.handleInteraction) {
+                    try {
+                        const handled = await cmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`emergency panel: ${e.message}`, e); }
+                }
+                return;
+            }
+
             /* Anti-spam panel (antispam:*). Routed by PREFIX so adding a menu to
              * the panel cannot silently produce an unrouted component. */
             if (interaction.customId.startsWith('antispam:')) {
@@ -8441,6 +8479,19 @@ client.on('interactionCreate', async (interaction) => {
 
     // ───────── User Select Menus ─────────
     if (interaction.isUserSelectMenu && interaction.isUserSelectMenu()) {
+        /* emergency:* panel. Routed by PREFIX so adding a menu cannot silently produce an
+         * unrouted component. */
+        if (interaction.customId.startsWith('emergency:')) {
+            const cmd = client.commands.get('emergency');
+            if (cmd?.handleInteraction) {
+                try {
+                    const handled = await cmd.handleInteraction(interaction);
+                    if (handled) return;
+                } catch (e) { log.error(`emergency panel: ${e.message}`, e); }
+            }
+            return;
+        }
+
         // J2C member-target actions (kick / block / unblock / permit / trust / untrust / transfer)
         if (interaction.customId.startsWith('j2c_select_')) {
             try {
