@@ -1331,6 +1331,12 @@ async function gracefulShutdown(signal) {
     } catch (err) {
         log.error('Error flushing database on shutdown:', err);
     }
+    // Release Redis AFTER the flush — flush() writes through to Redis, so
+    // closing first would drop those cache updates and force the next boot
+    // to fall back to a full PostgreSQL load.
+    try {
+        if (typeof jsonStore.closeRedis === 'function') await jsonStore.closeRedis();
+    } catch { /* best effort — never block shutdown */ }
     process.exit(0);
 }
 
