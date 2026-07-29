@@ -202,16 +202,19 @@ function replacePlaceholders(text, user, guild, channel) {
 }
 
 function buildMainPanel(data) {
-    const mode = data.mode || 'components';
-    const isComponents = mode === 'components';
-    const modeEmoji = isComponents ? '<:Fire:1521227907647668374>' : '<:Document:1521227875016114266>';
-    const modeText = isComponents ? 'Components V2' : 'Embed';
+    const isComponents = (data.mode || 'components') === 'components';
+    const ON = '<:Toggleon:1521227758011809964>';
+    const OFF = '<:Toggleoff:1521227763816595559>';
+    const t = (v) => (v ? ON : OFF);
 
-    let header = `# <:Editalt:1521227921673556019> Message Builder\n`;
-    header += `-# Design a rich message or embed, preview it live, then send anywhere.\n`;
-    header += `**Mode** ${modeEmoji} ${modeText}   **Color** \`${data.color || '#bcf1e4'}\``;
+    // Toggle pair only. The header previously carried Editalt plus a
+    // Fire/Document mode glyph purely as decoration.
+    let header = '# Message builder\n';
+    header += '-# Design a message or embed, preview it live, then send it anywhere.\n';
+    header += 'mode `' + (isComponents ? 'Components V2' : 'Embed') + '`  \u00b7  colour `' + (data.color || '#bcf1e4') + '`';
+    header += '  \u00b7  ' + t(!!data.editingMessageId) + ' editing an existing message';
     if (data.editingMessageId) {
-        header += `\n-# <:Editalt:1521227921673556019> Editing message \`${data.editingMessageId}\``;
+        header += '\n-# Target message `' + data.editingMessageId + '`';
     }
     return header;
 }
@@ -366,7 +369,7 @@ function buildPreviewSection(container, data, ctx = null) {
         const content = data.content || '';
         if (!content) {
             container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('-# <:Lightbulbalt:1521227880703463675> Click **Content** below to start building your message')
+                new TextDisplayBuilder().setContent('-# Pick **Message text** from the Edit content menu below to start.')
             );
             return;
         }
@@ -464,7 +467,7 @@ function buildPreviewSection(container, data, ctx = null) {
         // Embed mode — show as blockquote-styled preview
         if (!data.title && !data.description) {
             container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('-# <:Lightbulbalt:1521227880703463675> Click **Title & Desc** below to start building your embed')
+                new TextDisplayBuilder().setContent('-# Pick **Title and description** from the Edit content menu below to start.')
             );
             return;
         }
@@ -766,7 +769,7 @@ function buildTemplatePickerContainer(userTemplates) {
             listText += `-# ...and ${userNames.length - 10} more`;
         }
     } else {
-        listText += `\n-# You haven't saved any templates yet. Click **Save** on the builder to add your own.`;
+        listText += `\n-# You haven't saved any templates yet. Pick **Save as template** from the Templates and data menu.`;
     }
 
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(listText));
@@ -1497,7 +1500,7 @@ module.exports = {
 
         if (customId === 'msgbuilder_push_edit') {
             if (!data.editingMessageId) {
-                await interaction.reply({ content: '<:Cancel:1521227723916181644> No message loaded for editing! Use **Edit Message** first.', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: '<:Cancel:1521227723916181644> No message is loaded. Pick **Load an existing message** from the Preview or send menu first.', flags: MessageFlags.Ephemeral });
                 return true;
             }
             const channel = interaction.guild.channels.cache.get(data.editingChannelId);

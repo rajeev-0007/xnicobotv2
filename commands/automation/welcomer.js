@@ -195,47 +195,47 @@ function buildMainPanel(guildConfig, guildId) {
     const mode = guildConfig.mode || 'components';
     const isComponents = mode === 'components';
 
-    // Consistent status glyphs
+    /* The enable/disable pair are the ONLY emojis in this panel. Everything else
+     * is plain text or inline code. Previously the header, every section heading
+     * and every "not set" marker carried its own emoji - Userplus, Picture,
+     * Settings, Hashtag, Fire, Document, Checkedbox, Cancel - so decoration
+     * competed with the actual state indicators and the panel read as noise.
+     * State is the only thing worth an icon. */
     const ON = '<:Toggleon:1521227758011809964>';
     const OFF = '<:Toggleoff:1521227763816595559>';
-    const YES = '<:Checkedbox:1521227734943269077>';
-    const NO = '<:Cancel:1521227723916181644>';
-    const toggle = v => (v ? ON : OFF);
-    const mark = v => (v ? YES : NO);
+    const t = (v) => (v ? ON : OFF);
 
-    const statusText = guildConfig.enabled ? `${ON} Enabled` : `${OFF} Disabled`;
-    const channelText = guildConfig.channelId ? `<#${guildConfig.channelId}>` : '`Not set`';
-    const modeText = isComponents ? '<:Fire:1521227907647668374> Components V2' : '<:Document:1521227875016114266> Embed';
-
+    const channelText = guildConfig.channelId ? `<#${guildConfig.channelId}>` : '`not set`';
     const btnCount = (guildConfig.buttons?.length || 0) + (guildConfig.actionButtons?.length || 0);
     const imgPos = guildConfig.imagePosition || 'bottom';
-    const posLabel = imgPos === 'top' ? 'Top' : imgPos === 'side' ? 'Side' : 'Bottom';
+    const btnPos = guildConfig.buttonPosition || 'bottom';
+    const modeLabel = isComponents ? 'Components V2' : 'Embed';
 
-    let content = `# <:Userplus:1521227719621218477> Welcomer\n`;
-    content += `-# Greet new members with a custom message, image card, or embed.\n\n`;
-    content += `**Status** ${statusText}   **Channel** ${channelText}   **Mode** ${modeText}\n`;
+    let c = '# Welcomer\n';
+    c += '-# Greet new members with a message, image card, or embed.\n\n';
+    c += t(guildConfig.enabled) + ' **Welcomer**  \u00b7  channel ' + channelText + '  \u00b7  mode `' + modeLabel + '`\n';
 
-    content += `\n### <:Picture:1521227954191995024> Appearance\n`;
+    c += '\n**Appearance**\n';
     if (isComponents) {
-        const welcomeBtnPos = guildConfig.buttonPosition || 'bottom';
-        content += `${mark(guildConfig.image)} Media Gallery   ${mark(guildConfig.thumbnail)} Thumbnail   \`Image: ${posLabel}\`\n`;
-        content += `${mark(btnCount > 0)} Buttons${btnCount > 0 ? ` \`${btnCount} · ${welcomeBtnPos === 'top' ? 'Top' : 'Bottom'}\`` : ''}   ${toggle(guildConfig.canvas?.enabled)} Canvas\n`;
-        content += `${toggle(guildConfig.colorless)} Colorless   \`Accent: ${guildConfig.colorless ? 'None' : (guildConfig.color || '#bcf1e4')}\`\n`;
+        c += t(!!guildConfig.image) + ' Image  ' + t(!!guildConfig.thumbnail) + ' Thumbnail  `position: ' + imgPos + '`\n';
+        c += t(btnCount > 0) + ' Buttons' + (btnCount > 0 ? ' `' + btnCount + ', ' + btnPos + '`' : '') + '  ' + t(!!guildConfig.canvas?.enabled) + ' Welcome card\n';
+        c += t(!!guildConfig.colorless) + ' Accent hidden  `' + (guildConfig.colorless ? 'none' : (guildConfig.color || '#bcf1e4')) + '`\n';
     } else {
-        const title = guildConfig.title ? guildConfig.title.substring(0, 30) + (guildConfig.title.length > 30 ? '…' : '') : '';
-        content += `${mark(guildConfig.title)} Title${title ? ` \`${title}\`` : ''}   ${mark(guildConfig.image)} Image   ${mark(guildConfig.thumbnail)} Thumbnail\n`;
-        content += `${mark(guildConfig.footer)} Footer   \`Color: ${guildConfig.color || '#bcf1e4'}\`\n`;
+        const raw = guildConfig.title || '';
+        const title = raw ? raw.substring(0, 30) + (raw.length > 30 ? '\u2026' : '') : '';
+        c += t(!!guildConfig.title) + ' Title' + (title ? ' `' + title + '`' : '') + '  ' + t(!!guildConfig.image) + ' Image  ' + t(!!guildConfig.thumbnail) + ' Thumbnail\n';
+        c += t(!!guildConfig.author) + ' Author  ' + t(!!guildConfig.footer) + ' Footer  `colour: ' + (guildConfig.color || '#bcf1e4') + '`\n';
     }
 
-    content += `\n### <:Settings:1521227767780343879> Extras\n`;
-    const autoDel = guildConfig.autoDelete > 0 ? `\`${guildConfig.autoDelete}s\`` : OFF;
-    content += `${toggle(guildConfig.pingUser)} Ping User   ${toggle(guildConfig.dmWelcome?.enabled)} DM Welcome   ${autoDel} Auto-Delete\n`;
+    c += '\n**Extras**\n';
+    c += t(!!guildConfig.pingUser) + ' Ping member  ' + t(!!guildConfig.dmWelcome?.enabled) + ' Welcome DM  ';
+    c += t(guildConfig.autoDelete > 0) + ' Auto-delete' + (guildConfig.autoDelete > 0 ? ' `' + guildConfig.autoDelete + 's`' : '') + '\n';
 
-    content += `\n### <:Hashtag:1521227771957870604> Message Preview\n`;
-    const preview = (guildConfig.content || guildConfig.message || 'Welcome {user} to {server}!');
-    content += `> ${preview.substring(0, 240).split('\n').join('\n> ')}${preview.length > 240 ? ' …' : ''}`;
+    c += '\n**Message**\n';
+    const preview = guildConfig.content || guildConfig.message || 'Welcome {user} to {server}!';
+    c += '> ' + preview.substring(0, 240).split('\n').join('\n> ') + (preview.length > 240 ? ' \u2026' : '');
 
-    return content;
+    return c;
 }
 
 function buildVariablesPanel() {
@@ -650,42 +650,41 @@ function buildCanvasContainer(canvasConfig) {
 }
 
 function buildLeavePanel(leaveConfig) {
-    const mode = leaveConfig?.mode || 'components';
-    const isComponents = mode === 'components';
-    const statusEmoji = leaveConfig?.enabled ? '<:Toggleon:1521227758011809964>' : '<:Toggleoff:1521227763816595559>';
-    const channelText = leaveConfig?.channelId ? `<#${leaveConfig.channelId}>` : '*Not set*';
-    const modeText = isComponents ? '**Components V2**' : '**Embed**';
-    const modeEmoji = isComponents ? '<:Fire:1521227907647668374>' : '<:Document:1521227875016114266>';
+    const cfg = leaveConfig || {};
+    const isComponents = (cfg.mode || 'components') === 'components';
 
-    let content = `# <:Userplus:1521227719621218477> Leave Message Setup\n\n`;
-    content += `**Status:** ${statusEmoji} ${leaveConfig?.enabled ? 'Enabled' : 'Disabled'}\n`;
-    content += `**Channel:** ${channelText}\n`;
-    content += `**Mode:** ${modeEmoji} ${modeText}\n`;
-    content += `**Canvas Card:** ${leaveConfig?.canvas?.enabled ? '<:Toggleon:1521227758011809964> Enabled' : '<:Toggleoff:1521227763816595559> Disabled'}\n\n`;
+    // Same rule as buildMainPanel: the toggle pair is the only emoji here.
+    const ON = '<:Toggleon:1521227758011809964>';
+    const OFF = '<:Toggleoff:1521227763816595559>';
+    const t = (v) => (v ? ON : OFF);
 
+    const channelText = cfg.channelId ? `<#${cfg.channelId}>` : '`not set`';
+    const btnCount = (cfg.buttons?.length || 0) + (cfg.actionButtons?.length || 0);
+    const imgPos = cfg.imagePosition || 'bottom';
+    const btnPos = cfg.buttonPosition || 'bottom';
+    const modeLabel = isComponents ? 'Components V2' : 'Embed';
+
+    let c = '# Leave message\n';
+    c += '-# Say goodbye when a member leaves the server.\n\n';
+    c += t(cfg.enabled) + ' **Leave message**  \u00b7  channel ' + channelText + '  \u00b7  mode `' + modeLabel + '`\n';
+
+    c += '\n**Appearance**\n';
     if (isComponents) {
-        const btnCount = (leaveConfig?.buttons?.length || 0) + (leaveConfig?.actionButtons?.length || 0);
-        const imgPos = leaveConfig?.imagePosition || 'bottom';
-        content += `### Components V2 Features:\n`;
-        content += `- **Media Gallery:** ${leaveConfig?.image ? '<:Checkedbox:1521227734943269077> Set' : '<:Cancel:1521227723916181644> Not set'}\n`;
-        content += `- **Thumbnail:** ${leaveConfig?.thumbnail ? '<:Checkedbox:1521227734943269077> Set' : '<:Cancel:1521227723916181644> Not set'}\n`;
-        content += `- **Image Position:** ${imgPos === 'top' ? '<:Upload:1521228365120405537> Top' : imgPos === 'side' ? '<:Caretright:1521227704953864202> Side' : '<:Download:1521228191899975810> Bottom'}\n`;
-        const leaveBtnPos = leaveConfig?.buttonPosition || 'bottom';
-        content += `- **Buttons:** ${btnCount > 0 ? '<:Checkedbox:1521227734943269077> ' + btnCount + ' button' + (btnCount > 1 ? 's' : '') + ' · ' + (leaveBtnPos === 'top' ? '<:Upload:1521228365120405537> Top' : '<:Download:1521228191899975810> Bottom') : '<:Cancel:1521227723916181644> None'}\n`;
-        content += `- **Colorless:** ${leaveConfig?.colorless ? '<:Toggleon:1521227758011809964> Enabled' : '<:Toggleoff:1521227763816595559> Disabled'}\n`;
-        content += `- **Accent Color:** ${leaveConfig?.colorless ? '*None (colorless)*' : (leaveConfig?.color || '#ED4245')}\n\n`;
+        c += t(!!cfg.image) + ' Image  ' + t(!!cfg.thumbnail) + ' Thumbnail  `position: ' + imgPos + '`\n';
+        c += t(btnCount > 0) + ' Buttons' + (btnCount > 0 ? ' `' + btnCount + ', ' + btnPos + '`' : '') + '  ' + t(!!cfg.canvas?.enabled) + ' Leave card\n';
+        c += t(!!cfg.colorless) + ' Accent hidden  `' + (cfg.colorless ? 'none' : (cfg.color || '#ED4245')) + '`\n';
     } else {
-        content += `### Embed Features:\n`;
-        content += `- **Title:** ${leaveConfig?.title || '*Not set*'}\n`;
-        content += `- **Color:** ${leaveConfig?.color || '#ED4245'}\n`;
-        content += `- **Image:** ${leaveConfig?.image ? '<:Checkedbox:1521227734943269077> Set' : '<:Cancel:1521227723916181644> Not set'}\n`;
-        content += `- **Thumbnail:** ${leaveConfig?.thumbnail ? '<:Checkedbox:1521227734943269077> Set' : '<:Cancel:1521227723916181644> Not set'}\n`;
-        content += `- **Footer:** ${leaveConfig?.footer || '*Not set*'}\n\n`;
+        const raw = cfg.title || '';
+        const title = raw ? raw.substring(0, 30) + (raw.length > 30 ? '\u2026' : '') : '';
+        c += t(!!cfg.title) + ' Title' + (title ? ' `' + title + '`' : '') + '  ' + t(!!cfg.image) + ' Image  ' + t(!!cfg.thumbnail) + ' Thumbnail\n';
+        c += t(!!cfg.footer) + ' Footer  `colour: ' + (cfg.color || '#ED4245') + '`\n';
     }
 
-    content += `### Message Preview:\n\`\`\`\n${(leaveConfig?.content || 'Goodbye {username}!').substring(0, 200)}${(leaveConfig?.content || '').length > 200 ? '...' : ''}\n\`\`\``;
+    c += '\n**Message**\n';
+    const preview = cfg.content || 'Goodbye {username}!';
+    c += '> ' + preview.substring(0, 240).split('\n').join('\n> ') + (preview.length > 240 ? ' \u2026' : '');
 
-    return content;
+    return c;
 }
 
 function buildLeaveCanvasPanel(canvasConfig) {
