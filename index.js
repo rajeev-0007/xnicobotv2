@@ -2302,7 +2302,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         const welcomerCmd = client.commands.get('welcomer');
-        if (welcomerCmd && welcomerCmd.handleModalSubmit && (interaction.customId.startsWith('welcomer_modal_') || interaction.customId.startsWith('welcomer_template_') || interaction.customId.startsWith('leave_modal_') || interaction.customId.startsWith('leave_canvas_') || interaction.customId.startsWith('canvas_'))) {
+        if (welcomerCmd && welcomerCmd.handleModalSubmit && (interaction.customId.startsWith('welcomer_modal_') || interaction.customId.startsWith('leave_modal_') || interaction.customId.startsWith('leave_canvas_') || interaction.customId.startsWith('canvas_'))) {
             try {
                 const handled = await welcomerCmd.handleModalSubmit(interaction);
                 if (handled) return;
@@ -7339,24 +7339,8 @@ client.on('interactionCreate', async (interaction) => {
                 }
             }
 
-            // Handle message-builder template select menus
-            if (interaction.customId.startsWith('msgbuilder_select_')) {
-                const msgBuilderCmd = client.commands.get('message-builder');
-                if (msgBuilderCmd && msgBuilderCmd.handleSelectMenu) {
-                    try {
-                        const handled = await msgBuilderCmd.handleSelectMenu(interaction);
-                        if (handled) return;
-                    } catch (error) {
-                        log.error(`Message Builder Select: ${error.message} — ${JSON.stringify(error.rawError?.errors || error.errors || {})}`, error);
-                        if (!interaction.replied && !interaction.deferred) {
-                            await interaction.reply({ content: '<:Cancel:1521227723916181644> Something went wrong loading that template. Please try again.', flags: MessageFlags.Ephemeral }).catch(() => { });
-                        }
-                    }
-                }
-            }
-
             // Handle welcomer template select menus
-            if (interaction.customId.startsWith('welcomer_template_') || interaction.customId.startsWith('welcomer_select_') || interaction.customId.startsWith('leave_template_')) {
+            if (interaction.customId.startsWith('welcomer_select_')) {
                 const welcomerCmd = client.commands.get('welcomer');
                 if (welcomerCmd && welcomerCmd.handleInteraction) {
                     try {
