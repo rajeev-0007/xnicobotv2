@@ -2,7 +2,7 @@
   "name": "xnico",
   "version": "2.0.0",
   "main": "index.js",
-  "description": "xNico — a professional all-in-one Discord bot. Music, moderation, fun, economy, leveling, tickets, and more.",
+  "description": "xNico \u2014 a professional all-in-one Discord bot. Music, moderation, fun, economy, leveling, tickets, and more.",
   "author": {
     "name": "Rajeev (Rexzy)",
     "url": "https://thenico.vercel.app"
@@ -44,13 +44,14 @@
     "owner": "Rexzy aka Rajeev",
     "developer": "Rajeev (Rexzy)",
     "license": "Licensed by Rajeev",
-    "notice": "All design, code, and branding © Rajeev (Rexzy). Unauthorized resale prohibited."
+    "notice": "All design, code, and branding \u00a9 Rajeev (Rexzy). Unauthorized resale prohibited."
   },
   "dependencies": {
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
@@ -61,7 +62,6 @@
   "optionalDependencies": {
     "@discordjs/voice": "^0.19.2",
     "@napi-rs/canvas": "^1.0.0",
-    "discord.js": "^14.26.4",
     "emoji-regex": "^10.6.0",
     "ffmpeg-static": "^5.3.0",
     "ioredis": "^5.4.1",
