@@ -366,13 +366,29 @@ function builderSendOptions(d) {
     ];
 }
 
-function builderUtilityOptions() {
-    return [
+function builderUtilityOptions(draftKeyForUndo) {
+    const opts = [
         { value: 'msgbuilder_show_variables', label: 'Placeholder reference', description: 'Every {placeholder} you can use' },
         { value: 'msgbuilder_export_json', label: 'Export JSON', description: 'Copy this design out' },
         { value: 'msgbuilder_import_json', label: 'Import JSON', description: 'Paste a design in' },
         { value: 'msgbuilder_reset', label: 'Reset everything', description: 'Back to an empty draft' },
     ];
+    // Offered only when a reset or import actually discarded something, so the
+    // option is never present-but-useless.
+    if (draftKeyForUndo) {
+        try {
+            const info = require('../../utils/configHistory').describe('msgbuilder', draftKeyForUndo);
+            if (info) {
+                const mins = Math.max(1, Math.round((Date.now() - info.at) / 60000));
+                opts.push({
+                    value: 'msgbuilder:undo',
+                    label: 'Recover my previous draft',
+                    description: `Restore ${info.label} (~${mins}m ago) — available once`,
+                });
+            }
+        } catch { }
+    }
+    return opts;
 }
 
 function builderSendOptions(d) {
@@ -424,7 +440,7 @@ function safePreviewUrl(url, ctx) {
     return value;
 }
 
-function buildContainer(data, ctx = null) {
+function buildContainer(data, ctx = null, draftKeyForUndo = null) {
     const colorValue = data.color ? parseInt(data.color.replace('#', ''), 16) : 0xCAD7E6;
     const container = new ContainerBuilder();
     if (!data.colorless) {
@@ -462,7 +478,7 @@ function buildContainer(data, ctx = null) {
     container.addActionRowComponents(bMenuRow(BID.content, 'Message and attachment', builderContentOptions(data)));
     container.addActionRowComponents(bMenuRow(BID.parts, 'Buttons and select menus', builderPartsOptions(data)));
     container.addActionRowComponents(bMenuRow(BID.send, 'Preview or send', builderSendOptions(data)));
-    container.addActionRowComponents(bMenuRow(BID.utility, 'Utility', builderUtilityOptions()));
+    container.addActionRowComponents(bMenuRow(BID.utility, 'Utility', builderUtilityOptions(draftKeyForUndo)));
 
     return container;
 }
@@ -726,7 +742,7 @@ module.exports = {
         const data = { ...getDefaultData() };
 
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
-        const container = buildContainer(data, ctx);
+        const container = buildContainer(data, ctx, null);
 
         const reply = await interaction.reply({
             components: [container],
@@ -770,7 +786,7 @@ module.exports = {
         const data = { ...getDefaultData() };
 
         const ctx = { user: message.author, guild: message.guild, channel: message.channel };
-        const container = buildContainer(data, ctx);
+        const container = buildContainer(data, ctx, null);
 
         const reply = await message.reply({
             components: [container],
@@ -926,7 +942,7 @@ module.exports = {
             builderData.set(key, data);
             const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
             await interaction.update({
-                components: [buildContainer(data, ctx)],
+                components: [buildContainer(data, ctx, key)],
                 flags: MessageFlags.IsComponentsV2
             });
             return true;
@@ -935,7 +951,7 @@ module.exports = {
         if (customId === 'msgbuilder_mode_components') {
             data.mode = 'components';
             builderData.set(key, data);
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -943,7 +959,7 @@ module.exports = {
         if (customId === 'msgbuilder_mode_embed') {
             data.mode = 'embed';
             builderData.set(key, data);
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -1099,7 +1115,7 @@ module.exports = {
             data.colorless = !data.colorless;
             builderData.set(key, data);
 
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             try {
                 await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             } catch (e) {
@@ -1116,7 +1132,7 @@ module.exports = {
             data.imagePosition = current === 'bottom' ? 'top' : current === 'top' ? 'side' : 'bottom';
             builderData.set(key, data);
 
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             try {
                 await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             } catch (e) {
@@ -1263,7 +1279,30 @@ module.exports = {
             return true;
         }
 
+        if (customId === 'msgbuilder:undo') {
+            const history = require('../../utils/configHistory');
+            const restored = history.consume('msgbuilder', key);
+            if (!restored) {
+                await interaction.reply({
+                    content: '<:Cancel:1521227723916181644> Nothing left to recover — it is available once.',
+                    flags: MessageFlags.Ephemeral });
+                return true;
+            }
+            builderData.set(key, restored);
+            const ctx2 = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
+            await interaction.update({
+                components: [buildContainer(restored, ctx2, key)],
+                flags: MessageFlags.IsComponentsV2 });
+            await interaction.followUp({
+                content: '<:Checkedbox:1521227734943269077> Recovered your previous draft. This recovery is now used up.',
+                flags: MessageFlags.Ephemeral }).catch(() => {});
+            return true;
+        }
+
         if (customId === 'msgbuilder_reset') {
+            // Reset and JSON import are the only actions that discard work
+            // wholesale, so they are the only ones worth an undo point.
+            try { require('../../utils/configHistory').record('msgbuilder', key, data, 'your draft before the reset'); } catch { }
             builderData.set(key, { ...getDefaultData() });
             const container = buildContainer(getDefaultData(), ctx);
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -1315,7 +1354,7 @@ module.exports = {
         if (customId === 'msgbuilder_clear_fields') {
             data.fields = [];
             builderData.set(key, data);
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             await interaction.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
             return true;
         }
@@ -1437,7 +1476,7 @@ module.exports = {
             data.footer = interaction.fields.getTextInputValue('footer') || '';
             builderData.set(key, data);
 
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             try {
                 if (interaction.message) {
                     await interaction.message.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -1462,7 +1501,7 @@ module.exports = {
             data.authorIcon = interaction.fields.getTextInputValue('author_icon') || '';
             builderData.set(key, data);
 
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             try {
                 if (interaction.message) {
                     await interaction.message.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -1506,7 +1545,7 @@ module.exports = {
                 ? `<:Checkedbox:1521227734943269077> Media updated! **${imgCount}** image${imgCount > 1 ? 's' : ''} in gallery.`
                 : '<:Checkedbox:1521227734943269077> Media updated!';
 
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             try {
                 if (interaction.message) {
                     await interaction.message.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -1533,7 +1572,7 @@ module.exports = {
             data.footerIcon = interaction.fields.getTextInputValue('footer_icon') || '';
             builderData.set(key, data);
 
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             try {
                 if (interaction.message) {
                     await interaction.message.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -1581,7 +1620,7 @@ module.exports = {
             builderData.set(key, data);
 
             const total = buttons.length + actionButtons.length;
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             try {
                 if (interaction.message) {
                     await interaction.message.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -1779,7 +1818,7 @@ module.exports = {
             data.fields.push({ name: fieldName, value: fieldValue, inline });
             builderData.set(key, data);
 
-            const container = buildContainer(data, ctx);
+            const container = buildContainer(data, ctx, key);
             try {
                 if (interaction.message) {
                     await interaction.message.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -1798,6 +1837,7 @@ module.exports = {
         }
 
         if (customId === 'msgbuilder_modal_import_json') {
+            try { require('../../utils/configHistory').record('msgbuilder', key, data, 'your draft before the import'); } catch { }
             const jsonStr = interaction.fields.getTextInputValue('json_data') || '';
 
             try {

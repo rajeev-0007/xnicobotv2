@@ -118,7 +118,31 @@ function loadConfig() {
     }
 }
 
+/**
+ * Persist, recording the state being replaced so the panel can offer a one-shot
+ * undo.
+ *
+ * The snapshot is taken here rather than at each mutation site because there are
+ * twenty of those, and it compares against what is actually PERSISTED — callers
+ * mutate their guildConfig copy in place, so a snapshot taken from the caller's
+ * object would already hold the new values and undo would restore nothing.
+ * Only guilds whose stored value actually differs are recorded, so navigating
+ * the panel does not overwrite a real change with a no-op.
+ */
 function saveConfig(config) {
+    try {
+        const history = require('../../utils/configHistory');
+        const prev = jsonStore.has('welcomer') ? (jsonStore.read('welcomer') || {}) : {};
+        for (const gid of Object.keys(config || {})) {
+            if (JSON.stringify(prev[gid]) !== JSON.stringify(config[gid])) {
+                history.record('welcomer', gid, prev[gid] || {}, 'settings before your last change');
+            }
+        }
+    } catch { /* history is best-effort; never block a save */ }
+    return _saveConfigRaw(config);
+}
+
+function _saveConfigRaw(config) {
     jsonStore.write('welcomer', config);
 }
 
@@ -853,6 +877,27 @@ function welcomeSectionsOptions(c) {
     ];
 }
 
+/**
+ * The undo entry, only offered when there is genuinely something to restore.
+ * Hiding it otherwise is deliberate: an always-visible "undo" that does nothing
+ * is worse than no undo.
+ */
+function welcomeUndoOption(guildId) {
+    try {
+        const history = require('../../utils/configHistory');
+        const info = history.describe('welcomer', guildId);
+        if (!info) return null;
+        const mins = Math.max(1, Math.round((Date.now() - info.at) / 60000));
+        return {
+            value: 'welcomer:undo',
+            label: 'Undo my last change',
+            description: `Restore ${info.label} (~${mins}m ago) — available once`,
+        };
+    } catch {
+        return null;
+    }
+}
+
 function welcomeUtilityOptions(c) {
     return [
         { value: 'welcomer_test', label: 'Send a test welcome', description: 'Posts a real welcome for you in the channel' },
@@ -919,7 +964,10 @@ function buildWelcomerContainer(guildConfig, guildId, ctx) {
     container.addActionRowComponents(buildMenuRow(PID.wMode, 'Display mode', welcomeModeOptions(guildConfig)));
     container.addActionRowComponents(buildMenuRow(PID.wContent, 'Message and attachment', welcomeContentOptions(guildConfig)));
     container.addActionRowComponents(buildMenuRow(PID.wParts, 'Buttons and select menus', welcomePartsOptions(guildConfig)));
-    container.addActionRowComponents(buildMenuRow(PID.wSections, 'AutoRole, leave, canvas, utility', welcomeSectionsOptions(guildConfig)));
+    const sectionOpts = welcomeSectionsOptions(guildConfig);
+    const undoOpt = welcomeUndoOption(guildId);
+    if (undoOpt) sectionOpts.push(undoOpt);
+    container.addActionRowComponents(buildMenuRow(PID.wSections, 'AutoRole, leave, canvas, utility', sectionOpts));
     container.addActionRowComponents(buildTogglesRow(PID.wToggles, WELCOME_TOGGLES, guildConfig));
 
     return container;
@@ -1288,6 +1336,30 @@ module.exports = {
         const config = loadConfig();
         const guildId = interaction.guild.id;
         let guildConfig = { ...getDefaultConfig(), ...config[guildId] };
+
+        /* ── One-shot undo of the last saved change ── */
+        if (customId === 'welcomer:undo') {
+            const history = require('../../utils/configHistory');
+            const restored = history.consume('welcomer', guildId);
+            if (!restored) {
+                await interaction.reply({
+                    content: '<:Cancel:1521227723916181644> Nothing left to undo — it is available once per change.',
+                    flags: MessageFlags.Ephemeral });
+                return true;
+            }
+            // Write through the RAW saver: recording this restore as history
+            // would let undo bounce between two states forever.
+            config[guildId] = restored;
+            _saveConfigRaw(config);
+            const merged = { ...getDefaultConfig(), ...restored };
+            await interaction.update({
+                components: [buildWelcomerContainer(merged, guildId, previewCtx(interaction))],
+                flags: MessageFlags.IsComponentsV2 });
+            await interaction.followUp({
+                content: '<:Checkedbox:1521227734943269077> Restored your previous settings. This undo is now used up.',
+                flags: MessageFlags.Ephemeral }).catch(() => {});
+            return true;
+        }
 
         /* ── New panel: navigation and sub-panels ── */
         if (customId === PID.wUtility) {
