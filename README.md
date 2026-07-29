@@ -107,8 +107,23 @@ State lives in `utils/jsonStore.js` — an in-memory cache backed by PostgreSQL:
 
 - **Reads** are synchronous from cache. **Writes** update the cache immediately and persist to PostgreSQL. High-value config stores persist instantly; hot, high-churn stores (economy, XP) are debounced to protect performance.
 - **No database?** If `DATABASE_URL` is unset or unreachable, the store transparently falls back to JSON files in `json_stores/`. The public API is identical.
-- **Bot ↔ dashboard sync** is handled by `utils/storeSync.js`, which maps store updates to the bot's in-memory cache invalidators — instantly in-process, or via a short PostgreSQL poll across hosts.
+- **Bot ↔ dashboard sync** is handled by `utils/storeSync.js`, which maps store updates to the bot's in-memory cache invalidators — instantly in-process, or via Redis Pub/Sub (or a PostgreSQL poll) across hosts.
 - **Graceful shutdown** flushes all unsaved data to the database before exit; the shard manager forwards the signal and waits for the flush to complete so restarts don't drop recent changes.
+
+### Redis (optional, recommended)
+
+Set `REDIS_URL` and install `ioredis` to add a cache + sync tier. **PostgreSQL stays the source of truth** — a full Redis wipe only costs a slower next boot, never data.
+
+| | Without Redis | With Redis |
+|:---|:---|:---|
+| Dashboard → bot propagation | up to **5s** (PostgreSQL poll) | **~1ms** (Pub/Sub) |
+| Background queries per process | ~35k/day | ~1.4k/day (60s safety poll) |
+| Boot | downloads every store's full JSON | hydrates from cache; asks PostgreSQL for timestamps only |
+| Gateway ping | poll round-trip shares the event loop with the heartbeat | poll largely removed |
+
+Cadence is split by store type: config stores publish immediately, while hot stores (economy, users, XP) are coalesced over `REDIS_WRITE_DEBOUNCE_MS` so a PostgreSQL bandwidth problem isn't simply moved to Redis. Large payloads are gzipped (~10–15x on this data), and anything above `REDIS_MAX_VALUE_BYTES` bypasses the cache and is served straight from PostgreSQL.
+
+Run `system` (owner-only) to see live PostgreSQL/Redis status, cache hit rate and sync-bus activity. Redis is fully optional at every level — no `REDIS_URL`, a missing driver, or a mid-session outage all degrade to the original PostgreSQL behaviour.
 
 ---
 
@@ -180,6 +195,11 @@ Copy [`.env.example`](.env.example) to `.env`. Required values are marked ✓.
 |:---|:---:|:---|
 | `DATABASE_URL` | | PostgreSQL connection string. Omit to use local JSON files. **Required for cross-host bot ↔ dashboard sync.** |
 | `FALLBACK_DATABASE_URL` | | Secondary connection string used on failover |
+| `REDIS_URL` | | Redis connection string (`redis://` / `rediss://`). Enables the cache + instant sync bus. Requires `npm install ioredis`. Omit to disable. |
+| `REDIS_PREFIX` | | Key namespace (default `xnico`) — change only if several bots share one Redis |
+| `REDIS_TTL_SECONDS` | | Expiry for cached store bodies (default 7 days) |
+| `REDIS_WRITE_DEBOUNCE_MS` | | Coalescing window for hot stores (default `1000`) |
+| `REDIS_MAX_VALUE_BYTES` | | Skip caching bodies larger than this (default 8 MB) |
 
 ### Dashboard
 
@@ -218,7 +238,8 @@ xnico/
 ├── commands/               # 17 category folders of command modules
 ├── events/                 # Gateway event handlers
 ├── utils/                  # Shared libraries
-│   ├── jsonStore.js        # PostgreSQL-backed store (+ local fallback)
+│   ├── jsonStore.js        # PostgreSQL-backed store (+ Redis tier, local fallback)
+│   ├── redisClient.js      # Optional Redis cache + Pub/Sub sync bus
 │   ├── storeSync.js        # Bot ↔ dashboard cache sync
 │   ├── database.js         # User/guild data access layer
 │   ├── premiumManager.js   # Premium key & tier logic

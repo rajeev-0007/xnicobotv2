@@ -1,6 +1,7 @@
 const { isOwner } = require('../../utils/helpers');
 const { MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize } = require('discord.js');
 const os = require('os');
+const jsonStore = require('../../utils/jsonStore');
 
 module.exports = {
     name: 'system',
@@ -54,6 +55,53 @@ module.exports = {
         const memPercent = ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1);
         const sysMemPercent = ((usedMem / totalMem) * 100).toFixed(1);
 
+        // ── Data layer (PostgreSQL / Redis / local fallback) ─────────────
+        // Redis is optional, so everything here is defensive: an older
+        // jsonStore without redisStats() must not break the command.
+        let dataLayerLine;
+        try {
+            const storeCount = jsonStore.cache?.size ?? 0;
+            const dirtyCount = jsonStore.dirty?.size ?? 0;
+            const localMode = jsonStore._localMode === true;
+
+            let pgLabel;
+            if (localMode) {
+                pgLabel = '<:Infotriangle:1521227710381428926> Local files (PostgreSQL unavailable)';
+            } else {
+                let onFallback = false;
+                try { onFallback = require('../../utils/pgPool').getPool().usingFallback; } catch {}
+                pgLabel = onFallback
+                    ? '<:Infotriangle:1521227710381428926> Connected (fallback DB)'
+                    : '<:Checkedbox:1521227734943269077> Connected (primary)';
+            }
+
+            const r = typeof jsonStore.redisStats === 'function' ? jsonStore.redisStats() : null;
+            let redisLabel;
+            if (!r || !r.enabled) {
+                redisLabel = '<:Cancel:1521227723916181644> Disabled — set `REDIS_URL` to enable';
+            } else if (!r.ready) {
+                redisLabel = '<:Infotriangle:1521227710381428926> Configured but not connected';
+            } else {
+                redisLabel =
+                    `<:Checkedbox:1521227734943269077> Connected via \`${r.driver}\`\n` +
+                    `> <:Refresh:1521227946441052420> **Sync bus:** ${r.busActive ? 'active (instant)' : 'inactive — polling PostgreSQL'}\n` +
+                    `> <:Star:1521227981685526568> **Cache:** ${r.hits} hits / ${r.misses} misses (${r.hitRate})\n` +
+                    `> <:Envelope:1521228013910626426> **Messages:** ${r.published} sent / ${r.received} received\n` +
+                    `> <:Bookopen:1521227911137595605> **Hydrated at boot:** ${r.hydratedAtBoot} stores` +
+                    (r.errors ? `\n> <:Cancel:1521227723916181644> **Errors:** ${r.errors}` : '');
+            }
+
+            dataLayerLine =
+                `### <:Folder:1521228095225331765> Data Layer\n` +
+                `> <:Bank:1521228286813012169> **PostgreSQL:** ${pgLabel}\n` +
+                `> <:Lightning:1521227915537285150> **Redis:** ${redisLabel}\n` +
+                `> <:Document:1521227875016114266> **Stores cached:** ${storeCount}  •  **Unsaved:** ${dirtyCount}`;
+        } catch (e) {
+            dataLayerLine =
+                `### <:Folder:1521228095225331765> Data Layer\n` +
+                `> <:Cancel:1521227723916181644> Unavailable: ${String(e?.message || e).slice(0, 80)}`;
+        }
+
         const container = new ContainerBuilder()
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(`# <:Settings:1521227767780343879> System Monitor`)
@@ -94,6 +142,10 @@ module.exports = {
                     `> <:Lightning:1521227915537285150> **WS Ping:** ${client.ws.ping}ms\n` +
                     `> <:Alarm:1521227869047750689> **Bot Uptime:** ${formatUptime(uptime)}`
                 )
+            )
+            .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(dataLayerLine)
             )
 
         const opts = { components: [container], flags: MessageFlags.IsComponentsV2 };
