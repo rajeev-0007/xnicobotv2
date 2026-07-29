@@ -1041,63 +1041,18 @@ function createLeaveTemplateControlRow() {
     );
 }
 
+/**
+ * Delegates to utils/messagePlaceholders — the single placeholder engine.
+ *
+ * This backed the PREVIEW while index.js used interactionHandlers' version for
+ * the actual send. The two supported different placeholder sets, so a preview
+ * could render {separator} (only implemented here) or fail to render {usertag},
+ * {nickname}, {date} and the `:variant` forms (only implemented there). Both
+ * now resolve identically, so the preview matches what members receive.
+ */
 function replacePlaceholders(text, member, guild, memberCount, { skipSeparators = false } = {}) {
-    if (!text) return '';
-    if (!member || !guild) return text;
-
-    try {
-        const placeholders = {
-            '{user}': member.toString(),
-            '{username}': member.user?.username || 'Unknown',
-            '{displayname}': member.displayName || member.user?.username || 'Unknown',
-            '{userid}': member.user?.id || '0',
-            '{useravatar}': member.user?.displayAvatarURL?.({ dynamic: true, size: 1024 }) || '',
-            '{userbanner}': member.user?.bannerURL?.({ dynamic: true, size: 1024 }) || '',
-            '{usercreated}': member.user?.createdTimestamp ? `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>` : 'Unknown',
-            '{userjoined}': member.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` : 'Unknown',
-            '{joinposition}': (memberCount || guild.memberCount || 0).toString(),
-            '{server}': guild.name || 'Unknown',
-            '{servername}': guild.name || 'Unknown',
-            '{serverid}': guild.id || '0',
-            '{servericon}': guild.iconURL?.({ dynamic: true, size: 1024 }) || '',
-            '{serverowner}': guild.ownerId ? `<@${guild.ownerId}>` : 'Unknown',
-            '{serverdescription}': guild.description || '',
-            '{servercreated}': guild.createdTimestamp ? `<t:${Math.floor(guild.createdTimestamp / 1000)}:R>` : 'Unknown',
-            '{membercount}': (memberCount || guild.memberCount || 0).toString(),
-            '{members}': (memberCount || guild.memberCount || 0).toString(),
-            '{onlinecount}': '0', // Presence Intent disabled – always 0
-            '{botcount}': (guild.members?.cache?.filter(m => m.user?.bot)?.size || 0).toString(),
-            '{humancount}': (guild.members?.cache?.filter(m => !m.user?.bot)?.size || 0).toString(),
-            '{channel}': `<#${guild.systemChannelId || guild.channels?.cache?.first()?.id || '0'}>`,
-            '{channelmention}': `<#${guild.systemChannelId || guild.channels?.cache?.first()?.id || '0'}>`,
-            '{channelname}': guild.systemChannel?.name || guild.channels?.cache?.first()?.name || 'unknown',
-            '{textchannels}': (guild.channels?.cache?.filter(c => c.type === 0)?.size || 0).toString(),
-            '{voicechannels}': (guild.channels?.cache?.filter(c => c.type === 2)?.size || 0).toString(),
-            '{boostcount}': (guild.premiumSubscriptionCount || 0).toString(),
-            '{boostlevel}': (guild.premiumTier || 0).toString(),
-            '{boosttier}': (guild.premiumTier || 0).toString(),
-            '{roles}': member.roles?.cache?.map(r => r.name)?.join(', ') || 'None',
-            '{rolecount}': (member.roles?.cache?.size || 0).toString(),
-            '{highestrole}': member.roles?.highest?.name || 'None'
-        };
-
-        // Only add text-based separator fallbacks for embed mode (not V2 containers)
-        if (!skipSeparators) {
-            placeholders['{separator}'] = '\n' + '─'.repeat(20) + '\n';
-            placeholders['{separator:small}'] = '\n' + '─'.repeat(10) + '\n';
-            placeholders['{separator:medium}'] = '\n' + '─'.repeat(20) + '\n';
-            placeholders['{separator:large}'] = '\n' + '─'.repeat(30) + '\n';
-        }
-
-        let result = text;
-        for (const [key, value] of Object.entries(placeholders)) {
-            result = result.split(key).join(String(value));
-        }
-        return result;
-    } catch (error) {
-        console.error('replacePlaceholders error:', error);
-        return text;
-    }
+    return require('../../utils/messagePlaceholders')
+        .replacePlaceholders(text, member, guild, memberCount, { skipSeparators });
 }
 
 async function createPreviewEmbed(guildConfig, member, guild, memberCount) {
@@ -3349,10 +3304,19 @@ module.exports = {
             return true;
         }
 
-        // No handler matched — acknowledge to prevent "This interaction failed"
-        if (interaction.isButton() || interaction.isStringSelectMenu()) {
-            try { await interaction.deferUpdate(); } catch { }
-        }
+        // No handler matched. Return WITHOUT acknowledging.
+        //
+        // This used to call interaction.deferUpdate() first, to avoid the user
+        // seeing "This interaction failed". That was actively harmful: index.js
+        // routes welcomer_/leave_/canvas_ here first and falls back to
+        // interactionHandlers.handleWelcomerButtons on a falsy return — but the
+        // interaction was already acknowledged by then, so every reply() and
+        // showModal() in the fallback threw 40060 (already acknowledged).
+        //
+        // That is why three of /leave-setup's four buttons did nothing at all:
+        // leave_setup_channel, welcomer_leave_msg and welcomer_leave_toggle are
+        // only implemented in that fallback. Acknowledging on behalf of a
+        // handler we have not run is never correct — the caller decides.
         return false;
     },
 
@@ -3367,5 +3331,10 @@ module.exports = {
     replacePlaceholders,
     createPreviewContainer,
     createPreviewEmbed,
-    buildWelcomerContainer
+    buildWelcomerContainer,
+    // Exported so /leave-setup can open THIS panel instead of maintaining its
+    // own copy. The duplicate it used to render read flat `leaveEnabled` /
+    // `leaveChannelId` / `leaveMessage` fields that nothing in the codebase ever
+    // wrote, so it always displayed "Disabled / Not set / default message".
+    buildLeaveContainer
 };

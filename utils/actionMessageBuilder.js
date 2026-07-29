@@ -62,35 +62,17 @@ function getDefaultMessageData() {
     };
 }
 
+/**
+ * Delegates to utils/messagePlaceholders — the single placeholder engine.
+ *
+ * The previous body here was a byte-identical copy of the one in
+ * commands/utility/message-builder.js, supporting only ~17 placeholders. That
+ * meant tickets, verification, sticky messages, birthdays, action buttons,
+ * select menus and custom commands all silently ignored the ~37 other
+ * placeholders the welcomer accepted.
+ */
 function replacePlaceholders(text, user, guild, channel) {
-    if (!text || typeof text !== 'string') return text || '';
-    
-    const replacements = {
-        '{user}': user ? `<@${user.id}>` : '',
-        '{username}': user?.username || '',
-        '{displayname}': user?.displayName || user?.username || '',
-        '{userid}': user?.id || '',
-        '{useravatar}': user?.displayAvatarURL({ size: 256 }) || '',
-        '{server}': guild?.name || '',
-        '{servername}': guild?.name || '',
-        '{serverid}': guild?.id || '',
-        '{servericon}': guild?.iconURL({ size: 256 }) || '',
-        '{membercount}': guild?.memberCount?.toLocaleString() || '0',
-        '{channel}': channel ? `<#${channel.id}>` : '',
-        '{channelname}': channel?.name || '',
-        '{boostcount}': guild?.premiumSubscriptionCount?.toString() || '0',
-        '{boostlevel}': guild?.premiumTier?.toString() || '0',
-        '{date}': new Date().toLocaleDateString(),
-        '{time}': new Date().toLocaleTimeString(),
-        '{timestamp}': `<t:${Math.floor(Date.now() / 1000)}:F>`
-    };
-    
-    let result = text;
-    for (const [placeholder, value] of Object.entries(replacements)) {
-        result = result.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'gi'), value);
-    }
-    
-    return result;
+    return require('./messagePlaceholders').replacePlaceholders(text, user, guild, channel);
 }
 
 function buildActionPreviewSection(container, data) {

@@ -45,8 +45,40 @@ function buildActionButtonRows(actionButtonIds, guildId) {
     return rows;
 }
 
-const builderData = new Map();
+/**
+ * In-progress drafts, keyed by the PANEL MESSAGE they belong to.
+ *
+ * This was a bare `new Map()` keyed `${guildId}-${userId}`, written in ten
+ * places and deleted in none — an unbounded leak holding embed content, field
+ * arrays, button definitions and image URLs for every user who ever opened the
+ * builder in any guild. The per-(guild,user) key also meant one person with two
+ * panels open in the same guild had both editing a single draft, so typing in
+ * one silently rewrote the other.
+ *
+ * DraftStore expires and caps entries; keying by message id isolates panels.
+ * The TTL is taken from the panel-expiration timeout for builders so a draft can
+ * never expire while its panel is still usable (and the two cannot drift).
+ */
+const DraftStore = require('../../utils/draftStore');
+const { TIMEOUTS: PANEL_TIMEOUTS } = require('../../utils/panelExpiration');
+const builderData = new DraftStore({
+    name: 'message-builder',
+    ttlMs: PANEL_TIMEOUTS.builder,
+});
 const builderSessions = new Map();
+
+/**
+ * Key a draft to its panel message.
+ *
+ * Falls back to a (guild, user) key only when there is no message context,
+ * which is why the fallback is namespaced separately — it must never collide
+ * with a real panel's key.
+ */
+function draftKey(interaction) {
+    const messageId = interaction?.message?.id;
+    if (messageId) return `msg:${messageId}`;
+    return `user:${interaction?.guild?.id}-${interaction?.user?.id}`;
+}
 
 
 function loadTemplates() {
@@ -158,35 +190,15 @@ function normalizeImages(data) {
     return data;
 }
 
+/**
+ * Delegates to utils/messagePlaceholders — the single placeholder engine.
+ *
+ * The previous body supported ~17 placeholders and rendered {date}/{time} as
+ * server-locale strings (showing the host's clock to every viewer) and
+ * {timestamp} as <t:..:F> where the runtime used <t:..:R>.
+ */
 function replacePlaceholders(text, user, guild, channel) {
-    if (!text || typeof text !== 'string') return text || '';
-
-    const replacements = {
-        '{user}': user ? `<@${user.id}>` : '',
-        '{username}': user?.username || '',
-        '{displayname}': user?.displayName || user?.username || '',
-        '{userid}': user?.id || '',
-        '{useravatar}': user?.displayAvatarURL({ size: 256 }) || '',
-        '{server}': guild?.name || '',
-        '{servername}': guild?.name || '',
-        '{serverid}': guild?.id || '',
-        '{servericon}': guild?.iconURL({ size: 256 }) || '',
-        '{membercount}': guild?.memberCount?.toLocaleString() || '0',
-        '{channel}': channel ? `<#${channel.id}>` : '',
-        '{channelname}': channel?.name || '',
-        '{boostcount}': guild?.premiumSubscriptionCount?.toString() || '0',
-        '{boostlevel}': guild?.premiumTier?.toString() || '0',
-        '{date}': new Date().toLocaleDateString(),
-        '{time}': new Date().toLocaleTimeString(),
-        '{timestamp}': `<t:${Math.floor(Date.now() / 1000)}:F>`
-    };
-
-    let result = text;
-    for (const [placeholder, value] of Object.entries(replacements)) {
-        result = result.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'gi'), value);
-    }
-
-    return result;
+    return require('../../utils/messagePlaceholders').replacePlaceholders(text, user, guild, channel);
 }
 
 function buildMainPanel(data) {
@@ -885,9 +897,10 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
     async execute(interaction) {
-        const key = `${interaction.guild.id}-${interaction.user.id}`;
+        // The draft is stored AFTER the reply so it can be keyed by the panel
+        // message id. Nothing is needed from the store to render the first
+        // frame — it is just the defaults.
         const data = { ...getDefaultData() };
-        builderData.set(key, data);
 
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
         const container = buildContainer(data, ctx);
@@ -899,6 +912,9 @@ module.exports = {
         });
 
         const messageId = reply.id;
+
+        // Seed the draft now that the panel message id exists.
+        builderData.set(`msg:${messageId}`, data);
 
         builderSessions.set(messageId, {
             userId: interaction.user.id,
@@ -928,9 +944,7 @@ module.exports = {
             return message.reply('<:Cancel:1521227723916181644> You need Manage Messages permission!');
         }
 
-        const key = `${message.guild.id}-${message.author.id}`;
         const data = { ...getDefaultData() };
-        builderData.set(key, data);
 
         const ctx = { user: message.author, guild: message.guild, channel: message.channel };
         const container = buildContainer(data, ctx);
@@ -939,6 +953,9 @@ module.exports = {
             components: [container],
             flags: MessageFlags.IsComponentsV2
         });
+
+        // Seed the draft now that the panel message id exists.
+        builderData.set(`msg:${reply.id}`, data);
 
         builderSessions.set(reply.id, {
             userId: message.author.id,
@@ -980,7 +997,7 @@ module.exports = {
             return true;
         }
 
-        const key = `${interaction.guild.id}-${interaction.user.id}`;
+        const key = draftKey(interaction);
         let data = builderData.get(key) || { ...getDefaultData() };
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
 
@@ -1549,7 +1566,7 @@ module.exports = {
         const customId = interaction.customId;
         if (!customId.startsWith('msgbuilder_select_')) return false;
 
-        const key = `${interaction.guild.id}-${interaction.user.id}`;
+        const key = draftKey(interaction);
         const userId = interaction.user.id;
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
 
@@ -1642,7 +1659,7 @@ module.exports = {
         const customId = interaction.customId;
         if (!customId.startsWith('msgbuilder_modal_')) return false;
 
-        const key = `${interaction.guild.id}-${interaction.user.id}`;
+        const key = draftKey(interaction);
         let data = builderData.get(key) || { ...getDefaultData() };
         const ctx = { user: interaction.user, guild: interaction.guild, channel: interaction.channel };
 
