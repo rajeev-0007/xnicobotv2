@@ -2868,8 +2868,13 @@ app.put('/api/guild/:guildId/antinuke', authMiddleware, (req, res) => { // noson
 });
 
 // â”€â”€ AutoMod CRUD (filters, ignore lists, bad words) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const AUTOMOD_FILTERS = ['badWords', 'spam', 'links', 'invites', 'massMention', 'caps', 'profanity', 'sexualContent', 'slurs'];
-const AUTOMOD_ACTIONS = new Set(['warn', 'delete', 'timeout', 'kick', 'ban']);
+// Derived from utils/automodSchema (no discord.js dependency, safe to require
+// from the dashboard process). The hand-written list this replaces omitted
+// aiText and aiImage, so the dashboard could never toggle or configure the AI
+// filters — they simply were not in the loop that copies submitted settings.
+const _amSchema = require('../utils/automodSchema');
+const AUTOMOD_FILTERS = _amSchema.FILTER_KEYS;
+const AUTOMOD_ACTIONS = new Set(_amSchema.ALL_ACTIONS);
 
 function getAutomodDefaultsFull() {
     return {

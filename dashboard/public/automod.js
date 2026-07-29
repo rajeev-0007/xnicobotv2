@@ -149,7 +149,10 @@ function _renderAutomodBody(g, w, hasDraft) {
     const linkWlHtml = (w.links?.whitelist || []).map(dom => `<span class="chip green">${esc(dom)} <button onclick="window.__amRmLinkWl('${esc(dom)}')">×</button></span>`).join('') || '<span class="text-sm text-mute">No whitelisted domains — all links blocked.</span>';
 
     // Active filter count
-    const filters = ['badWords','spam','links','invites','massMention','caps','profanity','sexualContent','slurs'];
+    // Keep in step with utils/automodSchema.js FILTER_KEYS. Browser code cannot
+    // require() it; the server derives its own copy, so a mismatch here only
+    // affects the displayed count. aiText/aiImage were missing entirely.
+    const filters = ['badWords','spam','links','invites','massMention','caps','profanity','sexualContent','slurs','aiText','aiImage'];
     const activeFilters = filters.filter(f => w[f]?.enabled).length;
 
     const html = `

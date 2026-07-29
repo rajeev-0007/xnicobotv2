@@ -43,6 +43,9 @@ const { updateStatsChannels: updateServerStats } = require('./utils/serverStatsM
 const botCustomize = require('./utils/botCustomize');
 const { generateAIResponse, clearHistory } = require('./utils/aiChatManager');
 const { trackCommand } = require('./commands/owner/command-stats');
+// Single implementation of the AutoMod filter chain, shared by messageCreate and
+// messageUpdate so the two can no longer drift (see utils/automodScanner.js).
+const automodScanner = require('./utils/automodScanner');
 
 log.installConsoleInterceptors();
 
@@ -3610,8 +3613,13 @@ client.on('interactionCreate', async (interaction) => {
                     return;
                 }
             }
-            if (interaction.customId.startsWith('automod_')) {
+            if (isAutomodInteractionId(interaction.customId)) {
                 try {
+                    // The command owns the panel, so it routes first.
+                    const amCmd = client.commands.get('automod');
+                    if (amCmd?.handleInteraction) {
+                        if (await amCmd.handleInteraction(interaction)) return;
+                    }
                     return await handleAutomodButtons(interaction);
                 } catch (error) {
                     log.error(`Automod Button Error: ${error.message}`, error);
@@ -6740,8 +6748,12 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 return;
             }
-            if (interaction.customId.startsWith('automod_')) {
+            if (isAutomodInteractionId(interaction.customId)) {
                 try {
+                    const amCmd = client.commands.get('automod');
+                    if (amCmd?.handleInteraction) {
+                        if (await amCmd.handleInteraction(interaction)) return;
+                    }
                     return await handleAutomodSelectMenus(interaction);
                 } catch (error) {
                     log.error(`Automod Select Error: ${error.message}`, error);
@@ -8086,7 +8098,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             // AutoMod channel select menus (interactionHandlers)
-            if (interaction.customId === 'automod_select_log_channel' || interaction.customId === 'automod_select_ignore_channels') {
+            if (interaction.customId === 'automod_select_log_channel' || interaction.customId === 'automod_select_ignore_channels' || interaction.customId.startsWith('automod:pick:')) {
                 try {
                     await handleModalSubmit(interaction);
                 } catch (error) {
@@ -8288,7 +8300,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             // AutoMod role select menus (interactionHandlers)
-            if (interaction.customId === 'automod_select_bypass_role' || interaction.customId === 'automod_select_ignore_roles') {
+            if (interaction.customId === 'automod_select_bypass_role' || interaction.customId === 'automod_select_ignore_roles' || interaction.customId.startsWith('automod:pick:')) {
                 try {
                     await handleModalSubmit(interaction);
                 } catch (error) {
@@ -9058,246 +9070,34 @@ client.on('messageCreate', async (message) => {
     // image filter needs to see attachment-only messages too).
     const hasScannableAttachment = automodConfig?.aiImage?.enabled && message.attachments?.size > 0;
     if (automodConfig?.enabled && (message.content || hasScannableAttachment)) {
-        const isIgnored = automodConfig.ignoredRoles?.some(roleId => message.member?.roles.cache.has(roleId)) ||
-            automodConfig.ignoredChannels?.includes(message.channel.id) ||
-            message.member?.permissions.has('Administrator') ||
-            (automodConfig.bypassRoleId && message.member?.roles.cache.has(automodConfig.bypassRoleId));
+        // Exemption + the whole filter chain now live in utils/automodScanner so
+        // messageCreate and messageUpdate cannot drift apart again. The previous
+        // inline copy here was ~150 lines, duplicated (incompletely) below in
+        // messageUpdate — which is how aiText/aiImage ended up enforced only on
+        // newly posted messages.
+        const isIgnored = automodScanner.isExempt({
+            member: message.member,
+            channelId: message.channel.id,
+            config: automodConfig,
+        });
 
         if (!isIgnored) {
             const content = message.content;
-            const contentLower = content.toLowerCase();
-
-            // Collect ALL violations (don't short-circuit — check every filter like Discord AutoMod)
-            const violations = [];
-
-            // ── Bad Words Filter ──
-            if (automodConfig.badWords?.enabled && automodConfig.badWords.words?.length > 0) {
-                // Normalized form folds leetspeak / diacritics / in-word
-                // separators ("f.u.c.k", "fück", "ｆｕｃｋ" → "fuck") so
-                // obfuscated bad words still match.
-                let contentNorm = '';
-                try { contentNorm = require('./utils/aiModeration').normalizeText(content); } catch { }
-                for (const word of automodConfig.badWords.words) {
-                    const wordLower = word.toLowerCase().trim();
-                    if (!wordLower) continue;
-
-                    // Use word-boundary matching: match whole words, or phrases if the word contains spaces
-                    // Also match words embedded with leetspeak-style separators
-                    try {
-                        const escaped = wordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        const regex = new RegExp(`(?:^|[^a-zA-Z0-9])${escaped}(?:[^a-zA-Z0-9]|$)`, 'i');
-                        const wordNorm = (() => { try { return require('./utils/aiModeration').normalizeText(wordLower); } catch { return ''; } })();
-                        const normHit = wordNorm && contentNorm && (contentNorm.includes(wordNorm));
-                        if (regex.test(contentLower) || contentLower === wordLower || normHit) {
-                            violations.push({
-                                filter: 'badWords',
-                                action: automodConfig.badWords.action || 'delete',
-                                reason: `Bad word detected: ||${wordLower}||`
-                            });
-                            break; // One bad word is enough
-                        }
-                    } catch (e) {
-                        // Fallback for invalid regex: exact substring match for multi-word phrases
-                        if (contentLower.includes(wordLower)) {
-                            violations.push({
-                                filter: 'badWords',
-                                action: automodConfig.badWords.action || 'delete',
-                                reason: `Bad word detected`
-                            });
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // ── Spam Filter ──
-            if (automodConfig.spam?.enabled) {
-                const userId = message.author.id;
-                const key = `${guildId}-${userId}`;
-                const now = Date.now();
-                const timeWindow = automodConfig.spam.timeWindow || 5000;
-                const messageLimit = automodConfig.spam.messageLimit || 5;
-
-                if (!spamTracker.has(key)) {
-                    spamTracker.set(key, []);
-                }
-
-                const userMessages = spamTracker.get(key);
-                userMessages.push(now);
-
-                // Clean old entries inline
-                const recentMessages = userMessages.filter(time => now - time < timeWindow);
-                spamTracker.set(key, recentMessages);
-
-                if (recentMessages.length >= messageLimit) {
-                    violations.push({
-                        filter: 'spam',
-                        action: automodConfig.spam.action || 'timeout',
-                        reason: `Spam detected (${recentMessages.length} msgs in ${timeWindow / 1000}s)`
-                    });
-                }
-
-                // Periodic spamTracker cleanup to prevent memory leaks
-                if (spamTracker.size > 500) {
-                    const cleanupNow = Date.now();
-                    for (const [trackerKey, msgs] of spamTracker.entries()) {
-                        const recent = msgs.filter(t => cleanupNow - t < 30000);
-                        if (recent.length === 0) spamTracker.delete(trackerKey);
-                        else spamTracker.set(trackerKey, recent);
-                    }
-                }
-            }
-
-            // ── Link Filter ──
-            if (automodConfig.links?.enabled) {
-                const urlRegex = /https?:\/\/[^\s<]+|www\.[^\s<]+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(com|net|org|io|gg|tv|me|co|xyz|info|online|site|tech|dev|app|live|pro|cc|ru|cn|tk|ml|ga|cf|gq|pw|top|club|vip|ws|link|click|download|stream|fun|icu|buzz|monster|rest|hair|sbs|cfd)(?:[\/\?#][^\s]*)?/gi;
-                const urls = content.match(urlRegex);
-
-                if (urls && urls.length > 0) {
-                    const whitelist = automodConfig.links.whitelist || [];
-                    let hasBlockedLink = false;
-
-                    if (whitelist.length === 0) {
-                        // No whitelist = block all links
-                        hasBlockedLink = true;
-                    } else {
-                        // Check each URL against whitelist
-                        for (const url of urls) {
-                            const urlLower = url.toLowerCase();
-                            const isAllowed = whitelist.some(domain => {
-                                const domainLower = domain.toLowerCase().trim();
-                                // Match the domain anywhere in the URL
-                                return urlLower.includes(domainLower);
-                            });
-                            if (!isAllowed) {
-                                hasBlockedLink = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (hasBlockedLink) {
-                        violations.push({
-                            filter: 'links',
-                            action: automodConfig.links.action || 'delete',
-                            reason: 'Unauthorized link detected'
-                        });
-                    }
-                }
-            }
-
-            // ── Discord Invite Filter ──
-            if (automodConfig.invites?.enabled) {
-                // Comprehensive invite regex: covers discord.gg, discord.com/invite, discordapp.com/invite, dsc.gg, invite.gg
-                const inviteRegex = /(discord\.gg|discord(?:app)?\.com\/invite|dsc\.gg|invite\.gg|discord\.me)\/[a-zA-Z0-9-]+/gi;
-                if (inviteRegex.test(content)) {
-                    violations.push({
-                        filter: 'invites',
-                        action: automodConfig.invites.action || 'delete',
-                        reason: 'Discord invite link detected'
-                    });
-                }
-            }
-
-            // ── Mass Mention Filter ──
-            if (automodConfig.massMention?.enabled) {
-                const mentionLimit = automodConfig.massMention.limit || 5;
-                // Count user mentions + role mentions + @everyone/@here
-                const userMentions = message.mentions.users.size;
-                const roleMentions = message.mentions.roles.size;
-                const everyoneMention = message.mentions.everyone ? 1 : 0;
-                const totalMentions = userMentions + roleMentions + everyoneMention;
-
-                if (totalMentions >= mentionLimit) {
-                    violations.push({
-                        filter: 'massMention',
-                        action: automodConfig.massMention.action || 'delete',
-                        reason: `Mass mention detected (${totalMentions} mentions)`
-                    });
-                }
-            }
-
-            // ── Excessive Caps Filter ──
-            if (automodConfig.caps?.enabled) {
-                const minLength = automodConfig.caps.minLength || 10;
-                const capsPercentage = automodConfig.caps.percentage || 70;
-                // Only check letters (ignore numbers, spaces, symbols)
-                const letters = content.replace(/[^a-zA-Z]/g, '');
-
-                if (letters.length >= minLength) {
-                    const upperCount = (content.match(/[A-Z]/g) || []).length;
-                    const ratio = (upperCount / letters.length) * 100;
-
-                    if (ratio >= capsPercentage) {
-                        violations.push({
-                            filter: 'caps',
-                            action: automodConfig.caps.action || 'delete',
-                            reason: `Excessive caps (${Math.round(ratio)}%)`
-                        });
-                    }
-                }
-            }
-
-            // ── AI Text Scan (multilingual NSFW / slurs / hate / harassment) ──
-            // Only call the API when the cheaper filters above haven't already
-            // decided to remove the message, to save quota & latency.
-            if (automodConfig.aiText?.enabled && content && content.trim().length >= 3) {
-                try {
-                    const aiMod = require('./utils/aiModeration');
-                    if (aiMod.hasApiKey()) {
-                        const result = await aiMod.analyzeText(content, { guildId });
-                        if (result.flagged) {
-                            const rank = { low: 1, medium: 2, high: 3 };
-                            const minSev = automodConfig.aiText.minSeverity || 'medium';
-                            if ((rank[result.severity] || 2) >= (rank[minSev] || 2)) {
-                                const cats = result.categories?.length ? result.categories.join(', ') : 'inappropriate content';
-                                violations.push({
-                                    filter: 'aiText',
-                                    action: automodConfig.aiText.action || 'delete',
-                                    reason: `AI flagged ${cats} (${result.severity})${result.reason ? ': ' + result.reason : ''}`
-                                });
-                            }
-                        }
-                    }
-                } catch (e) {
-                    log.debug?.('[AutoMod] AI text scan error: ' + e.message);
-                }
-            }
-
-            // ── AI Image Scan (NSFW / explicit / gore image detection) ──
-            if (automodConfig.aiImage?.enabled && message.attachments?.size > 0) {
-                try {
-                    const aiMod = require('./utils/aiModeration');
-                    if (aiMod.hasApiKey()) {
-                        const IMAGE_EXT = /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i;
-                        const images = [...message.attachments.values()].filter(a =>
-                            (a.contentType && a.contentType.startsWith('image/')) || IMAGE_EXT.test(a.name || '')
-                        ).slice(0, 3); // cap per-message API calls
-                        for (const img of images) {
-                            const result = await aiMod.analyzeImage(img.url, { guildId });
-                            if (result.flagged) {
-                                violations.push({
-                                    filter: 'aiImage',
-                                    action: automodConfig.aiImage.action || 'delete',
-                                    reason: `AI flagged ${result.category} image (${result.confidence}%)${result.reason ? ': ' + result.reason : ''}`
-                                });
-                                break; // one bad image is enough
-                            }
-                        }
-                    }
-                } catch (e) {
-                    log.debug?.('[AutoMod] AI image scan error: ' + e.message);
-                }
-            }
+            const violations = await automodScanner.scanMessage(message, automodConfig, {
+                mode: 'create',
+                guildId,
+                spamTracker,
+                log,
+            });
 
             // ═══════ Process violations ═══════
             if (violations.length > 0) {
-                // Use the most severe action from all violations
-                const severityOrder = { 'warn': 0, 'delete': 1, 'timeout': 2, 'kick': 3, 'ban': 4 };
-                violations.sort((a, b) => (severityOrder[b.action] || 0) - (severityOrder[a.action] || 0));
-                const primary = violations[0];
-                const action = primary.action;
-                const allReasons = violations.map(v => v.reason).join(' | ');
+                // Most-severe-wins, resolved by the scanner so both message paths
+                // rank actions identically.
+                const resolved = automodScanner.resolveAction(violations);
+                const primary = resolved.primary;
+                const action = resolved.action;
+                const allReasons = resolved.allReasons;
 
                 // Preserve message data before destructive actions
                 const savedContent = content.substring(0, 1000);
@@ -11264,6 +11064,18 @@ function isAntinukeInteractionId(id) {
 }
 
 /**
+ * Does this custom ID belong to the AutoMod panel?
+ *
+ * Same story as anti-nuke: the current panel namespaces with colons
+ * (`automod:filters`), the previous button-based one used underscores
+ * (`automod_toggle`). Both route so stale panels get an explicit
+ * "re-run /automod" notice rather than silently ignoring the click.
+ */
+function isAutomodInteractionId(id) {
+    return typeof id === 'string' && (id.startsWith('automod:') || id.startsWith('automod_'));
+}
+
+/**
  * Attribute a gateway event to its executor via the audit log, then run the
  * anti-nuke check.
  *
@@ -12579,91 +12391,36 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
         editsnipeCommand.saveEditedMessage(oldMessage, newMessage);
     }
 
-    // AutoMod check on edited messages — users can bypass filters by editing
-    if (!newMessage.author?.bot && newMessage.guild && newMessage.content) {
+    // AutoMod check on edited messages — content can otherwise be slipped past
+    // every filter by posting something harmless and then editing it.
+    //
+    // This used to be a ~100-line copy of the messageCreate chain, and it had
+    // fallen behind: it implemented badWords/links/invites/massMention/caps but
+    // NOT aiText or aiImage, so AI text moderation and image scanning were
+    // completely bypassable via edit. It now shares utils/automodScanner with
+    // messageCreate, which also picks up attachment scanning on edit.
+    const editHasAttachment = newMessage.attachments?.size > 0;
+    if (!newMessage.author?.bot && newMessage.guild && (newMessage.content || editHasAttachment)) {
         const automodConfig = automodCache.get(newMessage.guild.id);
         if (automodConfig?.enabled) {
-            const isIgnored = automodConfig.ignoredRoles?.some(roleId => newMessage.member?.roles.cache.has(roleId)) ||
-                automodConfig.ignoredChannels?.includes(newMessage.channel.id) ||
-                newMessage.member?.permissions.has('Administrator') ||
-                (automodConfig.bypassRoleId && newMessage.member?.roles.cache.has(automodConfig.bypassRoleId));
+            const isIgnored = automodScanner.isExempt({
+                member: newMessage.member,
+                channelId: newMessage.channel.id,
+                config: automodConfig,
+            });
 
             if (!isIgnored) {
-                const content = newMessage.content;
-                const contentLower = content.toLowerCase();
-                const violations = [];
-
-                // Bad words check
-                if (automodConfig.badWords?.enabled && automodConfig.badWords.words?.length > 0) {
-                    for (const word of automodConfig.badWords.words) {
-                        const wordLower = word.toLowerCase().trim();
-                        if (!wordLower) continue;
-                        try {
-                            const escaped = wordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                            const regex = new RegExp(`(?:^|[^a-zA-Z0-9])${escaped}(?:[^a-zA-Z0-9]|$)`, 'i');
-                            if (regex.test(contentLower) || contentLower === wordLower) {
-                                violations.push({ filter: 'badWords', action: automodConfig.badWords.action || 'delete', reason: `Bad word detected (edited)` });
-                                break;
-                            }
-                        } catch (e) {
-                            if (contentLower.includes(wordLower)) {
-                                violations.push({ filter: 'badWords', action: automodConfig.badWords.action || 'delete', reason: `Bad word detected (edited)` });
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // Links check
-                if (automodConfig.links?.enabled) {
-                    const urlRegex = /https?:\/\/[^\s<]+|www\.[^\s<]+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(com|net|org|io|gg|tv|me|co|xyz|info|online|site|tech|dev|app|live|pro|cc|ru|cn|tk|ml|ga|cf|gq|pw|top|club|vip|ws|link|click|download|stream|fun|icu|buzz|monster|rest|hair|sbs|cfd)(?:[\/\?#][^\s]*)?/gi;
-                    const urls = content.match(urlRegex);
-                    if (urls && urls.length > 0) {
-                        const whitelist = automodConfig.links.whitelist || [];
-                        let hasBlockedLink = whitelist.length === 0;
-                        if (!hasBlockedLink) {
-                            for (const url of urls) {
-                                const urlLower = url.toLowerCase();
-                                if (!whitelist.some(d => urlLower.includes(d.toLowerCase().trim()))) { hasBlockedLink = true; break; }
-                            }
-                        }
-                        if (hasBlockedLink) violations.push({ filter: 'links', action: automodConfig.links.action || 'delete', reason: 'Unauthorized link (edited)' });
-                    }
-                }
-
-                // Invites check
-                if (automodConfig.invites?.enabled) {
-                    const inviteRegex = /(discord\.gg|discord(?:app)?\.com\/invite|dsc\.gg|invite\.gg|discord\.me)\/[a-zA-Z0-9-]+/gi;
-                    if (inviteRegex.test(content)) {
-                        violations.push({ filter: 'invites', action: automodConfig.invites.action || 'delete', reason: 'Discord invite (edited)' });
-                    }
-                }
-
-                // Mass mention check
-                if (automodConfig.massMention?.enabled) {
-                    const totalMentions = newMessage.mentions.users.size + newMessage.mentions.roles.size + (newMessage.mentions.everyone ? 1 : 0);
-                    if (totalMentions >= (automodConfig.massMention.limit || 5)) {
-                        violations.push({ filter: 'massMention', action: automodConfig.massMention.action || 'delete', reason: `Mass mention (${totalMentions} mentions, edited)` });
-                    }
-                }
-
-                // Caps check
-                if (automodConfig.caps?.enabled) {
-                    const letters = content.replace(/[^a-zA-Z]/g, '');
-                    if (letters.length >= (automodConfig.caps.minLength || 10)) {
-                        const upperCount = (content.match(/[A-Z]/g) || []).length;
-                        const ratio = (upperCount / letters.length) * 100;
-                        if (ratio >= (automodConfig.caps.percentage || 70)) {
-                            violations.push({ filter: 'caps', action: automodConfig.caps.action || 'delete', reason: `Excessive caps ${Math.round(ratio)}% (edited)` });
-                        }
-                    }
-                }
+                const content = newMessage.content || '';
+                const violations = await automodScanner.scanMessage(newMessage, automodConfig, {
+                    mode: 'edit',
+                    guildId: newMessage.guild.id,
+                    log,
+                });
 
                 if (violations.length > 0) {
-                    const severityOrder = { 'warn': 0, 'delete': 1, 'timeout': 2, 'kick': 3, 'ban': 4 };
-                    violations.sort((a, b) => (severityOrder[b.action] || 0) - (severityOrder[a.action] || 0));
-                    const action = violations[0].action;
-                    const allReasons = violations.map(v => v.reason).join(' | ');
+                    const resolved = automodScanner.resolveAction(violations);
+                    const action = resolved.action;
+                    const allReasons = resolved.allReasons;
 
                     const savedContent = content.substring(0, 1000);
                     const savedAuthorTag = newMessage.author.username;

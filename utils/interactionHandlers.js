@@ -934,7 +934,9 @@ async function handleModalSubmit(interaction) {
 
     // ── AutoMod modals + config selects live in commands/utility/automod.js ──
     // (single source of truth, mirroring antinuke). Delegate early.
-    if (interaction.customId?.startsWith('automod_modal_') || interaction.customId?.startsWith('automod_select_')) {
+    if (interaction.customId?.startsWith('automod:')
+        || interaction.customId?.startsWith('automod_modal_')
+        || interaction.customId?.startsWith('automod_select_')) {
         const cmd = interaction.client?.commands?.get('automod');
         if (interaction.isModalSubmit() && cmd?.handleModal) return cmd.handleModal(interaction);
         if (cmd?.handleInteraction) return cmd.handleInteraction(interaction);
