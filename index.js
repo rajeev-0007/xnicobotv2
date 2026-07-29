@@ -11859,7 +11859,11 @@ client.on('guildMemberAdd', async (member) => {
                                     const md = menuConfig[gId][menuId];
                                     if (!md) continue;
                                     const sm = new StringSelectMenuBuilder()
-                                        .setCustomId(`sm_cmd_${gId}_${menuId}`)
+                                        // Must be select_cmd_ : that is the prefix the
+                                        // isStringSelectMenu router handles. sm_cmd_ was
+                                        // created here and handled nowhere, so every select
+                                        // menu attached to a welcome message failed on click.
+                                        .setCustomId(`select_cmd_${gId}_${menuId}`)
                                         .setPlaceholder(md.placeholder || 'Select an option...')
                                         .setMinValues(md.minValues || 1)
                                         .setMaxValues(md.maxValues || 1);
