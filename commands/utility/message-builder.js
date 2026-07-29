@@ -186,24 +186,6 @@ function replacePlaceholders(text, user, guild, channel) {
     return require('../../utils/messagePlaceholders').replacePlaceholders(text, user, guild, channel);
 }
 
-function buildMainPanel(data) {
-    const isComponents = (data.mode || 'components') === 'components';
-    const ON = '<:Toggleon:1521227758011809964>';
-    const OFF = '<:Toggleoff:1521227763816595559>';
-    const t = (v) => (v ? ON : OFF);
-
-    // Toggle pair only. The header previously carried Editalt plus a
-    // Fire/Document mode glyph purely as decoration.
-    let header = '# Message builder\n';
-    header += '-# Design a message or embed, preview it live, then send it anywhere.\n';
-    header += 'mode `' + (isComponents ? 'Components V2' : 'Embed') + '`  \u00b7  colour `' + (data.color || '#bcf1e4') + '`';
-    header += '  \u00b7  ' + t(!!data.editingMessageId) + ' editing an existing message';
-    if (data.editingMessageId) {
-        header += '\n-# Target message `' + data.editingMessageId + '`';
-    }
-    return header;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
  * PANEL CONTROLS — one select menu per row
  *
@@ -555,9 +537,15 @@ function createPreviewContainer(data, user, guild, channel) {
         container.setAccentColor(colorValue);
     }
 
-    const processedThumb = data.thumbnail ? replacePlaceholders(data.thumbnail, user, guild, channel) : null;
+    /* URLs must go through safePreviewUrl, not just .filter(Boolean).
+     * A value that is not http(s)/attachment, or that still contains an
+     * unresolved {placeholder}, makes MediaGalleryItemBuilder.setURL() throw -
+     * which failed the whole SEND, not just the image. Previously only the
+     * in-panel preview was guarded and the send path was not. */
+    const ctx = { user, guild, channel };
+    const processedThumb = safePreviewUrl(data.thumbnail, ctx);
     const imageList = (data.images?.length ? data.images : (data.image ? [data.image] : []))
-        .map(url => replacePlaceholders(url, user, guild, channel))
+        .map(url => safePreviewUrl(url, ctx))
         .filter(Boolean);
 
     const imgPos = data.imagePosition || 'bottom';

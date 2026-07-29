@@ -13634,6 +13634,36 @@ client.on('guildMemberRemove', async (member) => {
                                         }
                                     } catch (e) { log.error('Leave action buttons: ' + e.message); }
                                 }
+                                // Select menus attached to the leave message. The
+                                // dashboard has had a picker for leave.actionMenus for
+                                // a while, but nothing rendered it, so attaching one
+                                // silently did nothing. customId must be select_cmd_ —
+                                // the prefix the isStringSelectMenu router handles.
+                                if (leaveConfig.actionMenus?.length > 0) {
+                                    try {
+                                        if (jsonStore.has('select-menus')) {
+                                            const menuConfig = jsonStore.peek('select-menus') || {};
+                                            const gId = member.guild.id;
+                                            const guildMenus = menuConfig[gId] || {};
+                                            for (const menuId of leaveConfig.actionMenus.slice(0, 5)) {
+                                                const md = guildMenus[menuId];
+                                                if (!md || !md.options?.length) continue;
+                                                const sm = new StringSelectMenuBuilder()
+                                                    .setCustomId(`select_cmd_${gId}_${menuId}`)
+                                                    .setPlaceholder(md.placeholder || 'Select an option...')
+                                                    .setMinValues(md.minValues ?? 1)
+                                                    .setMaxValues(md.maxValues ?? 1);
+                                                sm.addOptions(md.options.slice(0, 25).map(o => ({
+                                                    label: String(o.label ?? 'Option').slice(0, 100),
+                                                    value: String(o.value ?? o.label ?? 'option').slice(0, 100),
+                                                    description: o.description ? String(o.description).slice(0, 100) : undefined,
+                                                    emoji: o.emoji || undefined
+                                                })));
+                                                container.addActionRowComponents(new ActionRowBuilder().addComponents(sm));
+                                            }
+                                        }
+                                    } catch (e) { log.error('Leave action menus: ' + e.message); }
+                                }
                             }
 
                             // Buttons at top — placed before content
