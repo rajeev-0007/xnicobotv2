@@ -6503,6 +6503,19 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
+            /* Anti-spam panel (antispam:*). Routed by PREFIX so adding a menu to
+             * the panel cannot silently produce an unrouted component. */
+            if (interaction.customId.startsWith('antispam:')) {
+                const antispamCmd = client.commands.get('antispam');
+                if (antispamCmd?.handleInteraction) {
+                    try {
+                        const handled = await antispamCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`AntiSpam Panel: ${e.message}`, e); }
+                }
+                return;
+            }
+
             /* Select-menu config panels (welcomer:*, msgbuilder:*).
              *
              * Routed by PREFIX, not by an allowlist of exact ids. The legacy
@@ -8015,6 +8028,19 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isChannelSelectMenu()) {
+            /* Anti-spam panel (antispam:*). Routed by PREFIX so adding a menu to
+             * the panel cannot silently produce an unrouted component. */
+            if (interaction.customId.startsWith('antispam:')) {
+                const antispamCmd = client.commands.get('antispam');
+                if (antispamCmd?.handleInteraction) {
+                    try {
+                        const handled = await antispamCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`AntiSpam Panel: ${e.message}`, e); }
+                }
+                return;
+            }
+
             /* Select-menu config panels (welcomer:*, msgbuilder:*).
              *
              * Routed by PREFIX, not by an allowlist of exact ids. The legacy
@@ -8282,6 +8308,19 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isRoleSelectMenu()) {
+            /* Anti-spam panel (antispam:*). Routed by PREFIX so adding a menu to
+             * the panel cannot silently produce an unrouted component. */
+            if (interaction.customId.startsWith('antispam:')) {
+                const antispamCmd = client.commands.get('antispam');
+                if (antispamCmd?.handleInteraction) {
+                    try {
+                        const handled = await antispamCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`AntiSpam Panel: ${e.message}`, e); }
+                }
+                return;
+            }
+
             // J2C allowed-roles picker (premium-only feature)
             if (interaction.customId.startsWith('j2cset_select_roles_')) {
                 const j2cCmd = client.commands.get('join2create-setup');

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, MessageFlags, PermissionFlagsBits, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, MessageFlags, PermissionFlagsBits, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ChannelType } = require('discord.js');
 const { buildErrorResponse, COLORS, EMOJIS } = require('../../utils/responseBuilder');
 
 const jsonStore = require('../../utils/jsonStore');
@@ -77,47 +77,184 @@ const FILTER_INFO = {
 const FILTER_NAMES = Object.keys(FILTER_INFO);
 const VALID_ACTIONS = ['timeout', 'kick', 'ban', 'warn'];
 
-function buildStatusPanel(guildConfig) {
-    const status = guildConfig.enabled ? EMOJIS.SUCCESS + ' Enabled' : EMOJIS.ERROR + ' Disabled';
-    const actionMap = { timeout: 'Timeout', kick: 'Kick', ban: 'Ban', mute: 'Mute', warn: 'Warn' };
-    const actionLabel = actionMap[guildConfig.action] || guildConfig.action;
-    const whitelistedRoles = guildConfig.whitelistedRoles?.length ? guildConfig.whitelistedRoles.map(id => '<@&' + id + '>').join(', ') : 'None';
-    const whitelistedChannels = guildConfig.whitelistedChannels?.length ? guildConfig.whitelistedChannels.map(id => '<#' + id + '>').join(', ') : 'None';
-    const logChannel = guildConfig.logChannel ? '<#' + guildConfig.logChannel + '>' : 'Not set';
-    const filters = guildConfig.filters || getDefaultGuildConfig().filters;
-    let filterStatus = '';
-    for (const [key, info] of Object.entries(FILTER_INFO)) {
-        const f = filters[key];
-        const on = f?.enabled ? '<:Toggleon:1521227758011809964>' : '<:Toggleoff:1521227763816595559>';
-        filterStatus += on + ' ' + info.emoji + ' **' + info.label + '**\n';
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PANEL — one select menu per row
+ *
+ * Conventions match welcomer.js and message-builder.js:
+ *   - ids are `antispam:<control>`
+ *   - the ONLY emojis are the enable/disable pair. The filter list previously
+ *     carried a unicode icon each (speech balloon, grinning face, capital abcd,
+ *     link, framed picture, label, loudspeaker, clipboard, envelope) which
+ *     competed with the actual on/off state for attention
+ *   - the filter row is a multi-select whose SELECTION IS THE STATE, applied
+ *     absolutely, so it is idempotent
+ *
+ * Anti-spam is a STANDALONE system: it does not read, write or sync with
+ * /automod, and it does not create Discord native AutoMod rules. Enforcement is
+ * entirely bot-side, in the guildMemberAdd/messageCreate path. Keeping it
+ * separate avoids fighting /automod over Discord's Spam and MentionSpam
+ * triggers, which allow only one rule each per guild.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const TOGGLE_ON = '<:Toggleon:1521227758011809964>';
+const TOGGLE_OFF = '<:Toggleoff:1521227763816595559>';
+const mark = (v) => (v ? TOGGLE_ON : TOGGLE_OFF);
+
+const AID = {
+    filters: 'antispam:filters',
+    system: 'antispam:system',
+    action: 'antispam:action',
+    configure: 'antispam:configure',
+    log: 'antispam:log',
+    exemptRoles: 'antispam:exempt:roles',
+    exemptChannels: 'antispam:exempt:channels',
+};
+
+/** Human summary of a filter's thresholds, used as the option description. */
+function filterSummary(key, f) {
+    const c = f || {};
+    switch (key) {
+        case 'messageSpam': return `${c.maxMessages ?? 5} msgs / ${Math.round((c.interval ?? 5000) / 1000)}s`;
+        case 'emojiSpam': return `over ${c.maxEmojis ?? 10} emojis`;
+        case 'capsSpam': return `over ${c.maxPercent ?? 70}% caps, min ${c.minLength ?? 10} chars`;
+        case 'linkSpam': return `over ${c.maxLinks ?? 3} links` + ((c.whitelistedDomains || []).length ? `, ${c.whitelistedDomains.length} allowed` : '');
+        case 'imageSpam': return `${c.maxImages ?? 3} images / ${Math.round((c.interval ?? 10000) / 1000)}s`;
+        case 'stickerSpam': return `${c.maxStickers ?? 3} stickers / ${Math.round((c.interval ?? 10000) / 1000)}s`;
+        case 'mentionSpam': return `over ${c.maxMentions ?? 5} mentions`;
+        case 'duplicateSpam': return `${c.maxDuplicates ?? 3} repeats / ${Math.round((c.interval ?? 30000) / 1000)}s`;
+        case 'inviteSpam': return 'any Discord invite link';
+        case 'newlineSpam': return `over ${c.maxNewlines ?? 15} line breaks`;
+        default: return '';
     }
-    return new ContainerBuilder()
+}
+
+function menuRow(customId, placeholder, options, { min = 1, max = 1 } = {}) {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder(placeholder)
+            .setMinValues(min)
+            .setMaxValues(max)
+            .addOptions(options.slice(0, 25).map((o) => {
+                const opt = new StringSelectMenuOptionBuilder().setValue(o.value).setLabel(o.label.slice(0, 100));
+                if (o.description) opt.setDescription(o.description.slice(0, 100));
+                if (o.emoji) opt.setEmoji(o.emoji);
+                if (o.default) opt.setDefault(true);
+                return opt;
+            }))
+    );
+}
+
+function buildAntispamContainer(guildConfig) {
+    const cfg = guildConfig || getDefaultGuildConfig();
+    const filters = cfg.filters || getDefaultGuildConfig().filters;
+    const keys = Object.keys(FILTER_INFO);
+
+    const onCount = keys.filter(k => filters[k] && filters[k].enabled).length;
+    const activeLabels = keys.filter(k => filters[k] && filters[k].enabled).map(k => FILTER_INFO[k].label);
+
+    let head = '# Anti-spam\n';
+    head += '-# Catches flooding, mass mentions, duplicate text and other spam.\n';
+    head += '-# Enforced by the bot, independently of /automod.\n\n';
+    head += mark(cfg.enabled) + ' **Anti-spam**  \u00b7  punish `' + (cfg.action || 'timeout') + '`';
+    head += '  \u00b7  log ' + (cfg.logChannel ? '<#' + cfg.logChannel + '>' : '`not set`') + '\n';
+    if (!cfg.enabled) {
+        head += '-# Turn it on from the Protection menu below.\n';
+    }
+
+    head += '\n**Filters** \u2014 ' + onCount + ' of ' + keys.length + ' on\n';
+    head += (activeLabels.length ? activeLabels.join(', ') : '*none enabled*') + '\n';
+
+    const exemptR = (cfg.whitelistedRoles || []).length;
+    const exemptC = (cfg.whitelistedChannels || []).length;
+    head += '\n**Exempt** \u00b7 ' + exemptR + ' role(s), ' + exemptC + ' channel(s)';
+
+    const container = new ContainerBuilder()
         .setAccentColor(COLORS.PRIMARY)
-        .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-            '# <:Shield:1521227694677692467> Anti-Spam Configuration\n\n' +
-            '### ' + EMOJIS.STATS + ' General Settings\n' +
-            '**Status:** ' + status + '\n' +
-            '**Action:** ' + actionLabel + '\n' +
-            '**Log Channel:** ' + logChannel + '\n\n' +
-            '### <:Userplus:1521227719621218477> Whitelists\n' +
-            '**Roles:** ' + whitelistedRoles + '\n' +
-            '**Channels:** ' + whitelistedChannels + '\n\n' +
-            '### <:Fire:1521227907647668374> Spam Filters\n' +
-            filterStatus + '\n' +
-            '### ' + EMOJIS.CHANNEL + ' Commands\n' +
-            '`/antispam enable` — Enable anti-spam\n' +
-            '`/antispam disable` — Disable anti-spam\n' +
-            '`/antispam action <type>` — Punishment (timeout/kick/ban/warn)\n' +
-            '`/antispam log <channel>` — Set log channel\n' +
-            '`/antispam filter <name> <on/off>` — Toggle a filter\n' +
-            '`/antispam configure <filter>` — Configure filter settings\n' +
-            '`/antispam whitelist-role <role>` — Toggle role whitelist\n' +
-            '`/antispam whitelist-channel <channel>` — Toggle channel whitelist\n' +
-            '`/antispam reset` — Reset all settings'
-        ))
-        .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-        .addTextDisplayComponents(new TextDisplayBuilder().setContent(createFooterText()))
-;
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(head))
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+
+    // Filters: the selection IS the state, applied absolutely.
+    container.addActionRowComponents(menuRow(AID.filters, 'Filters \u2014 ' + onCount + ' of ' + keys.length + ' on',
+        keys.map(k => ({
+            value: k,
+            label: FILTER_INFO[k].label,
+            description: filterSummary(k, filters[k]),
+            emoji: mark(!!(filters[k] && filters[k].enabled)),
+            default: !!(filters[k] && filters[k].enabled),
+        })), { min: 0, max: keys.length }));
+
+    container.addActionRowComponents(menuRow(AID.system, 'Protection', [
+        { value: 'antispam:set:enabled:on', label: 'Enable anti-spam', description: 'Start acting on spam', emoji: mark(!!cfg.enabled) },
+        { value: 'antispam:set:enabled:off', label: 'Disable anti-spam', description: 'Stop acting, keep the settings', emoji: mark(!cfg.enabled) },
+        { value: 'antispam:reset', label: 'Reset all settings', description: 'Back to defaults' },
+    ]));
+
+    const act = cfg.action || 'timeout';
+    container.addActionRowComponents(menuRow(AID.action, 'Punishment', [
+        { value: 'antispam:set:action:warn', label: 'Warn', description: 'Delete and notify only', emoji: mark(act === 'warn') },
+        { value: 'antispam:set:action:timeout', label: 'Timeout', description: 'Mute for ' + Math.round((cfg.timeoutDuration || 60000) / 1000) + 's', emoji: mark(act === 'timeout') },
+        { value: 'antispam:set:action:kick', label: 'Kick', description: 'Remove from the server', emoji: mark(act === 'kick') },
+        { value: 'antispam:set:action:ban', label: 'Ban', description: 'Permanent removal', emoji: mark(act === 'ban') },
+    ]));
+
+    container.addActionRowComponents(menuRow(AID.configure, 'Adjust a filter\u2019s thresholds',
+        keys.filter(k => CONFIGURABLE.includes(k)).map(k => ({
+            value: k,
+            label: FILTER_INFO[k].label,
+            description: filterSummary(k, filters[k]),
+            emoji: mark(!!(filters[k] && filters[k].enabled)),
+        }))));
+
+    container.addActionRowComponents(new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder()
+            .setCustomId(AID.log)
+            .setPlaceholder('Log channel for spam actions')
+            .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            .setMinValues(0)
+            .setMaxValues(1)
+    ));
+
+    container.addActionRowComponents(new ActionRowBuilder().addComponents(
+        new RoleSelectMenuBuilder()
+            .setCustomId(AID.exemptRoles)
+            .setPlaceholder('Roles exempt from anti-spam')
+            .setMinValues(0)
+            .setMaxValues(20)
+    ));
+
+    container.addActionRowComponents(new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder()
+            .setCustomId(AID.exemptChannels)
+            .setPlaceholder('Channels exempt from anti-spam')
+            .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum)
+            .setMinValues(0)
+            .setMaxValues(25)
+    ));
+
+    return container;
+}
+
+/** Filters that expose numeric thresholds worth a modal. */
+const CONFIGURABLE = ['messageSpam', 'emojiSpam', 'capsSpam', 'linkSpam', 'imageSpam', 'stickerSpam', 'mentionSpam', 'duplicateSpam', 'newlineSpam'];
+
+/**
+ * Applies a filter multi-select absolutely: the submitted values are the
+ * complete set the admin wants on, so replaying it is a no-op.
+ */
+function applyFilterSelection(filters, selected) {
+    const want = new Set(selected || []);
+    const changed = [];
+    for (const key of Object.keys(FILTER_INFO)) {
+        if (!filters[key]) filters[key] = { ...getDefaultGuildConfig().filters[key] };
+        const before = !!filters[key].enabled;
+        const after = want.has(key);
+        if (before !== after) {
+            filters[key].enabled = after;
+            changed.push(`${mark(after)} ${FILTER_INFO[key].label}`);
+        }
+    }
+    return changed;
 }
 
 function buildOk(title, desc) {
@@ -173,7 +310,7 @@ module.exports = {
 
             if (sub === 'enable') { config[interaction.guild.id].enabled = true; saveConfig(config); return interaction.reply({ components: [buildOk('Anti-Spam Enabled', 'Messages triggering spam filters will result in **' + guildConfig.action + '**.')], flags: MessageFlags.IsComponentsV2 }); }
             if (sub === 'disable') { config[interaction.guild.id].enabled = false; saveConfig(config); return interaction.reply({ components: [buildOk('Anti-Spam Disabled', 'Spam protection has been turned off.')], flags: MessageFlags.IsComponentsV2 }); }
-            if (sub === 'status') { return interaction.reply({ components: [buildStatusPanel(guildConfig)], flags: MessageFlags.IsComponentsV2 }); }
+            if (sub === 'status') { return interaction.reply({ components: [buildAntispamContainer(guildConfig)], flags: MessageFlags.IsComponentsV2 }); }
 
             if (sub === 'action') {
                 const type = interaction.options.getString('type');
@@ -225,7 +362,7 @@ module.exports = {
                 return interaction.reply({ components: [buildOk('Anti-Spam Reset', 'All settings reset to defaults.')], flags: MessageFlags.IsComponentsV2 });
             }
 
-            await interaction.reply({ components: [buildStatusPanel(guildConfig)], flags: MessageFlags.IsComponentsV2 });
+            await interaction.reply({ components: [buildAntispamContainer(guildConfig)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('[AntiSpam] Error:', error);
             const container = buildErrorResponse('Error', 'An error occurred.', error.message);
@@ -242,7 +379,7 @@ module.exports = {
             const guildConfig = ensureGuildConfig(config, message.guild.id);
             const sub = args[0]?.toLowerCase();
 
-            if (!sub || sub === 'status') { return message.reply({ components: [buildStatusPanel(guildConfig)], flags: MessageFlags.IsComponentsV2 }); }
+            if (!sub || sub === 'status') { return message.reply({ components: [buildAntispamContainer(guildConfig)], flags: MessageFlags.IsComponentsV2 }); }
             if (sub === 'enable') { config[message.guild.id].enabled = true; saveConfig(config); return message.reply({ components: [buildOk('Anti-Spam Enabled', 'Messages triggering spam filters will result in **' + guildConfig.action + '**.')], flags: MessageFlags.IsComponentsV2 }); }
             if (sub === 'disable') { config[message.guild.id].enabled = false; saveConfig(config); return message.reply({ components: [buildOk('Anti-Spam Disabled', 'Spam protection has been turned off.')], flags: MessageFlags.IsComponentsV2 }); }
 
@@ -306,7 +443,7 @@ module.exports = {
                 return message.reply({ components: [buildOk('Anti-Spam Reset', 'All settings reset to defaults.')], flags: MessageFlags.IsComponentsV2 });
             }
 
-            return message.reply({ components: [buildStatusPanel(guildConfig)], flags: MessageFlags.IsComponentsV2 });
+            return message.reply({ components: [buildAntispamContainer(guildConfig)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('[AntiSpam] Error:', error);
             return message.reply({ components: [buildErrorResponse('Error', 'An error occurred.', error.message)], flags: MessageFlags.IsComponentsV2 });
@@ -314,17 +451,112 @@ module.exports = {
     },
 
     async handleInteraction(interaction) {
-        if (!interaction.customId?.startsWith('antispam_')) return false;
-        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-            await interaction.reply({ components: [buildErr('Permission Denied', 'You need **Administrator** permission.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+        const rawId = interaction.customId || '';
+        const isPanel = rawId.startsWith('antispam:');
+        if (!isPanel && !rawId.startsWith('antispam_')) return false;
+
+        if (!interaction.guild || !interaction.member) return false;
+        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+            await interaction.reply({ content: EMOJIS.ERROR + ' You need Manage Server permission.', flags: MessageFlags.Ephemeral });
             return true;
         }
+
+        const guildId = interaction.guild.id;
         const config = loadConfig();
-        const guildConfig = ensureGuildConfig(config, interaction.guild.id);
-        if (interaction.customId.startsWith('antispam_configure_modal_') && interaction.isModalSubmit()) {
-            const filterName = interaction.customId.replace('antispam_configure_modal_', '');
-            return handleConfigureModal(interaction, config, guildConfig, filterName);
+        ensureGuildConfig(config, guildId);
+        const guildConfig = config[guildId];
+        if (!guildConfig.filters) guildConfig.filters = getDefaultGuildConfig().filters;
+
+        const persist = async (note) => {
+            config[guildId] = guildConfig;
+            saveConfig(config);
+            await interaction.update({
+                components: [buildAntispamContainer(guildConfig)],
+                flags: MessageFlags.IsComponentsV2
+            });
+            if (note) {
+                await interaction.followUp({ content: note, flags: MessageFlags.Ephemeral }).catch(() => { });
+            }
+        };
+
+        /* ── filters: selection IS state ── */
+        if (rawId === AID.filters) {
+            applyFilterSelection(guildConfig.filters, interaction.values);
+            await persist();
+            return true;
         }
+
+        /* ── single-choice menus dispatch on their option value ── */
+        const chosen = isPanel ? (interaction.values && interaction.values[0]) || rawId : rawId;
+
+        if (chosen === 'antispam:reset') {
+            config[guildId] = getDefaultGuildConfig();
+            saveConfig(config);
+            await interaction.update({
+                components: [buildAntispamContainer(config[guildId])],
+                flags: MessageFlags.IsComponentsV2
+            });
+            return true;
+        }
+
+        /* Discrete setters: `antispam:set:<field>:<value>`.
+         * Custom ids come from the client, so both field and value are checked
+         * against a whitelist rather than written through. */
+        if (typeof chosen === 'string' && chosen.startsWith('antispam:set:')) {
+            const parts = chosen.split(':');
+            const field = parts[2];
+            const value = parts[3];
+            const ALLOWED = {
+                enabled: ['on', 'off'],
+                action: VALID_ACTIONS,
+            };
+            if (!ALLOWED[field] || !ALLOWED[field].includes(value)) {
+                await interaction.reply({
+                    content: EMOJIS.ERROR + ' That option is not recognised. Re-open the panel with `/antispam status`.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return true;
+            }
+            if (field === 'enabled') guildConfig.enabled = (value === 'on');
+            else if (field === 'action') guildConfig.action = value;
+            await persist();
+            return true;
+        }
+
+        if (rawId === AID.log) {
+            const picked = (interaction.values || [])[0] || null;
+            guildConfig.logChannel = picked;
+            await persist();
+            return true;
+        }
+
+        if (rawId === AID.exemptRoles) {
+            guildConfig.whitelistedRoles = (interaction.values || []).slice(0, 20);
+            await persist();
+            return true;
+        }
+
+        if (rawId === AID.exemptChannels) {
+            guildConfig.whitelistedChannels = (interaction.values || []).slice(0, 25);
+            await persist();
+            return true;
+        }
+
+        /* ── threshold modal for one filter ── */
+        if (rawId === AID.configure) {
+            const filterName = (interaction.values || [])[0];
+            if (!FILTER_INFO[filterName]) {
+                await interaction.reply({ content: EMOJIS.ERROR + ' Unknown filter.', flags: MessageFlags.Ephemeral });
+                return true;
+            }
+            return await showConfigureModal(interaction, guildConfig, filterName);
+        }
+
+        /* ── modal submit from the threshold form ── */
+        if (rawId.startsWith('antispam_configure_modal_')) {
+            return await handleConfigureModal(interaction, config, guildConfig, rawId.replace('antispam_configure_modal_', ''));
+        }
+
         return false;
     },
 
