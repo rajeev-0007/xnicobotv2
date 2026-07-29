@@ -6503,6 +6503,36 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
+            /* Select-menu config panels (welcomer:*, msgbuilder:*).
+             *
+             * Routed by PREFIX, not by an allowlist of exact ids. The legacy
+             * routes below match exact ids or narrow prefixes like
+             * 'welcomer_select_', which means adding a menu to a panel silently
+             * produces an unrouted component — the user just sees "This
+             * interaction failed". The llb_periods case commented above was
+             * exactly that. A colon namespace also cannot collide with the
+             * legacy underscore ids. */
+            if (interaction.customId.startsWith('welcomer:')) {
+                const welcomerCmd = client.commands.get('welcomer');
+                if (welcomerCmd?.handleInteraction) {
+                    try {
+                        const handled = await welcomerCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`Welcomer Panel Select: ${e.message}`, e); }
+                }
+                return;
+            }
+            if (interaction.customId.startsWith('msgbuilder:')) {
+                const msgBuilderCmd = client.commands.get('message-builder');
+                if (msgBuilderCmd?.handleInteraction) {
+                    try {
+                        const handled = await msgBuilderCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`Message Builder Panel Select: ${e.message}`, e); }
+                }
+                return;
+            }
+
             // Live Leaderboard string selects: multi-period picker, legacy
             // single period, and entry-count. (llb_periods/llb_count were added
             // to the command but weren't routed here — that unrouted select was
@@ -8001,6 +8031,36 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isChannelSelectMenu()) {
+            /* Select-menu config panels (welcomer:*, msgbuilder:*).
+             *
+             * Routed by PREFIX, not by an allowlist of exact ids. The legacy
+             * routes below match exact ids or narrow prefixes like
+             * 'welcomer_select_', which means adding a menu to a panel silently
+             * produces an unrouted component — the user just sees "This
+             * interaction failed". The llb_periods case commented above was
+             * exactly that. A colon namespace also cannot collide with the
+             * legacy underscore ids. */
+            if (interaction.customId.startsWith('welcomer:')) {
+                const welcomerCmd = client.commands.get('welcomer');
+                if (welcomerCmd?.handleInteraction) {
+                    try {
+                        const handled = await welcomerCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`Welcomer Panel Select: ${e.message}`, e); }
+                }
+                return;
+            }
+            if (interaction.customId.startsWith('msgbuilder:')) {
+                const msgBuilderCmd = client.commands.get('message-builder');
+                if (msgBuilderCmd?.handleInteraction) {
+                    try {
+                        const handled = await msgBuilderCmd.handleInteraction(interaction);
+                        if (handled) return;
+                    } catch (e) { log.error(`Message Builder Panel Select: ${e.message}`, e); }
+                }
+                return;
+            }
+
             // Live Leaderboard channel selects
             if (interaction.customId === 'llb_channels' || interaction.customId === 'llb_target') {
                 const llbCmd = client.commands.get('liveleaderboard');
