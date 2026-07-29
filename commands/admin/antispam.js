@@ -510,7 +510,16 @@ module.exports = {
                 enabled: ['on', 'off'],
                 action: VALID_ACTIONS,
             };
-            if (!ALLOWED[field] || !ALLOWED[field].includes(value)) {
+            /* Object.prototype keys are inherited, so a crafted field of
+             * `__proto__` or `constructor` made ALLOWED[field] truthy and the
+             * guard passed — then .includes() was not a function and the handler
+             * threw. Check OWN properties, and require an actual array. */
+            /* Object.prototype keys are inherited, so a crafted field of
+             * `__proto__` or `constructor` made ALLOWED[field] truthy and the
+             * guard passed — then .includes() was not a function and the handler
+             * threw. Check OWN properties, and require an actual array. */
+            const allowedValues = Object.prototype.hasOwnProperty.call(ALLOWED, field) ? ALLOWED[field] : null;
+            if (!Array.isArray(allowedValues) || !allowedValues.includes(value)) {
                 await interaction.reply({
                     content: EMOJIS.ERROR + ' That option is not recognised. Re-open the panel with `/antispam status`.',
                     flags: MessageFlags.Ephemeral

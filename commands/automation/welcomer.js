@@ -1434,7 +1434,12 @@ module.exports = {
             };
             const FIELD_KEY = { mode: 'mode', imgpos: 'imagePosition', btnpos: 'buttonPosition' };
 
-            if (!ALLOWED[field] || !ALLOWED[field].includes(value)) {
+            /* Object.prototype keys are inherited, so a crafted field of
+             * `__proto__` or `constructor` made ALLOWED[field] truthy and the
+             * guard passed — then .includes() was not a function and the handler
+             * threw. Check OWN properties, and require an actual array. */
+            const allowedValues = Object.prototype.hasOwnProperty.call(ALLOWED, field) ? ALLOWED[field] : null;
+            if (!Array.isArray(allowedValues) || !allowedValues.includes(value)) {
                 await interaction.reply({
                     content: '<:Cancel:1521227723916181644> That option is not recognised. Re-open the panel with `/welcomer`.',
                     flags: MessageFlags.Ephemeral
