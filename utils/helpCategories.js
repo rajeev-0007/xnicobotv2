@@ -159,7 +159,7 @@ const CATEGORY_GROUP_RULES = {
     // ── 13. Basic & Misc ─────────────────────────────────────
     basic: [
         { name: 'Bot Core',            emoji: '<:xnico:1521228240440660180>',       cmds: ['help', 'botinfo', 'ping', 'invite', 'uptime', 'vote', 'myvotes', 'support', 'variables'] },
-        { name: 'Premium',             emoji: '<:Crown:1521227739988889764>',     cmds: ['premium', 'redeemkey', 'redeemserverkey', 'serverpremium'] },
+        { name: 'Premium',             emoji: '<:Crown:1521227739988889764>',     cmds: ['premium', 'redeemkey', 'redeemserverkey'] },
         { name: 'Reminders & AFK',     emoji: '<:Lightning:1521227915537285150>',  cmds: ['afk', 'reminder', 'timer', 'announce', 'timezone'] },
         { name: 'Lookup & APIs',       emoji: '<:Attach:1521228039135170722>',     cmds: ['github', 'npm', 'define', 'urban', 'urbanrandom', 'wikipedia', 'reddit', 'youtube', 'yt', 'spotify', 'weather', 'color', 'ip', 'stockprice'] },
         { name: 'Media & Tools',       emoji: '<:Pin:1521227932625014916>',        cmds: ['image', 'screenshot', 'qrcode', 'shorten', 'pastebin', 'calculate', 'password', 'uuid', 'download'] },
@@ -282,7 +282,7 @@ const CATEGORY_GROUP_RULES = {
         { name: 'Runtime Control',     emoji: '<:Settings:1521227767780343879>',   cmds: ['shutdown', 'restart', 'maintenance', 'reload', 'eval', 'exec', 'emit', 'system', 'disablecommand'] },
         { name: 'Shard & Deploy',      emoji: '<:Refresh:1521227946441052420>',    cmds: ['force-sync', 'shard-status', 'command-stats'] },
         { name: 'Configuration',       emoji: '<:banhammer:1521227777083314529>',  cmds: ['apikeys', 'globalconfig', 'configview', 'configreset', 'lavalinkconfig', 'lavalinkinfo', 'setavatar', 'fetchmsg'] },
-        { name: 'Premium & Keys',      emoji: '<:Money:1521228266957045900>',      cmds: ['addpremium', 'removepremium', 'premiumstats', 'premiums', 'transferpremium', 'createkey', 'deletekey', 'listkeys', 'syncpremium'] },
+        { name: 'Premium & Keys',      emoji: '<:Money:1521228266957045900>',      cmds: ['addpremium', 'removepremium', 'addserverpremium', 'removeserverpremium', 'premiumstats', 'premiums', 'transferpremium', 'createkey', 'deletekey', 'listkeys', 'syncpremium'] },
         { name: 'Guild Management',    emoji: '<:Pin:1521227932625014916>',        cmds: ['serverlist', 'leaveguild', 'serverinfo-owner', 'guild-search', 'getinvite', 'partner'] },
         { name: 'User Management',     emoji: '<:Shield:1521227694677692467>',     cmds: ['globalban', 'globalunban', 'blacklist', 'noprefix', 'dmuser', 'userlookup', 'addowner', 'removeowner', 'listowners'] },
         { name: 'Badge System',        emoji: '<:Fire:1521227907647668374>',       cmds: ['badge-create', 'badge-edit', 'badge-give', 'badge-remove', 'badge-list'] },
