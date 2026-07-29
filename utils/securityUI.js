@@ -51,16 +51,10 @@ const SEC_COLORS = {
  * those modules, so the user got a silent "saved but does nothing"
  * outcome. Validate up-front instead.
  */
-const ACTIONS_FOR = {
-    banProtection:  ['remove_roles', 'kick', 'ban', 'timeout'],
-    kickProtection: ['remove_roles', 'kick', 'ban', 'timeout'],
-    channelDelete:  ['remove_roles', 'kick', 'ban', 'timeout'],
-    channelCreate:  ['remove_roles', 'kick', 'ban', 'timeout'],
-    roleDelete:     ['remove_roles', 'kick', 'ban', 'timeout'],
-    roleCreate:     ['remove_roles', 'kick', 'ban', 'timeout'],
-    webhookCreate:  ['remove_roles', 'kick', 'ban', 'timeout'],
-    botAdd:         ['kick_bot', 'kick_both', 'ban_bot'],
-};
+// Derived from utils/antinukeSchema — the single source of truth. This list
+// used to be maintained by hand here as well, so a protection added to the panel
+// but not here would silently reject every punishment as invalid.
+const ACTIONS_FOR = require('./antinukeSchema').ACTIONS_FOR;
 
 function isValidActionFor(moduleKey, action) {
     const allowed = ACTIONS_FOR[moduleKey];

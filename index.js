@@ -43,6 +43,9 @@ const { updateStatsChannels: updateServerStats } = require('./utils/serverStatsM
 const botCustomize = require('./utils/botCustomize');
 const { generateAIResponse, clearHistory } = require('./utils/aiChatManager');
 const { trackCommand } = require('./commands/owner/command-stats');
+// Single implementation of the AutoMod filter chain, shared by messageCreate and
+// messageUpdate so the two can no longer drift (see utils/automodScanner.js).
+const automodScanner = require('./utils/automodScanner');
 
 log.installConsoleInterceptors();
 
@@ -422,11 +425,24 @@ function updateAutomodCache(guildId, data) {
     } catch (e) { }
 }
 
+// Anti-nuke configs are merged over the schema defaults on every cache write.
+//
+// This is a correctness requirement, not tidiness. Guild rows already in
+// PostgreSQL predate the channelUpdate/roleUpdate protections, so they have no
+// such key. checkAntiNuke reads `config[action]?.enabled`, which would be
+// undefined for every existing server — the edit protections would silently
+// never fire for anyone who had already configured anti-nuke. Merging here
+// backfills them without needing a data migration.
+//
+// (This mirrors what automodCache already does via automodPanel.getGuildConfig;
+// antinukeCache was storing raw rows, which is why new sub-modules never
+// reached existing guilds.)
 async function loadAntinukeConfig() {
     try {
+        const { withDefaults } = require('./utils/antinukeSchema');
         const config = jsonStore.read('antinuke');
         for (const [guildId, data] of Object.entries(config)) {
-            if (data) antinukeCache.set(guildId, data);
+            if (data) antinukeCache.set(guildId, withDefaults(data));
         }
         const activeCount = [...antinukeCache.values()].filter(d => d.enabled).length;
         log.success(`AntiNuke: Loaded ${antinukeCache.size} configs (${activeCount} active)`);
@@ -437,7 +453,12 @@ async function loadAntinukeConfig() {
 
 function updateAntinukeCache(guildId, data) {
     if (data) {
-        antinukeCache.set(guildId, data);
+        try {
+            const { withDefaults } = require('./utils/antinukeSchema');
+            antinukeCache.set(guildId, withDefaults(data));
+        } catch {
+            antinukeCache.set(guildId, data);
+        }
     } else {
         antinukeCache.delete(guildId);
     }
@@ -445,8 +466,10 @@ function updateAntinukeCache(guildId, data) {
 
 function reloadAntinukeCache(config) {
     antinukeCache.clear();
+    let withDefaults = (d) => d;
+    try { ({ withDefaults } = require('./utils/antinukeSchema')); } catch { }
     for (const [guildId, data] of Object.entries(config)) {
-        if (data) antinukeCache.set(guildId, data);
+        if (data) antinukeCache.set(guildId, withDefaults(data));
     }
 }
 
@@ -2122,7 +2145,8 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         const antinukeCmd = client.commands.get('antinuke');
-        if (antinukeCmd && antinukeCmd.handleModal && interaction.customId.startsWith('antinuke_modal_')) {
+        if (antinukeCmd && antinukeCmd.handleModal
+            && (interaction.customId.startsWith('antinuke:modal:') || interaction.customId.startsWith('antinuke_modal_'))) {
             try {
                 await antinukeCmd.handleModal(interaction);
             } catch (error) {
@@ -3589,8 +3613,13 @@ client.on('interactionCreate', async (interaction) => {
                     return;
                 }
             }
-            if (interaction.customId.startsWith('automod_')) {
+            if (isAutomodInteractionId(interaction.customId)) {
                 try {
+                    // The command owns the panel, so it routes first.
+                    const amCmd = client.commands.get('automod');
+                    if (amCmd?.handleInteraction) {
+                        if (await amCmd.handleInteraction(interaction)) return;
+                    }
                     return await handleAutomodButtons(interaction);
                 } catch (error) {
                     log.error(`Automod Button Error: ${error.message}`, error);
@@ -3751,7 +3780,18 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 return;
             }
-            if (interaction.customId.startsWith('antinuke_')) {
+            if (isAntinukeInteractionId(interaction.customId)) {
+                // The command owns the panel, so it routes first. The
+                // interactionHandlers fallback is kept for anything it declines.
+                const anCmd = client.commands.get('antinuke');
+                if (anCmd?.handleInteraction) {
+                    try {
+                        if (await anCmd.handleInteraction(interaction)) return;
+                    } catch (error) {
+                        log.error(`Anti-Nuke button: ${error.message}`, error);
+                        return;
+                    }
+                }
                 const { handleAntiNukeButtons } = require('./utils/interactionHandlers');
                 return handleAntiNukeButtons(interaction);
             }
@@ -6708,8 +6748,12 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 return;
             }
-            if (interaction.customId.startsWith('automod_')) {
+            if (isAutomodInteractionId(interaction.customId)) {
                 try {
+                    const amCmd = client.commands.get('automod');
+                    if (amCmd?.handleInteraction) {
+                        if (await amCmd.handleInteraction(interaction)) return;
+                    }
                     return await handleAutomodSelectMenus(interaction);
                 } catch (error) {
                     log.error(`Automod Select Error: ${error.message}`, error);
@@ -7905,14 +7949,21 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
 
-            // Handle antinuke select menus
-            if (interaction.customId === 'antinuke_protection_select' || interaction.customId === 'antinuke_action_select' || interaction.customId === 'antinuke_power_select') {
+            // Handle antinuke select menus. Matched by prefix rather than by an
+            // explicit ID list: the panel is generated from the protection
+            // schema, so per-module IDs like `antinuke:mod:limit:roleUpdate`
+            // cannot be enumerated here without drifting again.
+            if (isAntinukeInteractionId(interaction.customId)) {
                 try {
+                    const anCmd = client.commands.get('antinuke');
+                    if (anCmd?.handleInteraction) {
+                        if (await anCmd.handleInteraction(interaction)) return;
+                    }
                     await handleAntiNukeButtons(interaction);
                 } catch (error) {
                     log.error(`Anti-Nuke select: ${error.message}`, error);
-                    if (!interaction.replied) {
-                        await interaction.reply({ content: '<:Cancel:1521227723916181644> There was an error!', flags: MessageFlags.Ephemeral });
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ content: '<:Cancel:1521227723916181644> There was an error!', flags: MessageFlags.Ephemeral }).catch(() => { });
                     }
                 }
                 return;
@@ -8012,7 +8063,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             // Anti-Nuke channel select menus
-            if (interaction.customId.startsWith('antinuke_select_')) {
+            if (interaction.customId.startsWith('antinuke_select_') || interaction.customId.startsWith('antinuke:pick:')) {
                 const antinukeCmd = client.commands.get('antinuke');
                 if (antinukeCmd && antinukeCmd.handleInteraction) {
                     try {
@@ -8047,7 +8098,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             // AutoMod channel select menus (interactionHandlers)
-            if (interaction.customId === 'automod_select_log_channel' || interaction.customId === 'automod_select_ignore_channels') {
+            if (interaction.customId === 'automod_select_log_channel' || interaction.customId === 'automod_select_ignore_channels' || interaction.customId.startsWith('automod:pick:')) {
                 try {
                     await handleModalSubmit(interaction);
                 } catch (error) {
@@ -8201,7 +8252,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             // Anti-Nuke role select menus
-            if (interaction.customId.startsWith('antinuke_select_')) {
+            if (interaction.customId.startsWith('antinuke_select_') || interaction.customId.startsWith('antinuke:pick:')) {
                 const antinukeCmd = client.commands.get('antinuke');
                 if (antinukeCmd && antinukeCmd.handleInteraction) {
                     try {
@@ -8249,7 +8300,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             // AutoMod role select menus (interactionHandlers)
-            if (interaction.customId === 'automod_select_bypass_role' || interaction.customId === 'automod_select_ignore_roles') {
+            if (interaction.customId === 'automod_select_bypass_role' || interaction.customId === 'automod_select_ignore_roles' || interaction.customId.startsWith('automod:pick:')) {
                 try {
                     await handleModalSubmit(interaction);
                 } catch (error) {
@@ -9019,246 +9070,34 @@ client.on('messageCreate', async (message) => {
     // image filter needs to see attachment-only messages too).
     const hasScannableAttachment = automodConfig?.aiImage?.enabled && message.attachments?.size > 0;
     if (automodConfig?.enabled && (message.content || hasScannableAttachment)) {
-        const isIgnored = automodConfig.ignoredRoles?.some(roleId => message.member?.roles.cache.has(roleId)) ||
-            automodConfig.ignoredChannels?.includes(message.channel.id) ||
-            message.member?.permissions.has('Administrator') ||
-            (automodConfig.bypassRoleId && message.member?.roles.cache.has(automodConfig.bypassRoleId));
+        // Exemption + the whole filter chain now live in utils/automodScanner so
+        // messageCreate and messageUpdate cannot drift apart again. The previous
+        // inline copy here was ~150 lines, duplicated (incompletely) below in
+        // messageUpdate — which is how aiText/aiImage ended up enforced only on
+        // newly posted messages.
+        const isIgnored = automodScanner.isExempt({
+            member: message.member,
+            channelId: message.channel.id,
+            config: automodConfig,
+        });
 
         if (!isIgnored) {
             const content = message.content;
-            const contentLower = content.toLowerCase();
-
-            // Collect ALL violations (don't short-circuit — check every filter like Discord AutoMod)
-            const violations = [];
-
-            // ── Bad Words Filter ──
-            if (automodConfig.badWords?.enabled && automodConfig.badWords.words?.length > 0) {
-                // Normalized form folds leetspeak / diacritics / in-word
-                // separators ("f.u.c.k", "fück", "ｆｕｃｋ" → "fuck") so
-                // obfuscated bad words still match.
-                let contentNorm = '';
-                try { contentNorm = require('./utils/aiModeration').normalizeText(content); } catch { }
-                for (const word of automodConfig.badWords.words) {
-                    const wordLower = word.toLowerCase().trim();
-                    if (!wordLower) continue;
-
-                    // Use word-boundary matching: match whole words, or phrases if the word contains spaces
-                    // Also match words embedded with leetspeak-style separators
-                    try {
-                        const escaped = wordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        const regex = new RegExp(`(?:^|[^a-zA-Z0-9])${escaped}(?:[^a-zA-Z0-9]|$)`, 'i');
-                        const wordNorm = (() => { try { return require('./utils/aiModeration').normalizeText(wordLower); } catch { return ''; } })();
-                        const normHit = wordNorm && contentNorm && (contentNorm.includes(wordNorm));
-                        if (regex.test(contentLower) || contentLower === wordLower || normHit) {
-                            violations.push({
-                                filter: 'badWords',
-                                action: automodConfig.badWords.action || 'delete',
-                                reason: `Bad word detected: ||${wordLower}||`
-                            });
-                            break; // One bad word is enough
-                        }
-                    } catch (e) {
-                        // Fallback for invalid regex: exact substring match for multi-word phrases
-                        if (contentLower.includes(wordLower)) {
-                            violations.push({
-                                filter: 'badWords',
-                                action: automodConfig.badWords.action || 'delete',
-                                reason: `Bad word detected`
-                            });
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // ── Spam Filter ──
-            if (automodConfig.spam?.enabled) {
-                const userId = message.author.id;
-                const key = `${guildId}-${userId}`;
-                const now = Date.now();
-                const timeWindow = automodConfig.spam.timeWindow || 5000;
-                const messageLimit = automodConfig.spam.messageLimit || 5;
-
-                if (!spamTracker.has(key)) {
-                    spamTracker.set(key, []);
-                }
-
-                const userMessages = spamTracker.get(key);
-                userMessages.push(now);
-
-                // Clean old entries inline
-                const recentMessages = userMessages.filter(time => now - time < timeWindow);
-                spamTracker.set(key, recentMessages);
-
-                if (recentMessages.length >= messageLimit) {
-                    violations.push({
-                        filter: 'spam',
-                        action: automodConfig.spam.action || 'timeout',
-                        reason: `Spam detected (${recentMessages.length} msgs in ${timeWindow / 1000}s)`
-                    });
-                }
-
-                // Periodic spamTracker cleanup to prevent memory leaks
-                if (spamTracker.size > 500) {
-                    const cleanupNow = Date.now();
-                    for (const [trackerKey, msgs] of spamTracker.entries()) {
-                        const recent = msgs.filter(t => cleanupNow - t < 30000);
-                        if (recent.length === 0) spamTracker.delete(trackerKey);
-                        else spamTracker.set(trackerKey, recent);
-                    }
-                }
-            }
-
-            // ── Link Filter ──
-            if (automodConfig.links?.enabled) {
-                const urlRegex = /https?:\/\/[^\s<]+|www\.[^\s<]+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(com|net|org|io|gg|tv|me|co|xyz|info|online|site|tech|dev|app|live|pro|cc|ru|cn|tk|ml|ga|cf|gq|pw|top|club|vip|ws|link|click|download|stream|fun|icu|buzz|monster|rest|hair|sbs|cfd)(?:[\/\?#][^\s]*)?/gi;
-                const urls = content.match(urlRegex);
-
-                if (urls && urls.length > 0) {
-                    const whitelist = automodConfig.links.whitelist || [];
-                    let hasBlockedLink = false;
-
-                    if (whitelist.length === 0) {
-                        // No whitelist = block all links
-                        hasBlockedLink = true;
-                    } else {
-                        // Check each URL against whitelist
-                        for (const url of urls) {
-                            const urlLower = url.toLowerCase();
-                            const isAllowed = whitelist.some(domain => {
-                                const domainLower = domain.toLowerCase().trim();
-                                // Match the domain anywhere in the URL
-                                return urlLower.includes(domainLower);
-                            });
-                            if (!isAllowed) {
-                                hasBlockedLink = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (hasBlockedLink) {
-                        violations.push({
-                            filter: 'links',
-                            action: automodConfig.links.action || 'delete',
-                            reason: 'Unauthorized link detected'
-                        });
-                    }
-                }
-            }
-
-            // ── Discord Invite Filter ──
-            if (automodConfig.invites?.enabled) {
-                // Comprehensive invite regex: covers discord.gg, discord.com/invite, discordapp.com/invite, dsc.gg, invite.gg
-                const inviteRegex = /(discord\.gg|discord(?:app)?\.com\/invite|dsc\.gg|invite\.gg|discord\.me)\/[a-zA-Z0-9-]+/gi;
-                if (inviteRegex.test(content)) {
-                    violations.push({
-                        filter: 'invites',
-                        action: automodConfig.invites.action || 'delete',
-                        reason: 'Discord invite link detected'
-                    });
-                }
-            }
-
-            // ── Mass Mention Filter ──
-            if (automodConfig.massMention?.enabled) {
-                const mentionLimit = automodConfig.massMention.limit || 5;
-                // Count user mentions + role mentions + @everyone/@here
-                const userMentions = message.mentions.users.size;
-                const roleMentions = message.mentions.roles.size;
-                const everyoneMention = message.mentions.everyone ? 1 : 0;
-                const totalMentions = userMentions + roleMentions + everyoneMention;
-
-                if (totalMentions >= mentionLimit) {
-                    violations.push({
-                        filter: 'massMention',
-                        action: automodConfig.massMention.action || 'delete',
-                        reason: `Mass mention detected (${totalMentions} mentions)`
-                    });
-                }
-            }
-
-            // ── Excessive Caps Filter ──
-            if (automodConfig.caps?.enabled) {
-                const minLength = automodConfig.caps.minLength || 10;
-                const capsPercentage = automodConfig.caps.percentage || 70;
-                // Only check letters (ignore numbers, spaces, symbols)
-                const letters = content.replace(/[^a-zA-Z]/g, '');
-
-                if (letters.length >= minLength) {
-                    const upperCount = (content.match(/[A-Z]/g) || []).length;
-                    const ratio = (upperCount / letters.length) * 100;
-
-                    if (ratio >= capsPercentage) {
-                        violations.push({
-                            filter: 'caps',
-                            action: automodConfig.caps.action || 'delete',
-                            reason: `Excessive caps (${Math.round(ratio)}%)`
-                        });
-                    }
-                }
-            }
-
-            // ── AI Text Scan (multilingual NSFW / slurs / hate / harassment) ──
-            // Only call the API when the cheaper filters above haven't already
-            // decided to remove the message, to save quota & latency.
-            if (automodConfig.aiText?.enabled && content && content.trim().length >= 3) {
-                try {
-                    const aiMod = require('./utils/aiModeration');
-                    if (aiMod.hasApiKey()) {
-                        const result = await aiMod.analyzeText(content, { guildId });
-                        if (result.flagged) {
-                            const rank = { low: 1, medium: 2, high: 3 };
-                            const minSev = automodConfig.aiText.minSeverity || 'medium';
-                            if ((rank[result.severity] || 2) >= (rank[minSev] || 2)) {
-                                const cats = result.categories?.length ? result.categories.join(', ') : 'inappropriate content';
-                                violations.push({
-                                    filter: 'aiText',
-                                    action: automodConfig.aiText.action || 'delete',
-                                    reason: `AI flagged ${cats} (${result.severity})${result.reason ? ': ' + result.reason : ''}`
-                                });
-                            }
-                        }
-                    }
-                } catch (e) {
-                    log.debug?.('[AutoMod] AI text scan error: ' + e.message);
-                }
-            }
-
-            // ── AI Image Scan (NSFW / explicit / gore image detection) ──
-            if (automodConfig.aiImage?.enabled && message.attachments?.size > 0) {
-                try {
-                    const aiMod = require('./utils/aiModeration');
-                    if (aiMod.hasApiKey()) {
-                        const IMAGE_EXT = /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i;
-                        const images = [...message.attachments.values()].filter(a =>
-                            (a.contentType && a.contentType.startsWith('image/')) || IMAGE_EXT.test(a.name || '')
-                        ).slice(0, 3); // cap per-message API calls
-                        for (const img of images) {
-                            const result = await aiMod.analyzeImage(img.url, { guildId });
-                            if (result.flagged) {
-                                violations.push({
-                                    filter: 'aiImage',
-                                    action: automodConfig.aiImage.action || 'delete',
-                                    reason: `AI flagged ${result.category} image (${result.confidence}%)${result.reason ? ': ' + result.reason : ''}`
-                                });
-                                break; // one bad image is enough
-                            }
-                        }
-                    }
-                } catch (e) {
-                    log.debug?.('[AutoMod] AI image scan error: ' + e.message);
-                }
-            }
+            const violations = await automodScanner.scanMessage(message, automodConfig, {
+                mode: 'create',
+                guildId,
+                spamTracker,
+                log,
+            });
 
             // ═══════ Process violations ═══════
             if (violations.length > 0) {
-                // Use the most severe action from all violations
-                const severityOrder = { 'warn': 0, 'delete': 1, 'timeout': 2, 'kick': 3, 'ban': 4 };
-                violations.sort((a, b) => (severityOrder[b.action] || 0) - (severityOrder[a.action] || 0));
-                const primary = violations[0];
-                const action = primary.action;
-                const allReasons = violations.map(v => v.reason).join(' | ');
+                // Most-severe-wins, resolved by the scanner so both message paths
+                // rank actions identically.
+                const resolved = automodScanner.resolveAction(violations);
+                const primary = resolved.primary;
+                const action = resolved.action;
+                const allReasons = resolved.allReasons;
 
                 // Preserve message data before destructive actions
                 const savedContent = content.substring(0, 1000);
@@ -10895,26 +10734,30 @@ async function executeAntiNukePunishment(guild, member, actionType, action, exec
     }
 }
 
-const ANTINUKE_ACTION_LABELS = {
-    banProtection: { label: 'Ban Protection', emoji: '<:banhammer:1521227777083314529>' },
-    kickProtection: { label: 'Kick Protection', emoji: '<:Userblock:1521227822641975366>' },
-    channelDelete: { label: 'Channel Delete', emoji: '<:Trash:1521227750420254820>' },
-    channelCreate: { label: 'Channel Create', emoji: '<:Add:1521227828199293152>' },
-    roleDelete: { label: 'Role Delete', emoji: '<:Trash:1521227750420254820>' },
-    roleCreate: { label: 'Role Create', emoji: '<:Add:1521227828199293152>' },
-    webhookCreate: { label: 'Webhook Protection', emoji: '<:Bookmark:1521227835526742066>' },
-    botAdd: { label: 'Bot Add Protection', emoji: '<:bots:1521227848101396610>' }
-};
+// Derived from utils/antinukeSchema so a newly added protection can never be
+// missing a label here. Log lines keep a small decorative emoji map of their
+// own; the CONFIG PANELS are restricted to enable/disable icons only.
+const ANTINUKE_ACTION_LABELS = (() => {
+    const { PROTECTION_KEYS, PROTECTIONS } = require('./utils/antinukeSchema');
+    const LOG_EMOJIS = {
+        banProtection: '<:banhammer:1521227777083314529>',
+        kickProtection: '<:Userblock:1521227822641975366>',
+        channelDelete: '<:Trash:1521227750420254820>',
+        channelCreate: '<:Add:1521227828199293152>',
+        channelUpdate: '<:Editalt:1521227921673556019>',
+        roleDelete: '<:Trash:1521227750420254820>',
+        roleCreate: '<:Add:1521227828199293152>',
+        roleUpdate: '<:Editalt:1521227921673556019>',
+        webhookCreate: '<:Bookmark:1521227835526742066>',
+        botAdd: '<:bots:1521227848101396610>',
+    };
+    return Object.fromEntries(PROTECTION_KEYS.map(k => [k, {
+        label: PROTECTIONS[k].label,
+        emoji: LOG_EMOJIS[k] || '<:Shield:1521227694677692467>',
+    }]));
+})();
 
-const ANTINUKE_PUNISH_LABELS = {
-    remove_roles: 'Strip Roles',
-    kick: 'Kick',
-    ban: 'Ban',
-    timeout: 'Timeout',
-    kick_bot: 'Kick Bot',
-    kick_both: 'Kick Bot & User',
-    ban_bot: 'Ban Bot'
-};
+const ANTINUKE_PUNISH_LABELS = require('./utils/antinukeSchema').PUNISHMENT_LABELS;
 
 const ANTINUKE_PUNISH_COLORS = { ban: 0xFF0000, kick: 0xFF6600, remove_roles: 0xFFA500, timeout: 0xFFCC00, kick_bot: 0xFF6600, kick_both: 0xFF0000, ban_bot: 0xFF0000 };
 
@@ -11031,7 +10874,16 @@ async function antiNukeRestore(guild, kind, resource) {
     }
 }
 
-async function checkAntiNuke(guild, action, executor, target = null) {
+/**
+ * @param {object}  [opts]
+ * @param {boolean} [opts.critical]  Bypass the rate limit and punish on this
+ *   single occurrence. Used for permission escalation on a role edit: granting
+ *   Administrator once is already fatal and happens far below any sane
+ *   "N edits per minute" threshold, so counting it like a normal edit would
+ *   let the most dangerous action through.
+ * @param {string}  [opts.reason]    Extra detail for the security log.
+ */
+async function checkAntiNuke(guild, action, executor, target = null, opts = {}) {
     if (!guild || !executor?.id) return;
 
     const config = antinukeCache.get(guild.id);
@@ -11046,7 +10898,7 @@ async function checkAntiNuke(guild, action, executor, target = null) {
     const key = `${guild.id}-${executor.id}-${action}`;
     const now = Date.now();
     const timeWindow = protectionConfig.timeWindow || 60000;
-    const zeroTolerance = !!config.zeroTolerance;
+    const zeroTolerance = !!config.zeroTolerance || !!opts.critical;
     // Zero-tolerance mode punishes on the FIRST destructive action.
     const limit = zeroTolerance ? 1 : (protectionConfig.limit || 3);
 
@@ -11175,7 +11027,67 @@ async function checkAntiNuke(guild, action, executor, target = null) {
     }
 }
 
-async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetName, maxAge = 5000, deletedResource = null, restoreKind = null) {
+/**
+ * How many audit entries to pull when attributing an event to an executor.
+ *
+ * This used to be 1, which quietly broke detection exactly when it mattered
+ * most. Discord's audit log is shared across the whole guild and lags slightly
+ * behind gateway events, so during a fast nuke (twenty channels deleted in a
+ * second) the newest entry frequently is NOT the resource whose event we are
+ * currently handling. The old code compared `entry.target?.id !== targetId` and
+ * returned, dropping the violation entirely — so the faster the attack, the
+ * fewer violations were counted.
+ *
+ * Fetching a small page and scanning it for the matching target fixes that
+ * while staying well inside the rate limits.
+ */
+const ANTINUKE_AUDIT_FETCH_LIMIT = 10;
+
+/**
+ * Named audit log event types. The wiring below used bare integers
+ * (`checkAuditLogAntiNuke(guild, 12, …)`); 12 is CHANNEL_DELETE and 32 is
+ * ROLE_DELETE, which is trivial to transpose and impossible to review.
+ */
+const AUDIT_EVENTS = require('./utils/antinukeSchema').AUDIT;
+
+/**
+ * Does this custom ID belong to the anti-nuke panel?
+ *
+ * The current panel namespaces with colons (`antinuke:modules`); the previous
+ * button-based panel used underscores (`antinuke_toggle`). Panels already posted
+ * in servers still carry the old components, so both must route — the command's
+ * handler answers legacy IDs with a "re-run /antinuke" notice instead of
+ * silently doing nothing.
+ */
+function isAntinukeInteractionId(id) {
+    return typeof id === 'string' && (id.startsWith('antinuke:') || id.startsWith('antinuke_'));
+}
+
+/**
+ * Does this custom ID belong to the AutoMod panel?
+ *
+ * Same story as anti-nuke: the current panel namespaces with colons
+ * (`automod:filters`), the previous button-based one used underscores
+ * (`automod_toggle`). Both route so stale panels get an explicit
+ * "re-run /automod" notice rather than silently ignoring the click.
+ */
+function isAutomodInteractionId(id) {
+    return typeof id === 'string' && (id.startsWith('automod:') || id.startsWith('automod_'));
+}
+
+/**
+ * Attribute a gateway event to its executor via the audit log, then run the
+ * anti-nuke check.
+ *
+ * @param {number|number[]} auditType  audit event type, or several alternates
+ *   to search for ONE violation (webhook create/update/delete all surface as a
+ *   single `webhookUpdate` gateway event).
+ * @param {object} [extra]
+ * @param {boolean} [extra.critical]   escalate past the rate limit
+ * @param {string}  [extra.reason]     detail for the security log
+ * @param {(entry:any)=>boolean} [extra.match]  additional entry predicate
+ */
+async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetName, maxAge = 5000, deletedResource = null, restoreKind = null, extra = {}) {
     if (!guild) return;
 
     const config = antinukeCache.get(guild.id);
@@ -11185,16 +11097,30 @@ async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetN
     const botMember = guild.members.me;
     if (!botMember?.permissions.has(PermissionFlagsBits.ViewAuditLog)) return;
 
+    const auditTypes = Array.isArray(auditType) ? auditType : [auditType];
+
     try {
-        const auditLogs = await guild.fetchAuditLogs({ type: auditType, limit: 1 });
-        const entry = auditLogs.entries.first();
+        let entry = null;
+
+        for (const type of auditTypes) {
+            const auditLogs = await guild.fetchAuditLogs({ type, limit: ANTINUKE_AUDIT_FETCH_LIMIT });
+
+            // Scan the page for the freshest entry that matches this target and
+            // is recent enough, instead of only inspecting the newest entry.
+            for (const candidate of auditLogs.entries.values()) {
+                if (Date.now() - candidate.createdTimestamp > maxAge) continue;
+                if (targetId && candidate.target?.id !== targetId) continue;
+                if (typeof extra.match === 'function' && !extra.match(candidate)) continue;
+                if (!candidate.executor?.id) continue;
+                entry = candidate;
+                break;
+            }
+            if (entry) break; // first matching alternate wins — count once only
+        }
+
         if (!entry) return;
-        if (targetId && entry.target?.id !== targetId) return;
-        if (Date.now() - entry.createdTimestamp > maxAge) return;
 
         const executor = entry.executor;
-        if (!executor?.id) return;
-
         const botId = botMember.id || client.user?.id;
         if (executor.id === botId) return;
         if (executor.bot) return;
@@ -11206,7 +11132,10 @@ async function checkAuditLogAntiNuke(guild, auditType, action, targetId, targetN
             antiNukeRestore(guild, restoreKind, deletedResource).catch(() => { });
         }
 
-        await checkAntiNuke(guild, action, executor, targetName);
+        await checkAntiNuke(guild, action, executor, targetName, {
+            critical: !!extra.critical,
+            reason: extra.reason,
+        });
     } catch (error) {
         if (error.code !== 10004 && error.code !== 50013) {
             log.error(`Anti-Nuke ${action} audit error:`, error);
@@ -12462,91 +12391,36 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
         editsnipeCommand.saveEditedMessage(oldMessage, newMessage);
     }
 
-    // AutoMod check on edited messages — users can bypass filters by editing
-    if (!newMessage.author?.bot && newMessage.guild && newMessage.content) {
+    // AutoMod check on edited messages — content can otherwise be slipped past
+    // every filter by posting something harmless and then editing it.
+    //
+    // This used to be a ~100-line copy of the messageCreate chain, and it had
+    // fallen behind: it implemented badWords/links/invites/massMention/caps but
+    // NOT aiText or aiImage, so AI text moderation and image scanning were
+    // completely bypassable via edit. It now shares utils/automodScanner with
+    // messageCreate, which also picks up attachment scanning on edit.
+    const editHasAttachment = newMessage.attachments?.size > 0;
+    if (!newMessage.author?.bot && newMessage.guild && (newMessage.content || editHasAttachment)) {
         const automodConfig = automodCache.get(newMessage.guild.id);
         if (automodConfig?.enabled) {
-            const isIgnored = automodConfig.ignoredRoles?.some(roleId => newMessage.member?.roles.cache.has(roleId)) ||
-                automodConfig.ignoredChannels?.includes(newMessage.channel.id) ||
-                newMessage.member?.permissions.has('Administrator') ||
-                (automodConfig.bypassRoleId && newMessage.member?.roles.cache.has(automodConfig.bypassRoleId));
+            const isIgnored = automodScanner.isExempt({
+                member: newMessage.member,
+                channelId: newMessage.channel.id,
+                config: automodConfig,
+            });
 
             if (!isIgnored) {
-                const content = newMessage.content;
-                const contentLower = content.toLowerCase();
-                const violations = [];
-
-                // Bad words check
-                if (automodConfig.badWords?.enabled && automodConfig.badWords.words?.length > 0) {
-                    for (const word of automodConfig.badWords.words) {
-                        const wordLower = word.toLowerCase().trim();
-                        if (!wordLower) continue;
-                        try {
-                            const escaped = wordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                            const regex = new RegExp(`(?:^|[^a-zA-Z0-9])${escaped}(?:[^a-zA-Z0-9]|$)`, 'i');
-                            if (regex.test(contentLower) || contentLower === wordLower) {
-                                violations.push({ filter: 'badWords', action: automodConfig.badWords.action || 'delete', reason: `Bad word detected (edited)` });
-                                break;
-                            }
-                        } catch (e) {
-                            if (contentLower.includes(wordLower)) {
-                                violations.push({ filter: 'badWords', action: automodConfig.badWords.action || 'delete', reason: `Bad word detected (edited)` });
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // Links check
-                if (automodConfig.links?.enabled) {
-                    const urlRegex = /https?:\/\/[^\s<]+|www\.[^\s<]+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(com|net|org|io|gg|tv|me|co|xyz|info|online|site|tech|dev|app|live|pro|cc|ru|cn|tk|ml|ga|cf|gq|pw|top|club|vip|ws|link|click|download|stream|fun|icu|buzz|monster|rest|hair|sbs|cfd)(?:[\/\?#][^\s]*)?/gi;
-                    const urls = content.match(urlRegex);
-                    if (urls && urls.length > 0) {
-                        const whitelist = automodConfig.links.whitelist || [];
-                        let hasBlockedLink = whitelist.length === 0;
-                        if (!hasBlockedLink) {
-                            for (const url of urls) {
-                                const urlLower = url.toLowerCase();
-                                if (!whitelist.some(d => urlLower.includes(d.toLowerCase().trim()))) { hasBlockedLink = true; break; }
-                            }
-                        }
-                        if (hasBlockedLink) violations.push({ filter: 'links', action: automodConfig.links.action || 'delete', reason: 'Unauthorized link (edited)' });
-                    }
-                }
-
-                // Invites check
-                if (automodConfig.invites?.enabled) {
-                    const inviteRegex = /(discord\.gg|discord(?:app)?\.com\/invite|dsc\.gg|invite\.gg|discord\.me)\/[a-zA-Z0-9-]+/gi;
-                    if (inviteRegex.test(content)) {
-                        violations.push({ filter: 'invites', action: automodConfig.invites.action || 'delete', reason: 'Discord invite (edited)' });
-                    }
-                }
-
-                // Mass mention check
-                if (automodConfig.massMention?.enabled) {
-                    const totalMentions = newMessage.mentions.users.size + newMessage.mentions.roles.size + (newMessage.mentions.everyone ? 1 : 0);
-                    if (totalMentions >= (automodConfig.massMention.limit || 5)) {
-                        violations.push({ filter: 'massMention', action: automodConfig.massMention.action || 'delete', reason: `Mass mention (${totalMentions} mentions, edited)` });
-                    }
-                }
-
-                // Caps check
-                if (automodConfig.caps?.enabled) {
-                    const letters = content.replace(/[^a-zA-Z]/g, '');
-                    if (letters.length >= (automodConfig.caps.minLength || 10)) {
-                        const upperCount = (content.match(/[A-Z]/g) || []).length;
-                        const ratio = (upperCount / letters.length) * 100;
-                        if (ratio >= (automodConfig.caps.percentage || 70)) {
-                            violations.push({ filter: 'caps', action: automodConfig.caps.action || 'delete', reason: `Excessive caps ${Math.round(ratio)}% (edited)` });
-                        }
-                    }
-                }
+                const content = newMessage.content || '';
+                const violations = await automodScanner.scanMessage(newMessage, automodConfig, {
+                    mode: 'edit',
+                    guildId: newMessage.guild.id,
+                    log,
+                });
 
                 if (violations.length > 0) {
-                    const severityOrder = { 'warn': 0, 'delete': 1, 'timeout': 2, 'kick': 3, 'ban': 4 };
-                    violations.sort((a, b) => (severityOrder[b.action] || 0) - (severityOrder[a.action] || 0));
-                    const action = violations[0].action;
-                    const allReasons = violations.map(v => v.reason).join(' | ');
+                    const resolved = automodScanner.resolveAction(violations);
+                    const action = resolved.action;
+                    const allReasons = resolved.allReasons;
 
                     const savedContent = content.substring(0, 1000);
                     const savedAuthorTag = newMessage.author.username;
@@ -13162,7 +13036,7 @@ client.on('channelCreate', async (channel) => {
     // Update server stats channels
     try { await updateServerStats(channel.guild); } catch { }
 
-    await checkAuditLogAntiNuke(channel.guild, 10, 'channelCreate', channel.id, channel.name);
+    await checkAuditLogAntiNuke(channel.guild, AUDIT_EVENTS.CHANNEL_CREATE, 'channelCreate', channel.id, channel.name);
 });
 
 client.on('channelDelete', async (channel) => {
@@ -13184,7 +13058,7 @@ client.on('channelDelete', async (channel) => {
         }
     }
 
-    await checkAuditLogAntiNuke(channel.guild, 12, 'channelDelete', channel.id, channel.name, 5000, channel, 'channel');
+    await checkAuditLogAntiNuke(channel.guild, AUDIT_EVENTS.CHANNEL_DELETE, 'channelDelete', channel.id, channel.name, 5000, channel, 'channel');
 });
 
 client.on('channelUpdate', async (oldChannel, newChannel) => {
@@ -13193,7 +13067,69 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
     if (newChannel.guild && oldChannel.type !== newChannel.type) {
         try { await updateServerStats(newChannel.guild); } catch { }
     }
+
+    // ── Anti-nuke: channel edit ──
+    // This handler previously only logged. An attacker could rewrite the
+    // permission overwrites on every channel — e.g. deny ViewChannel to
+    // @everyone server-wide, which kills the server as effectively as deleting
+    // them — without incrementing a single anti-nuke counter.
+    if (!newChannel.guild) return;
+    try {
+        const { AUDIT } = require('./utils/antinukeSchema');
+        const cfg = antinukeCache.get(newChannel.guild.id);
+        const mod = cfg?.channelUpdate;
+        if (!cfg?.enabled || !mod?.enabled) return;
+
+        // When permissionsOnly is set (the default), ignore cosmetic edits.
+        // Renaming a channel or editing a topic is routine admin work; only a
+        // permission-overwrite rewrite is treated as an attack. Without this the
+        // protection would punish moderators for ordinary housekeeping.
+        if (mod.permissionsOnly !== false && !didChannelPermissionsChange(oldChannel, newChannel)) return;
+
+        await checkAuditLogAntiNuke(
+            newChannel.guild,
+            // A permission-overwrite edit can surface as CHANNEL_UPDATE or as a
+            // dedicated CHANNEL_OVERWRITE_* entry depending on what changed.
+            [AUDIT.CHANNEL_UPDATE, AUDIT.CHANNEL_OVERWRITE_UPDATE, AUDIT.CHANNEL_OVERWRITE_CREATE, AUDIT.CHANNEL_OVERWRITE_DELETE],
+            'channelUpdate',
+            null, // overwrite entries target the channel, but CHANNEL_UPDATE may not resolve a target object
+            newChannel.name,
+            5000,
+            null,
+            null,
+            { reason: 'Channel permission overwrites changed' }
+        );
+    } catch (e) {
+        log.debug('antinuke channelUpdate: ' + (e?.message || e));
+    }
 });
+
+/**
+ * Did this channel edit actually change permissions?
+ *
+ * Compares the permission-overwrite collections by (id, allow, deny) so a pure
+ * rename/topic/slowmode edit is not mistaken for a permission rewrite.
+ */
+function didChannelPermissionsChange(oldChannel, newChannel) {
+    try {
+        const serialize = (ch) => {
+            const ow = ch?.permissionOverwrites?.cache;
+            if (!ow) return null;
+            return [...ow.values()]
+                .map(o => `${o.id}:${String(o.allow?.bitfield ?? o.allow ?? 0)}:${String(o.deny?.bitfield ?? o.deny ?? 0)}`)
+                .sort()
+                .join('|');
+        };
+        const before = serialize(oldChannel);
+        const after = serialize(newChannel);
+        // If we can't read overwrites on either side we cannot prove it was
+        // cosmetic — fail open so a real attack is still caught.
+        if (before === null || after === null) return true;
+        return before !== after;
+    } catch {
+        return true;
+    }
+}
 
 client.on('roleCreate', async (role) => {
     await logRoleCreate(role);
@@ -13201,7 +13137,7 @@ client.on('roleCreate', async (role) => {
     // Update server stats channels
     try { await updateServerStats(role.guild); } catch { }
 
-    await checkAuditLogAntiNuke(role.guild, 30, 'roleCreate', role.id, role.name);
+    await checkAuditLogAntiNuke(role.guild, AUDIT_EVENTS.ROLE_CREATE, 'roleCreate', role.id, role.name);
 });
 
 client.on('roleDelete', async (role) => {
@@ -13210,7 +13146,7 @@ client.on('roleDelete', async (role) => {
     // Update server stats channels
     try { await updateServerStats(role.guild); } catch { }
 
-    await checkAuditLogAntiNuke(role.guild, 32, 'roleDelete', role.id, role.name, 5000, role, 'role');
+    await checkAuditLogAntiNuke(role.guild, AUDIT_EVENTS.ROLE_DELETE, 'roleDelete', role.id, role.name, 5000, role, 'role');
 });
 
 client.on('guildBanAdd', async ({ guild, user }) => {
@@ -13218,7 +13154,7 @@ client.on('guildBanAdd', async ({ guild, user }) => {
     // Ban = member leaves → update member/human/bot counts
     try { await updateServerStats(guild); } catch { }
 
-    await checkAuditLogAntiNuke(guild, 22, 'banProtection', user.id, user.username);
+    await checkAuditLogAntiNuke(guild, AUDIT_EVENTS.MEMBER_BAN_ADD, 'banProtection', user.id, user.username);
 });
 
 client.on('guildBanRemove', async ({ guild, user }) => {
@@ -13230,10 +13166,25 @@ client.on('webhookUpdate', async (channel) => {
     if (!channel.guild) return;
     await logWebhookUpdate(channel);
 
-    // Check all webhook audit types: create(50), update(51), delete(52)
-    for (const auditType of [50, 51, 52]) {
-        await checkAuditLogAntiNuke(channel.guild, auditType, 'webhookCreate', null, channel.name);
-    }
+    // Webhook create/update/delete all surface as this ONE gateway event, so
+    // all three audit types are searched — but as alternates for a single
+    // violation, not as three separate checks.
+    //
+    // Previously this looped `for (const auditType of [50,51,52])` and awaited
+    // checkAuditLogAntiNuke each time with targetId=null. Because the target
+    // guard is skipped when targetId is null, every iteration matched some
+    // recent entry and pushed its own hit into antinukeTracker — so a single
+    // webhook action counted as up to 3 violations. With webhookCreate's
+    // default limit of 2, creating one legitimate webhook was enough to trigger
+    // a punishment.
+    const { AUDIT } = require('./utils/antinukeSchema');
+    await checkAuditLogAntiNuke(
+        channel.guild,
+        [AUDIT.WEBHOOK_CREATE, AUDIT.WEBHOOK_UPDATE, AUDIT.WEBHOOK_DELETE],
+        'webhookCreate',
+        null,
+        channel.name
+    );
 });
 
 // ═══════ User Profile Update (avatar, username, display name, banner) ═══════
@@ -13405,6 +13356,51 @@ client.on('guildUpdate', async (oldGuild, newGuild) => {
 client.on('roleUpdate', async (oldRole, newRole) => {
     await logRoleUpdate(oldRole, newRole);
     // Role count doesn't change on update, but if a role is used in stats display, refresh
+
+    // ── Anti-nuke: role edit / permission escalation ──
+    // This handler previously only logged, which left the single most dangerous
+    // move in the game completely unprotected: a user with Manage Roles editing
+    // a role they already hold to grant it Administrator. That is one API call,
+    // it defeats every other protection, and nothing counted it.
+    if (!newRole?.guild) return;
+    try {
+        const { AUDIT, addedDangerousPermissions } = require('./utils/antinukeSchema');
+        const cfg = antinukeCache.get(newRole.guild.id);
+        const mod = cfg?.roleUpdate;
+        if (!cfg?.enabled || !mod?.enabled) return;
+
+        const oldBits = oldRole?.permissions?.bitfield ?? 0n;
+        const newBits = newRole?.permissions?.bitfield ?? 0n;
+        const escalated = addedDangerousPermissions(oldBits, newBits);
+        const permsChanged = String(oldBits) !== String(newBits);
+
+        // Cosmetic edits (name, colour, icon, hoist, position) are ignored when
+        // permissionsOnly is set, so routine role management isn't punished.
+        if (mod.permissionsOnly !== false && !permsChanged) return;
+
+        // A dangerous grant fires immediately rather than waiting for the rate
+        // limit — see checkAntiNuke's `critical` option.
+        const isCritical = escalated.length > 0 && mod.escalationInstant !== false;
+
+        await checkAuditLogAntiNuke(
+            newRole.guild,
+            AUDIT.ROLE_UPDATE,
+            'roleUpdate',
+            newRole.id,
+            newRole.name,
+            5000,
+            null,
+            null,
+            {
+                critical: isCritical,
+                reason: escalated.length
+                    ? `Granted ${escalated.join(', ')} to @${newRole.name}`
+                    : `Permissions changed on @${newRole.name}`,
+            }
+        );
+    } catch (e) {
+        log.debug('antinuke roleUpdate: ' + (e?.message || e));
+    }
 });
 
 // ═══════ Emoji Logs ═══════
@@ -13705,7 +13701,7 @@ client.on('guildMemberRemove', async (member) => {
         log.error('Leave message error', error);
     }
 
-    await checkAuditLogAntiNuke(member.guild, 20, 'kickProtection', member.id, member.user?.username || member.id, 3000);
+    await checkAuditLogAntiNuke(member.guild, AUDIT_EVENTS.MEMBER_KICK, 'kickProtection', member.id, member.user?.username || member.id, 3000);
 });
 
 client.on('messageReactionAdd', async (reaction, user) => {

@@ -22,22 +22,34 @@ const { ACTIONS_FOR, isValidActionFor, commonActions, v2InvalidReply } = require
 const trust = require('../../utils/trustManager');
 
 // --- Protection category metadata ---
-const CATEGORIES = {
-    ban:            { key: 'banProtection',  label: 'Ban Protection',     emoji: '<:banhammer:1521227777083314529>', hasLimit: true, defaultLimit: 3, defaultAction: 'remove_roles' },
-    kick:           { key: 'kickProtection', label: 'Kick Protection',    emoji: '<:Userblock:1521227822641975366>', hasLimit: true, defaultLimit: 3, defaultAction: 'remove_roles' },
-    channel_delete: { key: 'channelDelete',  label: 'Channel Delete',     emoji: '<:Trash:1521227750420254820>', hasLimit: true, defaultLimit: 2, defaultAction: 'remove_roles' },
-    channel_create: { key: 'channelCreate',  label: 'Channel Create',     emoji: '<:Add:1521227828199293152>', hasLimit: true, defaultLimit: 3, defaultAction: 'remove_roles' },
-    role_delete:    { key: 'roleDelete',     label: 'Role Delete',        emoji: '<:Userplus:1521227719621218477>', hasLimit: true, defaultLimit: 2, defaultAction: 'remove_roles' },
-    role_create:    { key: 'roleCreate',     label: 'Role Create',        emoji: '<:Userplus:1521227719621218477>', hasLimit: true, defaultLimit: 3, defaultAction: 'remove_roles' },
-    webhook:        { key: 'webhookCreate',  label: 'Webhook Protection', emoji: '<:Bookmark:1521227835526742066>', hasLimit: true, defaultLimit: 2, defaultAction: 'remove_roles' },
-    bot_add:        { key: 'botAdd',         label: 'Bot Add Protection', emoji: '<:bots:1521227848101396610>', hasLimit: false, defaultAction: 'kick_bot' }
-};
+// Derived from utils/antinukeSchema so this command automatically covers any
+// protection the engine gains. It used to be a hand-maintained copy that, among
+// other things, had no entry for the channelUpdate/roleUpdate edit protections
+// and so could never configure them.
+//
+// Keyed by the protection key itself rather than by a separate short alias
+// (`ban`, `channel_delete`, …); the alias layer only existed to be kept in sync
+// by hand, which is the problem being removed.
+const _schema = require('../../utils/antinukeSchema');
+const CATEGORIES = Object.fromEntries(
+    _schema.PROTECTION_KEYS.map(key => {
+        const def = _schema.PROTECTIONS[key];
+        return [key, {
+            key,
+            label: def.label,
+            hasLimit: def.hasLimit,
+            defaultLimit: def.defaultLimit,
+            defaultWindow: def.defaultWindow,
+            defaultAction: def.defaultAction,
+        }];
+    })
+);
 
-const VALID_ACTIONS = ['remove_roles', 'kick', 'ban', 'kick_bot', 'kick_both', 'ban_bot', 'timeout']; // exhaustive set; per-module validation uses ACTIONS_FOR
-const LIMIT_MIN = 1;
-const LIMIT_MAX = 10;
-const WINDOW_MIN = 10;
-const WINDOW_MAX = 300;
+const VALID_ACTIONS = Object.keys(_schema.PUNISHMENT_LABELS); // per-module validation uses ACTIONS_FOR
+const LIMIT_MIN = _schema.LIMIT_MIN;
+const LIMIT_MAX = _schema.LIMIT_MAX;
+const WINDOW_MIN = _schema.WINDOW_MIN_SEC;
+const WINDOW_MAX = _schema.WINDOW_MAX_SEC;
 
 // --------------- Panel builder ---------------
 function buildAntiPanel(guildConfig, guildName) {
