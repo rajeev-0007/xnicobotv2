@@ -549,7 +549,17 @@ module.exports = {
                 await interaction.reply({ content: EMOJIS.ERROR + ' Unknown filter.', flags: MessageFlags.Ephemeral });
                 return true;
             }
-            return await showConfigureModal(interaction, guildConfig, filterName);
+            if (!CONFIGURABLE.includes(filterName)) {
+                // inviteSpam is on/off only — opening a modal with no inputs
+                // throws "Invalid Form Body" on Discord's side.
+                await interaction.reply({ content: EMOJIS.ERROR + ' That filter has no adjustable limits.', flags: MessageFlags.Ephemeral });
+                return true;
+            }
+            // showConfigureModal has no return value. Returning it directly made
+            // handleInteraction report "not handled", so index.js fell through to
+            // other handlers even though the modal had already been shown.
+            await showConfigureModal(interaction, guildConfig, filterName);
+            return true;
         }
 
         /* ── modal submit from the threshold form ── */
@@ -607,8 +617,9 @@ async function showConfigureModal(interaction, guildConfig, filterName) {
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('maxDuplicates').setLabel('Max duplicate messages (2-10)').setStyle(TextInputStyle.Short).setValue(String(filter.maxDuplicates || 3)).setRequired(true)),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('interval').setLabel('Time window in ms (5000-120000)').setStyle(TextInputStyle.Short).setValue(String(filter.interval || 30000)).setRequired(true))
             ); break;
-        case 'inviteSpam':
-            modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('placeholder').setLabel('No extra settings for invite spam').setStyle(TextInputStyle.Short).setValue('Blocks all invites when enabled').setRequired(false))); break;
+        // inviteSpam is on/off only. It used to render a dummy read-only input
+        // that handleConfigureModal never read; the CONFIGURABLE guard in
+        // handleInteraction now rejects it before we get here.
         case 'newlineSpam':
             modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('maxNewlines').setLabel('Max newlines per message (5-50)').setStyle(TextInputStyle.Short).setValue(String(filter.maxNewlines || 15)).setRequired(true))); break;
     }
@@ -657,7 +668,21 @@ async function handleConfigureModal(interaction, config, guildConfig, filterName
         config[guildId].filters[filterName] = filter;
         saveConfig(config);
         const info = FILTER_INFO[filterName];
-        await interaction.reply({ components: [buildOk(info.label + ' Configured', info.emoji + ' Settings for **' + info.label + '** have been updated.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+
+        /* Refresh the panel the modal was opened from, so the new limits appear
+         * straight away instead of only after the panel is reopened. A modal
+         * submit raised by a component carries that message, but it can be
+         * absent (panel deleted, bot restarted), so this is best-effort. */
+        try {
+            if (interaction.message) {
+                await interaction.message.edit({
+                    components: [buildAntispamContainer(config[guildId])],
+                    flags: MessageFlags.IsComponentsV2
+                });
+            }
+        } catch { /* panel gone — the confirmation below still tells the user */ }
+
+        await interaction.reply({ components: [buildOk(info.label + ' Configured', 'Now ' + filterSummary(filterName, filter) + '.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
         return true;
     } catch (error) {
         console.error('[AntiSpam Configure]', error);
